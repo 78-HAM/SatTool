@@ -2,6 +2,10 @@
 #include <string.h>
 #include <time.h>
 
+#ifdef _MSC_VER
+#define timegm _mkgmtime
+#endif
+
 #include "defs.h"
 #include "sdp4.h"
 #include "sgp4.h"
