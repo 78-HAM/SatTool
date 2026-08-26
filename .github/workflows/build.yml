@@ -54,7 +54,7 @@ jobs:
       - name: Build VOLK from source (vcpkg's volk port is the Vulkan loader)
         run: |
           pip install mako
-          git clone --depth 1 https://github.com/JVital2013/volk -b win-arm64
+          git clone --depth 1 --recurse-submodules https://github.com/JVital2013/volk -b win-arm64
           cmake -S volk -B volk-build -A x64 -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\vcpkg\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows" -DENABLE_TESTING=OFF -DENABLE_MODTOOL=OFF
           cmake --build volk-build --config Release
           cmake --install volk-build --config Release
