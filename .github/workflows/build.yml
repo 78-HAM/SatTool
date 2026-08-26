@@ -33,6 +33,18 @@ jobs:
           python3 tools/gen_zh_i18n.py
           git diff --exit-code -- resources/i18n/zh_CN || (echo "zh_CN catalogs are out of date! Run: python3 tools/gen_zh_i18n.py" && exit 1)
 
+      - name: Package install tree
+        run: |
+          DESTDIR="$RUNNER_TEMP/sattool-linux" cmake --install build --config Release > /tmp/install.log 2>&1 || { tail -50 /tmp/install.log; exit 1; }
+          tar -C "$RUNNER_TEMP" -czf sattool-linux.tar.gz sattool-linux
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sattool-linux
+          path: sattool-linux.tar.gz
+          retention-days: 14
+
   build-windows:
     runs-on: windows-latest
     env:
@@ -108,6 +120,25 @@ jobs:
           if (!(Test-Path build\Release\satdump-ui.exe)) { throw "satdump-ui.exe missing!" }
           if (!(Test-Path build\Release\satdump.exe)) { throw "satdump.exe missing!" }
 
+      - name: Stage Windows release files
+        shell: pwsh
+        run: |
+          $staging = Join-Path $env:RUNNER_TEMP "sattool-windows"
+          New-Item -ItemType Directory -Force -Path $staging | Out-Null
+          Copy-Item build\Release\satdump-ui.exe $staging\
+          Copy-Item build\Release\satdump.exe $staging\
+          Get-ChildItem build\Release\*.dll,build\Release\plugins -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $staging\ -Recurse }
+          if (Test-Path resources) { Copy-Item resources $staging\ -Recurse }
+          Compress-Archive -Path $staging -DestinationPath sattool-windows.zip -Force
+          Get-Item sattool-windows.zip | ForEach-Object { "artifact size: " + $_.Length }
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sattool-windows
+          path: sattool-windows.zip
+          retention-days: 14
+
   build-android:
     runs-on: ubuntu-latest
     timeout-minutes: 150
@@ -171,3 +202,11 @@ jobs:
         run: |
           ls -la android/app/build/outputs/apk/debug/
           test -f android/app/build/outputs/apk/debug/app-debug.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk sattool-android-debug.apk
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sattool-android-debug
+          path: sattool-android-debug.apk
+          retention-days: 14
