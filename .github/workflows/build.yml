@@ -55,7 +55,7 @@ jobs:
       - name: Install dependencies
         # Core-only package list from windows/Configure-vcpkg.ps1 (+ volk).
         # SDR-specific dependencies are skipped, the matching plugins are disabled below.
-        run: .\vcpkg\vcpkg install --triplet x64-windows pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd opencl curl[schannel] hdf5[cpp] sqlite3 volk
+        run: .\vcpkg\vcpkg install --triplet x64-windows pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd opencl curl hdf5[cpp] sqlite3 volk
 
       - name: Configure CMake
         run: >
