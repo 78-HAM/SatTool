@@ -4,14 +4,14 @@ on: [push, pull_request]
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
-          sudo apt update
-          sudo apt install -y git build-essential cmake g++ pkgconf libfftw3-dev libpng-dev \
+          sudo apt-get update
+          sudo apt-get install -y git build-essential cmake g++ pkgconf libfftw3-dev libpng-dev \
             libtiff-dev libjemalloc-dev libcurl4-openssl-dev libvolk2-dev libnng-dev \
             libglfw3-dev zenity portaudio19-dev libzstd-dev libhdf5-dev librtlsdr-dev \
             libhackrf-dev libairspy-dev libairspyhf-dev libad9361-dev libiio-dev \
@@ -38,7 +38,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Clone vcpkg
-        run: git clone -b 2025.01.13 https://github.com/microsoft/vcpkg
+        run: git clone --depth 1 -b 2025.01.13 https://github.com/microsoft/vcpkg
+
+      - name: Install CMake 3.31 (vcpkg 2025.01.13 is not compatible with CMake 4.x)
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-windows-x86_64.zip" -OutFile "$env:RUNNER_TEMP\cmake.zip"
+          Expand-Archive "$env:RUNNER_TEMP\cmake.zip" "$env:RUNNER_TEMP\cmake"
+          "$env:RUNNER_TEMP\cmake\cmake-3.31.6-windows-x86_64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Bootstrap vcpkg
         run: .\vcpkg\bootstrap-vcpkg.bat
@@ -116,11 +122,10 @@ jobs:
 
       - name: Install Gradle 7.6.4 (no wrapper in this repo)
         run: |
-          ./gradlew --version 2>/dev/null || true
-          mkdir -p "$GITHUB_WORKSPACE/gradle"
-          curl -fsSL https://services.gradle.org/distributions/gradle-7.6.4-bin.zip -o /tmp/gradle.zip
-          unzip -q /tmp/gradle.zip -d "$GITHUB_WORKSPACE/gradle"
-          echo "$GITHUB_WORKSPACE/gradle/gradle-7.6.4/bin" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/gradle"
+          curl -fsSL --retry 3 https://services.gradle.org/distributions/gradle-7.6.4-bin.zip -o "$RUNNER_TEMP/gradle.zip"
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP/gradle"
+          echo "PATH=$RUNNER_TEMP/gradle/gradle-7.6.4/bin:$PATH" >> "$GITHUB_ENV"
 
       - name: Configure SDK location
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
