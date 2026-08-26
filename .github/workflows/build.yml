@@ -49,7 +49,15 @@ jobs:
       - name: Install dependencies
         # Core-only package list from windows/Configure-vcpkg.ps1 (+ volk).
         # SDR-specific dependencies are skipped, the matching plugins are disabled below.
-        run: .\vcpkg\vcpkg install --triplet x64-windows pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd opencl curl hdf5[cpp] sqlite3 volk
+        run: .\vcpkg\vcpkg install --triplet x64-windows pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd opencl curl hdf5[cpp] sqlite3
+
+      - name: Build VOLK from source (vcpkg's volk port is the Vulkan loader)
+        run: |
+          pip install mako
+          git clone --depth 1 https://github.com/JVital2013/volk -b win-arm64
+          cmake -S volk -B volk-build -A x64 -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\vcpkg\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows" -DENABLE_TESTING=OFF -DENABLE_MODTOOL=OFF
+          cmake --build volk-build --config Release
+          cmake --install volk-build --config Release
 
       - name: Configure CMake
         run: >
@@ -133,10 +141,27 @@ jobs:
           git submodule update --init --recursive android/deps
           sudo apt-get install -y python3 python3-pip
           pip3 install mako
+          # The upstream deps script clones R1NC/sqlite which no longer exists.
+          # Provide the sqlite3 amalgamation with a small CMake wrapper instead.
+          mkdir -p android/deps/sqlite
+          curl -fsSL https://www.sqlite.org/2023/sqlite-amalgamation-3430000.zip -o /tmp/sqlite.zip
+          python3 -m zipfile -e /tmp/sqlite.zip android/deps/sqlite
+          mv android/deps/sqlite/sqlite-amalgamation-3430000/* android/deps/sqlite/
+          rmdir android/deps/sqlite/sqlite-amalgamation-3430000
+          cat > android/deps/sqlite/CMakeLists.txt <<'EOF'
+          cmake_minimum_required(VERSION 3.12)
+          project(sqlite3 C)
+          add_library(sqlite3 STATIC sqlite3.c)
+          target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+          install(TARGETS sqlite3 ARCHIVE DESTINATION lib)
+          install(FILES sqlite3.h sqlite3ext.h DESTINATION include)
+          EOF
           cd android/deps
           export ANDROID_HOME=$ANDROID_SDK_ROOT
           sh build.sh
-          test -f output/arm64-v8a/lib/libvolk.a || (echo "FATAL: android/deps build did not produce libvolk.a" && exit 1)
+          for f in libvolk.a libsqlite3.a libfftw3f.a libz.a libpng.a libzstd.a libtiff.a libcurl.a libnng.a libwolfssl.a libcpu_features.a; do
+            test -f output/arm64-v8a/lib/$f || { echo "FATAL: android/deps build did not produce $f"; ls output/arm64-v8a/lib/; exit 1; }
+          done
 
       - name: Build debug APK
         working-directory: android

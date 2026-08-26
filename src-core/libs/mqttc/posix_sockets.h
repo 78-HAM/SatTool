@@ -1,4 +1,9 @@
+#if defined(_WIN32)
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <unistd.h>
+#endif
 #if !defined(__POSIX_SOCKET_TEMPLATE_H__)
 #define __POSIX_SOCKET_TEMPLATE_H__
 
