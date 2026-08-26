@@ -48,9 +48,21 @@ namespace satdump
     void initLanguage(std::string lang)
     {
         if (lang.size())
+        {
+#ifdef _WIN32
+            _putenv_s("LANGUAGE", lang.c_str());
+#else
             setenv("LANGUAGE", lang.c_str(), true);
+#endif
+        }
         else
+        {
+#ifdef _WIN32
+            _putenv_s("LANGUAGE", "");
+#else
             unsetenv("LANGUAGE");
+#endif
+        }
 
         setlocale(LC_ALL, "");
         bindtextdomain("satdump", resources::getResourcePath("i18n").c_str());

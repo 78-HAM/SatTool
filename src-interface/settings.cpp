@@ -17,6 +17,7 @@
 
 #include "core/resources.h"
 #include "core/style.h"
+#include <algorithm>
 
 namespace satdump
 {
@@ -76,18 +77,34 @@ namespace satdump
             }
 
             int theme_id = 0;
-            std::string current_theme = satdump::satdump_cfg.main_cfg["user_interface"]["theme"]["value"].get<std::string>();
-            for (const auto &entry : std::filesystem::directory_iterator(resources::getResourcePath("themes")))
+            std::string current_theme = getValueOrDefault(satdump::satdump_cfg.main_cfg["user_interface"]["theme"]["value"], std::string("Dark"));
+            try
             {
-                if (entry.path().filename().extension() != ".json")
-                    continue;
-                std::string this_name = entry.path().filename().stem().string();
-                themes.push_back(this_name);
-                themes_str += this_name;
+                for (const auto &entry : std::filesystem::directory_iterator(resources::getResourcePath("themes")))
+                {
+                    if (entry.path().filename().extension() != ".json")
+                        continue;
+                    std::string this_name = entry.path().filename().stem().string();
+                    themes.push_back(this_name);
+                    themes_str += this_name;
+                    themes_str.push_back('\0');
+                    if (this_name == current_theme)
+                        selected_theme = theme_id;
+                    theme_id++;
+                }
+            }
+            catch (std::exception &e)
+            {
+                logger->error("Failed to scan themes directory : %s", e.what());
+            }
+
+            // Defensive : if no theme files were found, fall back to a virtual "Dark"
+            if (themes.empty())
+            {
+                themes.push_back("Dark");
+                themes_str = "Dark";
                 themes_str.push_back('\0');
-                if (this_name == current_theme)
-                    selected_theme = theme_id;
-                theme_id++;
+                selected_theme = 0;
             }
 
             advanced_mode = getValueOrDefault(satdump::satdump_cfg.main_cfg["user_interface"]["advanced_mode"]["value"], false);
@@ -144,25 +161,23 @@ namespace satdump
                     ImGui::Text(_("Language"));
                     ImGui::TableSetColumnIndex(1);
                     {
-                        std::vector<std::string> options = {"fr", "en", "it"};
+                        std::vector<std::pair<std::string, std::string>> language_options = {{"", "Auto"}, {"en", "English"}, {"fr", "Français"}, {"it", "Italiano"}, {"zh_CN", "简体中文"}};
 
-                        std::string lang = current_language == "" ? _("Auto") : current_language;
-                        if (ImGui::BeginCombo("##languageCombo", lang.c_str()))
+                        std::string display_name = "Auto";
+                        for (auto &opt : language_options)
+                            if (current_language == opt.first)
+                                display_name = opt.second;
+
+                        if (ImGui::BeginCombo("##languageCombo", display_name.c_str()))
                         {
-                            if (ImGui::Selectable(_("Auto"), current_language == ""))
+                            for (auto &opt : language_options)
                             {
-                                logger->info("Setting language to Auto");
-                                initLanguage();
-                                db->set_user("language", "");
-                            }
-
-                            for (auto &opt : options)
-                            {
-                                if (ImGui::Selectable(opt.c_str(), current_language == opt))
+                                if (ImGui::Selectable(opt.second.c_str(), current_language == opt.first))
                                 {
-                                    logger->info("Setting language to : " + opt);
-                                    initLanguage(opt);
-                                    db->set_user("language", opt);
+                                    logger->info("Setting language to : " + opt.first);
+                                    initLanguage(opt.first);
+                                    db->set_user("language", opt.first);
+                                    satdump::update_ui = true; // Rebuild UI fonts (CJK font is merged for zh_CN)
                                 }
                             }
 

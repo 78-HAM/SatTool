@@ -82,6 +82,7 @@ First time here? See the reference documents below to get started using SatDump.
 - [Liberation Serif](https://www.fontsquirrel.com/fonts/liberation-serif), for Solaris Motif theme
 - [Perfect DOS VGA 437](https://www.dafont.com/perfect-dos-vga-437.font), for Phosphor theme
 - [PX Sans Nouveaux](https://www.dafont.com/px-sans-nouveaux.font), for Windows 98 theme
+- [Noto Sans SC](https://fonts.google.com/noto/specimen/Noto+Sans+SC) (SIL OFL 1.1 License), bundled as NotoSansSC-Regular.otf for the Simplified Chinese UI
 *3270 Nerd Font and Roboto have been merged into a single font.ttf*
 
 # Developers

@@ -6,8 +6,10 @@
 #include "core/resources.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
+#include "init.h"
 #include "logger.h"
 #include "nlohmann/json_utils.h"
+#include <algorithm>
 #include <filesystem>
 
 #ifdef __APPLE__
@@ -33,18 +35,26 @@ namespace style
             return;
         }
 
-        this_color->x = (float)std::stoi(color_hex.substr(0, 2), 0, 16) / 255.0f;
-        this_color->y = (float)std::stoi(color_hex.substr(2, 2), 0, 16) / 255.0f;
-        this_color->z = (float)std::stoi(color_hex.substr(4, 2), 0, 16) / 255.0f;
-        this_color->w = (float)std::stoi(color_hex.substr(6, 2), 0, 16) / 255.0f;
+        try
+        {
+            this_color->x = (float)std::stoi(color_hex.substr(0, 2), 0, 16) / 255.0f;
+            this_color->y = (float)std::stoi(color_hex.substr(2, 2), 0, 16) / 255.0f;
+            this_color->z = (float)std::stoi(color_hex.substr(4, 2), 0, 16) / 255.0f;
+            this_color->w = (float)std::stoi(color_hex.substr(6, 2), 0, 16) / 255.0f;
+        }
+        catch (std::exception &)
+        {
+            logger->debug("Invalid color code %s", color_hex.c_str());
+            this_color->x = this_color->y = this_color->z = 0;
+            this_color->w = 1;
+        }
     }
 
     void setStyle()
     {
         // Set standard theme info
-        ui_scale = backend::device_scale * satdump::satdump_cfg.main_cfg["user_interface"]["manual_dpi_scaling"]["value"].get<float>();
-        if (ui_scale <= 0)
-            ui_scale = 1; // Avoid having ImGui crash...
+        ui_scale = backend::device_scale * getValueOrDefault(satdump::satdump_cfg.main_cfg["user_interface"]["manual_dpi_scaling"]["value"], 1.0f);
+        ui_scale = std::clamp(ui_scale, 0.5f, 3.0f); // Avoid extreme values (tiny fonts, huge sizes, crashes)
         ImGuiStyle &style = ImGui::GetStyle();
         style = ImGuiStyle();
         theme = Theme();
@@ -53,7 +63,7 @@ namespace style
         nlohmann::json data;
         try
         {
-            std::string selected_theme = satdump::satdump_cfg.main_cfg["user_interface"]["theme"]["value"];
+            std::string selected_theme = getValueOrDefault(satdump::satdump_cfg.main_cfg["user_interface"]["theme"]["value"], std::string("Dark"));
             std::string theme_path;
             if (resources::resourceExists("themes/" + selected_theme + ".json"))
                 theme_path = "themes/" + selected_theme + ".json";
@@ -289,20 +299,53 @@ namespace style
             {0xf500, 0xfd46, 0}, //
             {0xea60, 0xebeb, 0}, //
         };
-        static ImFontConfig config;
         float macos_fbs = macos_framebuffer_scale();
         float font_scaling = dpi_scaling * macos_fbs;
 
-        baseFont = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/" + theme.font + ".ttf").c_str(), theme.font_size * font_scaling, &config, def);
-        config.MergeMode = true;
+        // Clamp to a minimum font size. Extremely small UI scale values (eg, 0.1)
+        // produced ~1-2px fonts and crashed in the font atlas packing step.
+        if (theme.font_size > 0)
+            font_scaling = std::max(font_scaling, 8.0f / theme.font_size);
 
+        ImFontConfig config;
+        baseFont = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/" + theme.font + ".ttf").c_str(), theme.font_size * font_scaling, &config, def);
+        if (baseFont == nullptr) // Fall back to the default bundled font
+            baseFont = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/font.ttf").c_str(), theme.font_size * font_scaling, &config, def);
+        if (baseFont == nullptr)
+        {
+            logger->critical("Could not load any font file! UI text will not render!");
+            return;
+        }
+
+        // Merge icon glyph ranges
+        config.MergeMode = true;
         for (int i = 0; i < 9; i++)
-            baseFont = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/font.ttf").c_str(), theme.font_size * font_scaling, &config, list[i]);
+            io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/font.ttf").c_str(), theme.font_size * font_scaling, &config, list[i]);
         config.MergeMode = false;
 
+#if ENABLE_I18N
+        // Merge a CJK font when Chinese is selected, so Chinese UI text renders properly
+        if (satdump::current_language == "zh_CN")
+        {
+            if (resources::resourceExists("fonts/NotoSansSC-Regular.otf"))
+            {
+                ImFontConfig cjk_config;
+                cjk_config.MergeMode = true;
+                ImFont *cjk_font = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/NotoSansSC-Regular.otf").c_str(), theme.font_size * font_scaling, &cjk_config, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+                if (cjk_font == nullptr)
+                    logger->error("Failed to load bundled CJK font! Chinese UI text may not render correctly.");
+            }
+            else
+                logger->warn("Missing bundled CJK font! Chinese UI text may not render correctly.");
+        }
+#endif
+
         bigFont = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/" + theme.font + ".ttf").c_str(), 45.0f * font_scaling); //, &config, ranges);
+        if (bigFont == nullptr)
+            bigFont = baseFont;
         // hugeFont = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/" + theme.font + ".ttf").c_str(), 128.0f * font_scaling); //, &config, ranges);
         io.Fonts->Build();
+        io.FontDefault = baseFont; // After Clear()/rebuild, the default font must be re-pointed at the new one
         io.FontGlobalScale = 1 / macos_fbs;
 
         backend::rebuildFonts();

@@ -338,7 +338,26 @@ namespace satdump
             pipeline_mtx.lock();
             for (auto &step : selected_pipeline.steps)
                 if (widgets::JSONTableEditor(step.parameters, step.module.c_str()))
-                    step.parameters = pipeline::pipelines_json[selected_pipeline.id]["work"][step.level][step.module];
+                {
+                    nlohmann::json system_step_params;
+                    try
+                    {
+                        if (pipeline::pipelines_json.contains(selected_pipeline.id) &&
+                            pipeline::pipelines_json[selected_pipeline.id].contains("work") &&
+                            pipeline::pipelines_json[selected_pipeline.id]["work"].contains(step.level) &&
+                            pipeline::pipelines_json[selected_pipeline.id]["work"][step.level].contains(step.module))
+                            system_step_params = pipeline::pipelines_json[selected_pipeline.id]["work"][step.level][step.module];
+                    }
+                    catch (std::exception &e)
+                    {
+                        logger->error("Error resetting step parameters : %s", e.what());
+                    }
+
+                    if (!system_step_params.is_null())
+                        step.parameters = system_step_params;
+                    else
+                        logger->warn("No system defaults found for level \"%s\"/module \"%s\". Reset skipped.", step.level.c_str(), step.module.c_str());
+                }
 
             pipeline_mtx.unlock();
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5 * ui_scale);

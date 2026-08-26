@@ -1,0 +1,383 @@
+Nothing implemented there yet!	这里还没有实现任何内容！
+SatDump UI	SatDump 界面
+Offline processing	离线处理
+Recorder	录制器
+Viewer	查看器
+Settings	设置
+About	关于
+Map	地图
+Get tile from server	从服务器获取瓦片
+Start	开始
+Stop	停止
+Save	保存
+Apply	应用
+Cancel	取消
+Update	更新
+Default	默认
+Import	导入
+Export Config	导出配置
+Input file is invalid!	输入文件无效！
+Output folder is invalid!	输出文件夹无效！
+Core Settings	核心设置
+User Interface	用户界面
+Theme	主题
+Set the style and color of SatDump	设置 SatDump 的界面风格和颜色
+Show ImGui Demo	显示 ImGui 演示窗口
+For developers only!	仅供开发者使用！
+General SatDump	SatDump 常规设置
+OpenCL Device	OpenCL 设备
+OpenCL Device SatDump will use for accelerated computing where it can help, eg, for some image processing tasks such as projections.	SatDump 会在适合的场景使用此 OpenCL 设备进行加速，例如部分图像处理和投影任务。
+Update TLEs Now	立即更新 TLE
+Last updated: %s	上次更新：%s
+Never	从未
+Clear Tile Map (OSM) Cache	清除瓦片地图（OSM）缓存
+Delete all cached tiles (OSM, and other sources).	删除所有缓存的地图瓦片（OSM 及其他来源）。
+Clear Cache	清除缓存
+File Input/Output	文件输入/输出
+Plugin Settings	插件设置
+Advanced Settings	高级设置
+TLE Settings	TLE 设置
+Instrument Config	仪器配置
+Default Pipeline Configs	默认流水线配置
+Reset	重置
+Settings saved	设置已保存
+Note : Some settings will require SatDump to be restarted\nto take effect!	注意：某些设置需要重启 SatDump 后才会生效！
+None (Use CPU)	无（使用 CPU）
+Search pipelines	搜索流水线
+Favourites	收藏
+Input File	输入文件
+Output Directory	输出目录
+Input Level	输入级别
+Output Directory :	输出目录：
+Advanced Parameters	高级参数
+Open	打开
+Load	加载
+Device	设备
+Decimation	抽取率
+MHz (LO offset)	MHz（本振偏移）
+Hz	频率（Hz）
+FFT Size	FFT 大小
+FFT Rate	FFT 刷新率
+Waterfall Rate	瀑布图刷新率
+FFT Max	FFT 最大值
+FFT Min	FFT 最小值
+Avg Num	平均次数
+Palette	调色板
+Show Waterfall	显示瀑布图
+Frequency Scale	频率刻度
+Processing	处理
+Freq	频率预设
+Stopping...	停止中...
+Recording	录制
+Format	格式
+Size : %.2f MB	大小：%.2f MB
+Size : %.2f GB	大小：%.2f GB
+Free Space: %.2f GB	剩余空间：%.2f GB
+Time left: %02d:%02d:%02d:%02d	剩余时间：%02d:%02d:%02d:%02d
+Size (raw) : %.2f MB	原始大小：%.2f MB
+Size (raw) : %.2f GB	原始大小：%.2f GB
+File : %s	文件：%s
+IDLE	空闲
+RECORDING	录制中
+Tracking	跟踪
+VFOs	VFO
+No Active VFOs	当前没有活动 VFO
+Frequency: %s	频率：%s
+Pipeline: %s	流水线：%s
+Directory: %s	目录：%s
+IQ Size: %.2f MB	IQ 大小：%.2f MB
+IQ Size: %.2f GB	IQ 大小：%.2f GB
+Debug	调试
+Live Processing	实时处理
+Object Information	对象信息
+Rotator Configuration	转子配置
+Type	类型
+Autotrack Engaged:	自动跟踪已启用：
+YES	是
+NO	否
+Schedule and Config	计划与配置
+Tracking Configuration	跟踪配置
+Scheduling	计划
+Rotator Config	转子配置
+Export/Import	导出/导入
+Export to CLI	导出到 CLI
+Source	信号源
+Source ID	信号源 ID
+[Auto]	[自动]
+HTTP Server	HTTP 服务器
+[Disabled]	[禁用]
+FFT Enable	启用 FFT
+Import from CLI	从 CLI 导入
+Import Scheduler Options	导入调度器选项
+Import Rotator Settings	导入转子设置
+Import Tracked Objects	导入跟踪对象
+Satellites	卫星
+Horizons	地平线目标
+Horizons ID %d	地平线目标 ID %d
+Azimuth	方位角
+Elevation	仰角
+Next Event	下一事件
+Azimuth Rate	方位角速率
+Elevation Rate	仰角速率
+Range (km)	距离（千米）
+AOS in	AOS 倒计时
+LOS in	LOS 倒计时
+Rotator Az	转子方位
+Rotator El	转子仰角
+Engage	启用
+Track	跟踪
+Update Period (s)	更新周期（秒）
+Meridian flip correction	过顶翻转修正
+By enabling this setting, you can allow your rotator to go beyond the default 0-360 degree azimuth range	启用后可允许转子超出默认 0-360 度方位范围。
+Minimum Azimuth	最小方位角
+Maximum Azimuth	最大方位角
+Park while idle	空闲时停泊
+Park Az	停泊方位
+Park El	停泊仰角
+Unpark Time	提前解停时间
+AZ EL Decimal rounding	方位/仰角小数取整
+Decimal Place Precision	小数位精度
+Arrow Keys Control	方向键控制
+Arrow Keys Control Increment	方向键控制步进
+Address	地址
+Port	端口
+Connect	连接
+Disconnect	断开连接
+Search All Satellites	搜索全部卫星
+Search Selected	搜索已选目标
+Add Selection	添加
+Remove Selection	移除
+Scheduler Options	调度选项
+Multi Mode	多目标模式
+Stop SDR When IDLE	空闲时停止 SDR
+Display Local Time	显示本地时间
+Displays times as local time throughout the scheduler UI only.\nAll other times are in UTC.	仅在调度器界面中以本地时间显示。\n其他时间仍为 UTC。
+Minimum Elevation	最低仰角
+Update Passes	更新过境
+Engage Autotrack	启用自动跟踪
+%s\nAOS : %s\nLOS : %s\nEl : %.2f	%s\nAOS：%s\nLOS：%s\n仰角：%.2f
+Min El.	最小仰角
+Configure	配置
+Record	录制
+Live	实时
+IQ Decimation	IQ 抽取
+Config	配置
+Please select a valid output directory first	请先选择有效的输出目录
+Please set a valid samplerate first	请先设置有效的采样率
+Successfully exported config	配置导出成功
+Select a valid import file first	请先选择有效的导入文件
+Select at least one setting to import	请至少选择一项要导入的设置
+Products	产品
+Projections	投影
+General	常规
+Others	其他
+Load Dataset/Products :	加载数据集/产品：
+Projection	投影
+Output image :	输出图像：
+Equirectangular	等经纬度投影
+UTM (Mercator)	UTM（墨卡托）
+Stereo	立体投影
+Satellite (TPERS)	卫星视角（TPERS）
+Top Left Coordinates :	左上角坐标：
+Bottom Right Coordinates :	右下角坐标：
+UTM Zone	UTM 分区
+South	南半球
+Northing (m)	北向坐标（米）
+Scale (m/px)	比例尺（米/像素）
+Center Coordinates :	中心坐标：
+Altitude (m)	高度（米）
+Angle	倾角
+Scale	比例尺
+Auto Mode	自动模式
+Auto Scale Mode	自动缩放模式
+Scale X (m/px)	X 比例尺（米/像素）
+Scale Y (m/px)	Y 比例尺（米/像素）
+Generate Projection	生成投影
+Generating, please wait...	正在生成，请稍候...
+No layers loaded!	尚未加载图层！
+Save Projected Image	保存投影图像
+Layers	图层
+Mode :	模式：
+Blend	混合
+Overlay	叠加
+Layers :	图层列表：
+Add Layer	添加图层
+Tile Map (OSM)	瓦片地图（OSM）
+Other	其他
+Name	名称
+Input Image	输入图像
+Projection Config File	投影配置文件
+Normalize	归一化
+Tile URL	瓦片 URL
+Invalid URL! must be https://server/{z}/{x}/{y}.ext	无效 URL！格式必须为 https://server/{z}/{x}/{y}.ext
+Add layer	添加图层
+Wait for the processing to finish!	请等待当前处理完成！
+Opacity	不透明度
+Opacity is for overlay mode only	不透明度仅在叠加模式下生效
+View	视图
+Graph	图表
+Min: %d	最小值：%d
+Max: %d	最大值：%d
+Save Map	保存地图
+Save Projection	保存投影
+Add to Projections	添加到投影
+Added!	已添加！
+Images	图像
+Raw Image	原始图像
+Projected	已投影
+Select projection view first!	请先切换到投影视图！
+Image	图像
+Composite	合成图
+Channel	通道
+Count : %d	计数值：%d
+Albedo : %.2f %%	反照率：%.2f %%
+Radiance : %.10f	辐亮度：%.10f
+Temperature : %.2f °C	温度：%.2f °C
+Calibration Error! - Invalid Value	校准错误：无效数值
+Wavenumber : %f cm⁻¹	波数：%f cm⁻¹
+Wavelength : %f nm	波长：%f nm
+Wavelength : %f µm	波长：%f µm
+Wavelength : %f mm	波长：%f mm
+Wavelength : %f cm	波长：%f cm
+Frequency : %f Hz	频率：%f Hz
+Frequency : %f kHz	频率：%f kHz
+Frequency : %f MHz	频率：%f MHz
+Frequency : %f GHz	频率：%f GHz
+Diaplay Range Control	显示范围控制
+Show Scale	显示刻度
+Display Range Control	显示范围控制
+Minimum	最小值
+Maximum	最大值
+Raw Counts	原始计数
+Radiance	辐亮度
+Temperature	温度
+Albedo	反照率
+Median Blur	中值模糊
+Despeckle	去斑点
+Rotate	旋转
+Correct	校正
+Remove Background	去除背景
+Equalize	均衡化
+Individual Equalize	独立均衡化
+White Balance	白平衡
+Invert	反相
+Apply LUT	应用 LUT
+Manual Brightness/Contrast	手动亮度/对比度
+Brightness	亮度
+Contrast	对比度
+Save Image	保存图像
+Updating, please wait...	正在更新，请稍候...
+RGB Composites	RGB 合成
+Preset	预设
+Search	搜索
+Info	说明
+Old Algorithm	旧算法
+No timestamps!	没有时间戳！
+Disable correction!	请关闭校正！
+The old algorithm will\ndeal with very bad (noisy) data\nbetter.\nThe new one is preferred if\npossible though, as results\nare a lot nicer! :-)\nIf you had to use this\nand the data was not that bad\nplease report as a bug!	旧算法更适合处理非常差、噪声很重的数据。\n如果条件允许，仍然更推荐新算法，因为结果会好很多。\n如果你的数据并不差却必须使用旧算法，请提交 bug 反馈。
+Composite Info	合成说明
+Map Overlay	地图叠加
+Custom	自定义
+Current image can't be projected!	当前图像无法投影！
+Back	后视
+Down	下视
+Front	前视
+Baseband Format	基带格式
+The sample format of the recorded baseband.\nThis depends on the settings of your recording software,\nbut some common formats are cs16 (SDR#, etc),\ncf32 (GQRX), cu8 (HDSDR), etc	录制基带的采样格式。\n这取决于你的录制软件设置，常见格式包括 cs16（SDR# 等）、cf32（GQRX）、cu8（HDSDR）等。
+Samplerate	采样率
+DC Blocking	直流抑制
+DC Blocking allows removing a DC Spike / Offset present on some SDRs.\n A classic example would be the HackRF which often has this sort of issue.	直流抑制可去除部分 SDR 上存在的直流尖峰/偏移。\nHackRF 就是常见例子。
+IQ Swap	IQ 交换
+In some cases, the I and Q branches can be swapped.\nThat can happen when using some downconverters,\nor perhaps some software that records the file in an unusual way.	在某些情况下，I 和 Q 支路可能会互换。\n这可能出现在某些变频器或以特殊方式录制文件的软件中。
+Frequency Shift	频率偏移
+Can be used to offset the signal.	可用于对信号进行频率偏移。
+UI Scaling	界面缩放
+Defines the overall UI scale. This can be used to make UI elements bigger or smaller\n\n1.0 = normal\n0.5 = half size\n2.0 = double size	定义整体界面缩放比例，可用于放大或缩小界面元素。\n\n1.0 = 正常\n0.5 = 一半大小\n2.0 = 双倍大小
+Play Audio	播放音频
+Automatically play audio from pipelines that support it,\nlike NOAA APT and Inmarsat Aero	自动播放支持音频输出的流水线，例如 NOAA APT 和 Inmarsat Aero。
+Finish processing when stopping live	停止实时处理后完成后续处理
+Launch an offline processing task when you press "Stop",\nto finish processing down to the end of the pipeline.	按下“停止”后启动一个离线处理任务，将流水线后续处理完整跑完。
+Open Viewer after decoding	解码后打开查看器
+Open the decoded data in the viewer after decoding is done	解码完成后在查看器中打开数据。
+Demod FFT Waterfall	解调 FFT 瀑布图
+Enable the FFT Waterfall shown in the small FFT available in demodulators\nThis does increase CPU usage	启用解调器小型 FFT 里的瀑布图显示。\n这会增加 CPU 占用。
+Recorder Floating Windows	录制器浮动窗口
+Make module windows in the recorder float.\nThis allows dragging them around at will	让录制器中的模块窗口以浮动方式显示，便于自由拖动。
+Recorder Baseband Filename Milliseconds	录制器基带文件名带毫秒
+Add milliseconds to the output filenames for basebands recorded in the recorder	为录制器输出的基带文件名附加毫秒信息。
+Show Status Bar	显示状态栏
+Show status bar with last log at the bottom of the UI	在界面底部显示带有最新日志的状态栏。
+Remember Window Size and Position	记住窗口大小和位置
+Remeber size and position of the window when closing SatDump. It will open in the same configuration on next launch	关闭 SatDump 时记住窗口大小和位置，下次启动时恢复。
+Advanced Mode	高级模式
+Allows full editing of all SatDump options. Be warned: invalid configurations\nmay result in crashes, corruption of data, and more. Use at your own risk!	允许完整编辑 SatDump 的所有选项。注意：错误配置可能导致崩溃、数据损坏等问题，请自行承担风险。
+Recorder: Time for disk space warning (in seconds)	录制器：磁盘空间警告时间（秒）
+Defines the time when should the user be warned about not enough disk space.\nSet to 0 to disable	定义剩余磁盘空间不足时的警告阈值时间。\n设为 0 可禁用。
+Log Level	日志级别
+The logger level of SatDump in the console.\nEg, if you wish to only show errors\nor every little thing that's going on	SatDump 控制台日志级别。\n例如只显示错误，或显示所有详细信息。
+Save log file	保存日志文件
+Save ALL SatDump logs to a file.\nThis is useful to send in\nbug reports and such.	将 SatDump 的全部日志保存到文件。\n这对提交 bug 报告很有帮助。
+Product Image Format	产品图像格式
+Processed Image Format	处理后图像格式
+Automatically Process Products	自动处理产品
+Process products once the pipeline is done.	流水线完成后自动处理产品。
+QTH Latitude	QTH 纬度
+Latitude of your station's QTH (North is positive; South is negative)	你的台站 QTH 纬度（北纬为正，南纬为负）。
+QTH Longitude	QTH 经度
+Longitude of your station's QTH (East is positive; West is negative)	你的台站 QTH 经度（东经为正，西经为负）。
+QTH Altitude	QTH 海拔
+Altitude (meters above sea level) of your station's QTH	你的台站 QTH 海拔（米，基于海平面）。
+Default QTH Label	默认 QTH 标签
+Default map label for QTH marker	地图上 QTH 标记的默认标签。
+Default Borders Color	默认边界颜色
+Default map borders color	地图边界的默认颜色。
+Default Shores Color	默认海岸线颜色
+Default map shores color	地图海岸线的默认颜色。
+Default Cities Color	默认城市颜色
+Default map cities color	地图城市标记的默认颜色。
+Default QTH Color	默认 QTH 颜色
+Default map QTH color	地图 QTH 标记的默认颜色。
+Default Lat/Lon Color	默认经纬网颜色
+Default map latlon grid overlay color	地图经纬网叠加层的默认颜色。
+TLE Auto Update Interval	TLE 自动更新间隔
+4 hours	4 小时
+1 day	1 天
+3 days	3 天
+7 days	7 天
+14 days	14 天
+Frequency to update TLEs. Auto update happens at launch only\n\nWarning: The older your TLEs, the more inaccurate projections\nmay be.	TLE 的更新频率。自动更新只会在启动时执行。\n\n警告：TLE 越旧，投影结果可能越不准确。
+Space-Track Login (Optional)	Space-Track 登录名（可选）
+Optional, Space-Track account for historical TLEs	可选，用于获取历史 TLE 的 Space-Track 账号。
+Space-Track Password (Optional)	Space-Track 密码（可选）
+Optional, Space-Track password for historical TLEs	可选，用于获取历史 TLE 的 Space-Track 密码。
+Baseband Recorder directory	基带录制目录
+Path to a folder where I/Q recordings will be saved	I/Q 录音保存目录。
+Live Processing Output Autogeneration	实时处理输出自动生成
+Should live processing automatically generate an output folder?	实时处理是否自动生成输出文件夹？
+Live Processing Directory	实时处理目录
+Path to the default folder to use to store live processing\nOnly valid when automatic generation is enabled!	实时处理默认输出目录。\n仅在启用自动生成时生效！
+Default Input Directory	默认输入目录
+Path to the default folder to open when selecting an input file in offline processing.	离线处理选择输入文件时默认打开的目录。
+Default Output Directory	默认输出目录
+Path to the default folder to open when selecting an output directory in offline processing.	离线处理选择输出目录时默认打开的目录。
+Default Img Output Directory	默认图像输出目录
+Path to the default folder to open when saving an image in the viewer.	查看器保存图像时默认打开的目录。
+Default Proj Output Directory	默认投影输出目录
+Path to the default folder to open when saving a projection in the viewer.	查看器保存投影图像时默认打开的目录。
+Image Filename Template	图像文件名模板
+Detailed	详细
+Compact Detailed	紧凑详细
+Satellite and Time	卫星与时间
+Template used when saving images in the viewer. Variables available:\n - $y - year\n - $M - month\n - $d - day\n - $h - hour\n - $m - minute\n - $s - second\n - $t - unix timestamp\n - $c - composite/channel name\n - $C - composite/channel name (caps)\n - $a - composite/channel name (abbreviated)\n - $i - instrument name\n - $I - instrument name (caps)\n - $o - satellite/object\n - $O - satellite/object (caps)	查看器保存图像时使用的文件名模板。可用变量：\n - $y - 年\n - $M - 月\n - $d - 日\n - $h - 时\n - $m - 分\n - $s - 秒\n - $t - Unix 时间戳\n - $c - 合成图/通道名称\n - $C - 合成图/通道名称（大写）\n - $a - 合成图/通道名称（缩写）\n - $i - 仪器名称\n - $I - 仪器名称（大写）\n - $o - 卫星/对象\n - $O - 卫星/对象（大写）
+trace	跟踪
+debug	调试
+info	信息
+warn	警告
+error	错误
+critical	严重
+PNG Image (*.png)	PNG 图像 (*.png)
+TIFF Image (*.tif, *.tiff)	TIFF 图像 (*.tif, *.tiff)
+JPEG 2000 Image (*.j2k)	JPEG 2000 图像 (*.j2k)
+JPEG Image (*.jpg, *.jpeg)	JPEG 图像 (*.jpg, *.jpeg)
+PBM Image (*.pbm, *.pgm)	PBM 图像 (*.pbm, *.pgm)
+Quite OK Image (*.qoi)	QOI 图像 (*.qoi)

@@ -1,0 +1,135 @@
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git build-essential cmake g++ pkgconf libfftw3-dev libpng-dev \
+            libtiff-dev libjemalloc-dev libcurl4-openssl-dev libvolk2-dev libnng-dev \
+            libglfw3-dev zenity portaudio19-dev libzstd-dev libhdf5-dev librtlsdr-dev \
+            libhackrf-dev libairspy-dev libairspyhf-dev libad9361-dev libiio-dev \
+            libbladerf-dev libomp-dev ocl-icd-opencl-dev libdbus-1-dev libarmadillo-dev \
+            libsqlite3-dev liblimesuite-dev libuhd-dev libxrandr-dev gettext python3
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=ON -DENABLE_I18N=ON
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Verify i18n catalogs are up-to-date
+        run: |
+          msgfmt --check resources/i18n/zh_CN/LC_MESSAGES/zh_CN.po -o /dev/null
+          python3 tools/gen_zh_i18n.py
+          git diff --exit-code -- resources/i18n/zh_CN || (echo "zh_CN catalogs are out of date! Run: python3 tools/gen_zh_i18n.py" && exit 1)
+
+  build-windows:
+    runs-on: windows-latest
+    env:
+      VCPKG_DISABLE_METRICS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone vcpkg
+        run: git clone -b 2025.01.13 https://github.com/microsoft/vcpkg
+
+      - name: Bootstrap vcpkg
+        run: .\vcpkg\bootstrap-vcpkg.bat
+
+      - name: Install dependencies
+        # Core-only package list from windows/Configure-vcpkg.ps1 (+ volk).
+        # SDR-specific dependencies are skipped, the matching plugins are disabled below.
+        run: .\vcpkg\vcpkg install --triplet x64-windows pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd armadillo opencl curl[schannel] hdf5[cpp] sqlite3 volk
+
+      - name: Configure CMake
+        run: >
+          cmake -B build
+          -DBUILD_MSVC=ON
+          -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\vcpkg\scripts\buildsystems\vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+          -A x64
+          -DBUILD_GUI=ON
+          -DENABLE_I18N=ON
+          -DPLUGINS_ALL=OFF
+          -DPLUGIN_AIRSPY_SDR_SUPPORT=OFF
+          -DPLUGIN_HYDRASDR_SDR_SUPPORT=OFF
+          -DPLUGIN_AIRSPYHF_SDR_SUPPORT=OFF
+          -DPLUGIN_HACKRF_SDR_SUPPORT=OFF
+          -DPLUGIN_LIMESDR_SDR_SUPPORT=OFF
+          -DPLUGIN_SDRPLAY_SDR_SUPPORT=OFF
+          -DPLUGIN_PLUTOSDR_SDR_SUPPORT=OFF
+          -DPLUGIN_BLADERF_SDR_SUPPORT=OFF
+          -DPLUGIN_LITEXM2SDR_SDR_SUPPORT=OFF
+          -DPLUGIN_USRP_SDR_SUPPORT=OFF
+          -DPLUGIN_RTLSDR_SDR_SUPPORT=OFF
+          -DPLUGIN_MIRISDR_SDR_SUPPORT=OFF
+          -DPLUGIN_SPYSERVER_SUPPORT=OFF
+          -DPLUGIN_RTLTCP_SUPPORT=OFF
+          -DPLUGIN_SDRPP_SERVER_SUPPORT=OFF
+          -DPLUGIN_AARONIA_SDR_SUPPORT=OFF
+          -DPLUGIN_HAROGIC_SDR_SUPPORT=OFF
+          -DPLUGIN_RFNM_SDR_SUPPORT=OFF
+          -DPLUGIN_FOBOSSDR_SDR_SUPPORT=OFF
+          -DPLUGIN_RTAUDIO_SDR_SUPPORT=OFF
+          -DPLUGIN_NET_SOURCE_SDR_SUPPORT=OFF
+          -DPLUGIN_REMOTE_SDR_SUPPORT=OFF
+          -DPLUGIN_SDDC_SDR_SUPPORT=OFF
+          -DPLUGIN_SOAPY_SDR_SUPPORT=OFF
+          -DPLUGIN_BOCHUM_SUPPORT=OFF
+          -DPLUGIN_EXPERIMENTAL_DEVICES_SUPPORT=OFF
+          -DPLUGIN_RTAUDIO_SINK=OFF
+          -DPLUGIN_PORTAUDIO_SINK=OFF
+          -DPLUGIN_AAUDIO_SINK=OFF
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Verify binaries
+        shell: pwsh
+        run: |
+          if (!(Test-Path build\Release\satdump-ui.exe)) { throw "satdump-ui.exe missing!" }
+          if (!(Test-Path build\Release\satdump.exe)) { throw "satdump.exe missing!" }
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK / NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;30.0.3 ndk;25.2.9519653'
+
+      - name: Install Gradle 7.6.4 (no wrapper in this repo)
+        run: |
+          ./gradlew --version 2>/dev/null || true
+          mkdir -p "$GITHUB_WORKSPACE/gradle"
+          curl -fsSL https://services.gradle.org/distributions/gradle-7.6.4-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d "$GITHUB_WORKSPACE/gradle"
+          echo "$GITHUB_WORKSPACE/gradle/gradle-7.6.4/bin" >> "$GITHUB_ENV"
+
+      - name: Configure SDK location
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+
+      - name: Build debug APK
+        working-directory: android
+        run: gradle assembleDebug --no-daemon
+
+      - name: Verify APK
+        run: |
+          ls -la android/app/build/outputs/apk/debug/
+          test -f android/app/build/outputs/apk/debug/app-debug.apk

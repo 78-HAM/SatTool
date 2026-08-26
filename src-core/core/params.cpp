@@ -129,6 +129,8 @@ namespace satdump
                 d_options_str = "";
                 for (std::pair<std::string, std::string> &opt : d_labeled_opts)
                     d_options_str += opt.second + '\0';
+                if (d_labeled_opts.empty())
+                    d_options_str += std::string("<Empty>") + '\0';
 
                 if (p_bool) // Allow manual
                     d_options_str += std::string("Custom") + '\0';
@@ -157,7 +159,7 @@ namespace satdump
                 else
                 {
                     d_option = 0;
-                    p_string = d_labeled_opts[0].first;
+                    p_string = d_labeled_opts.empty() ? "" : d_labeled_opts[0].first;
                 }
             }
             else
@@ -176,13 +178,25 @@ namespace satdump
             ImGui::TableSetColumnIndex(1);
 
             if (d_type == PARAM_STRING)
+            {
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                 ImGui::InputText(d_id.c_str(), &p_string);
+            }
             else if (d_type == PARAM_PASSWORD)
+            {
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                 ImGui::InputText(d_id.c_str(), &p_string, ImGuiInputTextFlags_Password);
+            }
             else if (d_type == PARAM_INT)
+            {
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                 ImGui::InputInt(d_id.c_str(), &p_int, 0);
+            }
             else if (d_type == PARAM_FLOAT)
+            {
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                 ImGui::InputDouble(d_id.c_str(), &p_float);
+            }
             else if (d_type == PARAM_BOOL)
                 ImGui::Checkbox(d_id.c_str(), &p_bool);
             else if (d_type == PARAM_OPTIONS)
@@ -206,6 +220,7 @@ namespace satdump
                 {
                     if (d_option != (int)d_labeled_opts.size())
                         ImGui::BeginDisabled();
+                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                     ImGui::InputText(std::string(d_id + "_custom").c_str(), &p_string);
                     if (d_option != (int)d_labeled_opts.size())
                         ImGui::EndDisabled();

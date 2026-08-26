@@ -24,18 +24,9 @@ float funcDeviceScale()
 
 void funcRebuildFonts()
 {
-#ifndef IMGUI_IMPL_OPENGL_ES2
-    if (fallback_gl)
-    {
-        // ImGui_ImplOpenGL2_DestroyFontsTexture();
-        // ImGui_ImplOpenGL2_CreateFontsTexture();
-    }
-    else
-#endif
-    {
-        // ImGui_ImplOpenGL3_DestroyFontsTexture();
-        // ImGui_ImplOpenGL3_CreateFontsTexture();
-    }
+    // Nothing to do here : this build uses the newer ImGui backends with dynamic
+    // font atlas support (ImGuiBackendFlags_RendererHasTextures), which re-upload
+    // the font texture(s) automatically after style::setFonts() rebuilds io.Fonts.
 }
 
 void funcSetMousePos(int x, int y)

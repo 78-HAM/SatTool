@@ -1,0 +1,137 @@
+# Additional Simplified Chinese translations for current (2.x) UI strings.
+# Same TSV format as zh_dict.tsv (backslash-escaped \n / \t / \\ supported).
+# Merged on top of zh_dict.tsv by tools/gen_zh_i18n.py (last wins).
+Welcome to SatDump!	欢迎使用 SatDump！
+Add	添加
+Add Recorder	添加录制器
+Add Overlay	添加叠加层
+Add to projection	添加到投影
+Start Processing	开始处理
+Open File	打开文件
+Open binary file	打开二进制文件
+Quick Open	快速打开
+File	文件
+Help	帮助
+Documentation	文档
+Experimental	实验性
+Tools	工具
+Archive Loader	归档加载器
+LUT Generator	LUT 生成器
+DSP Flowgraph	DSP 流程图
+WIP Tracking	WIP 跟踪
+Satellite finder	卫星查找器
+Instrument Config Editor	仪器配置编辑器
+SatDump Log	SatDump 日志
+SatDump Downconverter UI	SatDump 下变频器界面
+Reload	重新加载
+Delete	删除
+Pick	选择
+Range Min	范围最小值
+Range Max	范围最大值
+Display	显示
+Fit	适应
+Zoom In	放大
+Zoom Out	缩小
+Channels	通道
+Channel	通道
+Presets	预设
+Preset Info	预设信息
+Preview Image	预览图像
+Refresh Preview	刷新预览
+Refresh (Image Only)	刷新（仅图像）
+Select Preset...	选择预设...
+Expression	表达式
+Geo Correct	地理校正
+Interpolate	插值
+Crop	裁剪
+Undo	撤销
+Anti-Alias	抗锯齿
+Font Size	字体大小
+Bit Depth	位深
+Bits	比特
+Bytes	字节
+Dot Map	点图
+Fill Map	填充地图
+Replicate	复制
+Temporary	临时
+Load First-Party	加载官方产品
+First-Party Support	官方产品支持
+Downloading : %s	下载中：%s
+Bandwidth : %s / %s	带宽：%s / %s
+Language	语言
+Update Keplers Now	立即更新 Kepler 星历
+Update IERS Bulletin Now	立即更新 IERS 公报
+Calibration Error. Please Report!	校准错误，请反馈！
+Calibration Max %f	校准最大值 %f
+Calibration Min %f	校准最小值 %f
+Calibration Unit %s	校准单位 %s
+Use Range	使用范围
+Sun Angle	太阳角
+Brightness Temperature	亮温
+Emissive Radiance	发射辐亮度
+Reflective Radiance	反射辐亮度
+Sun Angle Compensated Albedo	太阳角修正反照率
+Sun Angle Compensated Reflective Radiance	太阳角修正反射辐亮度
+Backscatter	后向散射
+Pol : H	极化：H
+Pol : V	极化：V
+Pol : L	极化：L
+Pol : R	极化：R
+Product Data	产品数据
+Project	项目
+New Projection	新建投影
+Borders	边界
+Shores	海岸线
+Cities	城市
+Lat/Lon Grid	经纬网
+General Purpose Satellite Data Processor	通用卫星数据处理器
+Mode:	模式：
+Save cancelled	已取消保存
+Saved current image at %s	当前图像已保存至 %s
+No file selected	未选择文件
+Select Input File	选择输入文件
+Select Output Directory	选择输出目录
+Select Image	选择图像
+Selected Folder:	已选文件夹：
+Decode To:	解码为：
+Period (Bits)	周期（比特）
+Root	根
+Handler	处理程序
+Handlers will appear here...	处理程序将显示在这里…
+Image To Handler	图像处理程序
+JSON From Clipboard	从剪贴板读取 JSON
+JSON To Clipboard	复制 JSON 到剪贴板
+Copied to clipboard!	已复制到剪贴板！
+Copied from clipboard!	已从剪贴板读取！
+Invalid image for a LUT!	无效的 LUT 图像！
+Cannot crop while processing!	处理中无法裁剪！
+Crop must be bigger than 0!	裁剪区域必须大于 0！
+Please wait for processing to end first!	请等待处理完成！
+Please wait for saving to end first!	请等待保存完成！
+Could not process image! %s	图像处理失败！%s
+Error processing image! %s	图像处理出错！%s
+Failed Geo-Correcting image!	地理校正失败！
+Can't drag parent onto child handler!	不能将父项拖到子处理程序上！
+Starting 	正在启动 
+Exiting SatDump! Bye!	正在退出 SatDump，再见！
+Registered pipelines :	已注册流水线：
+Error	错误
+Warning	警告
+Critical	严重
+default	默认
+hidden	隐藏
+Since 	自 
+Not available until 	不可用，直到 
+Date: 	日期：
+Go	转到
+Refresh	刷新
+Lat	纬度
+Lon	经度
+Unit	单位
+Unit : %f %s	单位：%f %s
+Point 	点 
+Polygon 	多边形 
+Draw Color	绘制颜色
+Hue/Saturation	色相/饱和度
+Scale Rank (Cities Only)	等级缩放（仅城市）
+Advanced	高级

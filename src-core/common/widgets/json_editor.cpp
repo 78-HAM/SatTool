@@ -167,7 +167,7 @@ namespace satdump
                         ImGui::SameLine();
                     }
 
-                    ImGui::SetNextItemWidth(400 * ui_scale + start_pos - ImGui::GetCursorPosX());
+                    ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
                     int val = jsonItem.value();
                     if (ImGui::InputInt(std::string("##" + this_key).c_str(), &val))
                         jsonItem.value() = val;
@@ -181,7 +181,7 @@ namespace satdump
                         ImGui::SameLine();
                     }
 
-                    ImGui::SetNextItemWidth(400 * ui_scale + start_pos - ImGui::GetCursorPosX());
+                    ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
                     double val = jsonItem.value();
                     if (ImGui::InputDouble(std::string("##" + this_key).c_str(), &val))
                         jsonItem.value() = val;
@@ -195,7 +195,7 @@ namespace satdump
                         ImGui::SameLine();
                     }
 
-                    ImGui::SetNextItemWidth(400 * ui_scale + start_pos - ImGui::GetCursorPosX());
+                    ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
                     std::string val = jsonItem.value();
                     if (val.find("\n") == std::string::npos ? ImGui::InputText(std::string("##" + this_key).c_str(), &val) : ImGui::InputTextMultiline(std::string("##" + this_key).c_str(), &val))
                         jsonItem.value() = val;
@@ -271,14 +271,24 @@ namespace satdump
                         }
                         else if (jsonItem.value().is_number_integer() || jsonItem.value().is_number_unsigned())
                         {
-                            int val = jsonItem.value();
-                            if (ImGui::InputInt(std::string("##" + this_key).c_str(), &val))
+                            int64_t val = 0;
+                            try
+                            {
+                                val = jsonItem.value().get<int64_t>();
+                            }
+                            catch (std::exception &)
+                            {
+                                // Value out of range, keep 0
+                            }
+                            ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
+                            if (ImGui::InputScalar(std::string("##" + this_key).c_str(), ImGuiDataType_S64, &val))
                                 jsonItem.value() = val;
                             delete_item = DeleteButton();
                         }
                         else if (jsonItem.value().is_number_float())
                         {
                             double val = jsonItem.value();
+                            ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
                             if (ImGui::InputDouble(std::string("##" + this_key).c_str(), &val))
                                 jsonItem.value() = val;
                             delete_item = DeleteButton();
@@ -286,6 +296,7 @@ namespace satdump
                         else if (jsonItem.value().is_string())
                         {
                             std::string val = jsonItem.value();
+                            ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
                             if (val.find("\n") == std::string::npos ? ImGui::InputText(std::string("##" + this_key).c_str(), &val)
                                                                     : ImGui::InputTextMultiline(std::string("##" + this_key).c_str(), &val))
                                 jsonItem.value() = val;

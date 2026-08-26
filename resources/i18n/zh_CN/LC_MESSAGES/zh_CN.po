@@ -1,0 +1,813 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: SatDump\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "About"
+msgstr "关于"
+
+msgid "Add"
+msgstr "添加"
+
+msgid "Add Overlay"
+msgstr "添加叠加层"
+
+msgid "Add Recorder"
+msgstr "添加录制器"
+
+msgid "Add to projection"
+msgstr "添加到投影"
+
+msgid "Advanced"
+msgstr "高级"
+
+msgid "Advanced Mode"
+msgstr "高级模式"
+
+msgid "Advanced Parameters"
+msgstr "高级参数"
+
+msgid "Advanced Settings"
+msgstr "高级设置"
+
+msgid "Albedo"
+msgstr "反照率"
+
+msgid "Altitude (m)##tpers"
+msgstr "高度（米）##tpers"
+
+msgid "Angle##tpers"
+msgstr "倾角##tpers"
+
+msgid "Anti-Alias"
+msgstr "抗锯齿"
+
+msgid "Apply"
+msgstr "应用"
+
+msgid "Archive Loader"
+msgstr "归档加载器"
+
+msgid "Auto Mode###pojautomode"
+msgstr "自动模式###pojautomode"
+
+msgid "Auto Scale Mode##projautoscalemode"
+msgstr "自动缩放模式##projautoscalemode"
+
+msgid "Autotrack Engaged:"
+msgstr "自动跟踪已启用："
+
+msgid "Avg Num"
+msgstr "平均次数"
+
+msgid "Azimuth##tpers"
+msgstr "方位角##tpers"
+
+msgid "Backscatter"
+msgstr "后向散射"
+
+msgid "Bandwidth : %s / %s"
+msgstr "带宽：%s / %s"
+
+msgid "Bit Depth"
+msgstr "位深"
+
+msgid "Bits"
+msgstr "比特"
+
+msgid "Borders"
+msgstr "边界"
+
+msgid "Bottom Right Coordinates :"
+msgstr "右下角坐标："
+
+msgid "Brightness"
+msgstr "亮度"
+
+msgid "Brightness Temperature"
+msgstr "亮温"
+
+msgid "Bytes"
+msgstr "字节"
+
+msgid "Calibration Error. Please Report!"
+msgstr "校准错误，请反馈！"
+
+msgid "Calibration Max %f"
+msgstr "校准最大值 %f"
+
+msgid "Calibration Min %f"
+msgstr "校准最小值 %f"
+
+msgid "Calibration Unit %s"
+msgstr "校准单位 %s"
+
+msgid "Can't drag parent onto child handler!"
+msgstr "不能将父项拖到子处理程序上！"
+
+msgid "Cannot crop while processing!"
+msgstr "处理中无法裁剪！"
+
+msgid "Center Coordinates :"
+msgstr "中心坐标："
+
+msgid "Channel##selectechannel"
+msgstr "通道##selectechannel"
+
+msgid "Channels"
+msgstr "通道"
+
+msgid "Cities"
+msgstr "城市"
+
+msgid "Clear Cache###deleteosmtiles"
+msgstr "清除缓存###deleteosmtiles"
+
+msgid "Clear Tile Map (OSM) Cache"
+msgstr "清除瓦片地图（OSM）缓存"
+
+msgid "Contrast"
+msgstr "对比度"
+
+msgid "Copied from clipboard!"
+msgstr "已从剪贴板读取！"
+
+msgid "Copied to clipboard!"
+msgstr "已复制到剪贴板！"
+
+msgid "Core Settings"
+msgstr "核心设置"
+
+msgid "Could not process image! %s"
+msgstr "图像处理失败！%s"
+
+msgid "Count : %d"
+msgstr "计数值：%d"
+
+msgid "Critical"
+msgstr "严重"
+
+msgid "Crop"
+msgstr "裁剪"
+
+msgid "Crop must be bigger than 0!"
+msgstr "裁剪区域必须大于 0！"
+
+msgid "Custom"
+msgstr "自定义"
+
+msgid "DSP Flowgraph"
+msgstr "DSP 流程图"
+
+msgid "Date: "
+msgstr "日期："
+
+msgid "Debug"
+msgstr "调试"
+
+msgid "Decimation##recorderdecimation"
+msgstr "抽取率##recorderdecimation"
+
+msgid "Decode To:"
+msgstr "解码为："
+
+msgid "Default"
+msgstr "默认"
+
+msgid "Default Pipeline Configs"
+msgstr "默认流水线配置"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Delete all cached tiles (OSM, and other sources)."
+msgstr "删除所有缓存的地图瓦片（OSM 及其他来源）。"
+
+msgid "Despeckle"
+msgstr "去斑点"
+
+msgid "Directory: %s"
+msgstr "目录：%s"
+
+msgid "Display"
+msgstr "显示"
+
+msgid "Documentation"
+msgstr "文档"
+
+msgid "Dot Map"
+msgstr "点图"
+
+msgid "Downloading : %s"
+msgstr "下载中：%s"
+
+msgid "Draw Color##shapefilecolor"
+msgstr "绘制颜色##shapefilecolor"
+
+msgid "Emissive Radiance"
+msgstr "发射辐亮度"
+
+msgid "Equalize"
+msgstr "均衡化"
+
+msgid "Error"
+msgstr "错误"
+
+msgid "Error processing image! %s"
+msgstr "图像处理出错！%s"
+
+msgid "Exiting SatDump! Bye!"
+msgstr "正在退出 SatDump，再见！"
+
+msgid "Experimental"
+msgstr "实验性"
+
+msgid "Export/Import"
+msgstr "导出/导入"
+
+msgid "Expression"
+msgstr "表达式"
+
+msgid "FFT Max"
+msgstr "FFT 最大值"
+
+msgid "FFT Min"
+msgstr "FFT 最小值"
+
+msgid "FFT Rate"
+msgstr "FFT 刷新率"
+
+msgid "FFT Size"
+msgstr "FFT 大小"
+
+msgid "Failed Geo-Correcting image!"
+msgstr "地理校正失败！"
+
+msgid "Favourites"
+msgstr "收藏"
+
+msgid "File"
+msgstr "文件"
+
+msgid "File : %s"
+msgstr "文件：%s"
+
+msgid "File Input/Output"
+msgstr "文件输入/输出"
+
+msgid "Fill Map"
+msgstr "填充地图"
+
+msgid "First-Party Support"
+msgstr "官方产品支持"
+
+msgid "Fit"
+msgstr "适应"
+
+msgid "Font Size"
+msgstr "字体大小"
+
+msgid "Format##basebandrecordformat"
+msgstr "格式##basebandrecordformat"
+
+msgid "Free Space: %.2f GB"
+msgstr "剩余空间：%.2f GB"
+
+msgid "Freq###presetscombo"
+msgstr "频率预设###presetscombo"
+
+msgid "Frequency Scale"
+msgstr "频率刻度"
+
+msgid "Frequency: %s"
+msgstr "频率：%s"
+
+msgid "General Purpose Satellite Data Processor"
+msgstr "通用卫星数据处理器"
+
+msgid "General SatDump"
+msgstr "SatDump 常规设置"
+
+msgid "Geo Correct"
+msgstr "地理校正"
+
+msgid "Go##loadfromhttpgo"
+msgstr "转到##loadfromhttpgo"
+
+msgid "Graph"
+msgstr "图表"
+
+msgid "Handler"
+msgstr "处理程序"
+
+msgid "Handlers will appear here..."
+msgstr "处理程序将显示在这里…"
+
+msgid "Help"
+msgstr "帮助"
+
+msgid "Hue/Saturation"
+msgstr "色相/饱和度"
+
+msgid "IDLE"
+msgstr "空闲"
+
+msgid "IQ Size: %.2f GB"
+msgstr "IQ 大小：%.2f GB"
+
+msgid "IQ Size: %.2f MB"
+msgstr "IQ 大小：%.2f MB"
+
+msgid "Image"
+msgstr "图像"
+
+msgid "Image To Handler"
+msgstr "图像处理程序"
+
+msgid "Individual Equalize"
+msgstr "独立均衡化"
+
+msgid "Input File"
+msgstr "输入文件"
+
+msgid "Input Level"
+msgstr "输入级别"
+
+msgid "Input file is invalid!"
+msgstr "输入文件无效！"
+
+msgid "Instrument Config Editor"
+msgstr "仪器配置编辑器"
+
+msgid "Interpolate"
+msgstr "插值"
+
+msgid "Interpolate##interpolatebutton"
+msgstr "插值##interpolatebutton"
+
+msgid "Invalid image for a LUT!"
+msgstr "无效的 LUT 图像！"
+
+msgid "Invert"
+msgstr "反相"
+
+msgid "JSON From Clipboard"
+msgstr "从剪贴板读取 JSON"
+
+msgid "JSON To Clipboard"
+msgstr "复制 JSON 到剪贴板"
+
+msgid "LUT Generator"
+msgstr "LUT 生成器"
+
+msgid "Language"
+msgstr "语言"
+
+msgid "Last updated: %s"
+msgstr "上次更新：%s"
+
+msgid "Lat##br"
+msgstr "纬度##br"
+
+msgid "Lat##stereo"
+msgstr "纬度##stereo"
+
+msgid "Lat##tl"
+msgstr "纬度##tl"
+
+msgid "Lat##tpers"
+msgstr "纬度##tpers"
+
+msgid "Lat/Lon Grid"
+msgstr "经纬网"
+
+msgid "Live Processing"
+msgstr "实时处理"
+
+msgid "Load First-Party"
+msgstr "加载官方产品"
+
+msgid "Load##archiveloadertablebutton_"
+msgstr "加载##archiveloadertablebutton_"
+
+msgid "Lon##br"
+msgstr "经度##br"
+
+msgid "Lon##stereo"
+msgstr "经度##stereo"
+
+msgid "Lon##tl"
+msgstr "经度##tl"
+
+msgid "Lon##tpers"
+msgstr "经度##tpers"
+
+msgid "MHz (LO offset)##downupconverter"
+msgstr "MHz（本振偏移）##downupconverter"
+
+msgid "Median Blur"
+msgstr "中值模糊"
+
+msgid "Mode:"
+msgstr "模式："
+
+msgid "Never"
+msgstr "从未"
+
+msgid "New Projection"
+msgstr "新建投影"
+
+msgid "No Active VFOs"
+msgstr "当前没有活动 VFO"
+
+msgid "No file selected"
+msgstr "未选择文件"
+
+msgid "Normalize"
+msgstr "归一化"
+
+msgid "Northing (m)##utm"
+msgstr "北向坐标（米）##utm"
+
+msgid "Not available until "
+msgstr "不可用，直到 "
+
+msgid "Note : Some settings will require SatDump to be restarted\nto take effect!"
+msgstr "注意：某些设置需要重启 SatDump 后才会生效！"
+
+msgid "Object Information"
+msgstr "对象信息"
+
+msgid "Open File"
+msgstr "打开文件"
+
+msgid "Open binary file"
+msgstr "打开二进制文件"
+
+msgid "OpenCL Device"
+msgstr "OpenCL 设备"
+
+msgid "OpenCL Device SatDump will use for accelerated computing where it can help, eg, for some image processing tasks such as projections."
+msgstr "SatDump 会在适合的场景使用此 OpenCL 设备进行加速，例如部分图像处理和投影任务。"
+
+msgid "Others"
+msgstr "其他"
+
+msgid "Output Directory"
+msgstr "输出目录"
+
+msgid "Output Directory :"
+msgstr "输出目录："
+
+msgid "Output folder is invalid!"
+msgstr "输出文件夹无效！"
+
+msgid "Palette"
+msgstr "调色板"
+
+msgid "Period (Bits)"
+msgstr "周期（比特）"
+
+msgid "Pick"
+msgstr "选择"
+
+msgid "Pipeline: %s"
+msgstr "流水线：%s"
+
+msgid "Please wait for processing to end first!"
+msgstr "请等待处理完成！"
+
+msgid "Please wait for saving to end first!"
+msgstr "请等待保存完成！"
+
+msgid "Plugin Settings"
+msgstr "插件设置"
+
+msgid "Point "
+msgstr "点 "
+
+msgid "Pol : H"
+msgstr "极化：H"
+
+msgid "Pol : L"
+msgstr "极化：L"
+
+msgid "Pol : R"
+msgstr "极化：R"
+
+msgid "Pol : V"
+msgstr "极化：V"
+
+msgid "Polygon "
+msgstr "多边形 "
+
+msgid "Preset Info"
+msgstr "预设信息"
+
+msgid "Presets"
+msgstr "预设"
+
+msgid "Preview Image"
+msgstr "预览图像"
+
+msgid "Processing"
+msgstr "处理"
+
+msgid "Product Data"
+msgstr "产品数据"
+
+msgid "Project"
+msgstr "项目"
+
+msgid "Projection"
+msgstr "投影"
+
+msgid "Quick Open"
+msgstr "快速打开"
+
+msgid "RECORDING"
+msgstr "录制中"
+
+msgid "Range Max"
+msgstr "范围最大值"
+
+msgid "Range Min"
+msgstr "范围最小值"
+
+msgid "Recorder"
+msgstr "录制器"
+
+msgid "Recording"
+msgstr "录制"
+
+msgid "Reflective Radiance"
+msgstr "反射辐亮度"
+
+msgid "Refresh (Image Only)"
+msgstr "刷新（仅图像）"
+
+msgid "Refresh Preview"
+msgstr "刷新预览"
+
+msgid "Refresh##archiveloader_refresh"
+msgstr "刷新##archiveloader_refresh"
+
+msgid "Registered pipelines :"
+msgstr "已注册流水线："
+
+msgid "Reload"
+msgstr "重新加载"
+
+msgid "Remove Background"
+msgstr "去除背景"
+
+msgid "Replicate"
+msgstr "复制"
+
+msgid "Reset##advanced_settings"
+msgstr "重置##advanced_settings"
+
+msgid "Reset##pipelines"
+msgstr "重置##pipelines"
+
+msgid "Reset##tle_settings"
+msgstr "重置##tle_settings"
+
+msgid "Root"
+msgstr "根"
+
+msgid "Rotator Config"
+msgstr "转子配置"
+
+msgid "Rotator Configuration"
+msgstr "转子配置"
+
+msgid "SatDump Downconverter UI"
+msgstr "SatDump 下变频器界面"
+
+msgid "SatDump Log"
+msgstr "SatDump 日志"
+
+msgid "Satellite finder"
+msgstr "卫星查找器"
+
+msgid "Save Image"
+msgstr "保存图像"
+
+msgid "Save cancelled"
+msgstr "已取消保存"
+
+msgid "Saved current image at %s"
+msgstr "当前图像已保存至 %s"
+
+msgid "Scale (m/px)##stereo"
+msgstr "比例尺（米/像素）##stereo"
+
+msgid "Scale (m/px)##utm"
+msgstr "比例尺（米/像素）##utm"
+
+msgid "Scale Rank (Cities Only)"
+msgstr "等级缩放（仅城市）"
+
+msgid "Scale X (m/px)##projscalexauto"
+msgstr "X 比例尺（米/像素）##projscalexauto"
+
+msgid "Scale Y (m/px)##projscalexauto"
+msgstr "Y 比例尺（米/像素）##projscalexauto"
+
+msgid "Scale##tpers"
+msgstr "比例尺##tpers"
+
+msgid "Schedule and Config"
+msgstr "计划与配置"
+
+msgid "Scheduling"
+msgstr "计划"
+
+msgid "Select Image"
+msgstr "选择图像"
+
+msgid "Select Input File"
+msgstr "选择输入文件"
+
+msgid "Select Output Directory"
+msgstr "选择输出目录"
+
+msgid "Select Preset..."
+msgstr "选择预设..."
+
+msgid "Selected Folder:"
+msgstr "已选文件夹："
+
+msgid "Set the style and color of SatDump"
+msgstr "设置 SatDump 的界面风格和颜色"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Settings saved"
+msgstr "设置已保存"
+
+msgid "Shores"
+msgstr "海岸线"
+
+msgid "Show Waterfall"
+msgstr "显示瀑布图"
+
+msgid "Since "
+msgstr "自 "
+
+msgid "Size (raw) : %.2f GB"
+msgstr "原始大小：%.2f GB"
+
+msgid "Size (raw) : %.2f MB"
+msgstr "原始大小：%.2f MB"
+
+msgid "Size : %.2f GB"
+msgstr "大小：%.2f GB"
+
+msgid "Size : %.2f MB"
+msgstr "大小：%.2f MB"
+
+msgid "Source"
+msgstr "信号源"
+
+msgid "South###projutmsouth"
+msgstr "南半球###projutmsouth"
+
+msgid "Start"
+msgstr "开始"
+
+msgid "Start Processing"
+msgstr "开始处理"
+
+msgid "Start###startprocessing"
+msgstr "开始###startprocessing"
+
+msgid "Start###startrecording"
+msgstr "开始###startrecording"
+
+msgid "Starting "
+msgstr "正在启动 "
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "Stop##"
+msgstr "停止##"
+
+msgid "Stop##stopprocessing"
+msgstr "停止##stopprocessing"
+
+msgid "Stop##stoprecording"
+msgstr "停止##stoprecording"
+
+msgid "Stopping...##stoppingprocessing"
+msgstr "停止中...##stoppingprocessing"
+
+msgid "Sun Angle"
+msgstr "太阳角"
+
+msgid "Sun Angle Compensated Albedo"
+msgstr "太阳角修正反照率"
+
+msgid "Sun Angle Compensated Reflective Radiance"
+msgstr "太阳角修正反射辐亮度"
+
+msgid "TLE Settings"
+msgstr "TLE 设置"
+
+msgid "Temporary"
+msgstr "临时"
+
+msgid "Theme"
+msgstr "主题"
+
+msgid "Time left: %02d:%02d:%02d:%02d"
+msgstr "剩余时间：%02d:%02d:%02d:%02d"
+
+msgid "Tools"
+msgstr "工具"
+
+msgid "Top Left Coordinates :"
+msgstr "左上角坐标："
+
+msgid "Tracking"
+msgstr "跟踪"
+
+msgid "Tracking Configuration"
+msgstr "跟踪配置"
+
+msgid "Type##rotatortype"
+msgstr "类型##rotatortype"
+
+msgid "UTM Zone###projutmzone"
+msgstr "UTM 分区###projutmzone"
+
+msgid "Undo"
+msgstr "撤销"
+
+msgid "Unit : %f %s"
+msgstr "单位：%f %s"
+
+msgid "Unit##calibunit"
+msgstr "单位##calibunit"
+
+msgid "Update"
+msgstr "更新"
+
+msgid "Update IERS Bulletin Now"
+msgstr "立即更新 IERS 公报"
+
+msgid "Update Keplers Now"
+msgstr "立即更新 Kepler 星历"
+
+msgid "Update###updateIERS"
+msgstr "更新###updateIERS"
+
+msgid "Update###updateKeplers"
+msgstr "更新###updateKeplers"
+
+msgid "Update###updatecalib"
+msgstr "更新###updatecalib"
+
+msgid "Use Range"
+msgstr "使用范围"
+
+msgid "User Interface"
+msgstr "用户界面"
+
+msgid "VFOs"
+msgstr "VFO"
+
+msgid "WIP Tracking"
+msgstr "WIP 跟踪"
+
+msgid "Warning"
+msgstr "警告"
+
+msgid "Waterfall Rate"
+msgstr "瀑布图刷新率"
+
+msgid "Welcome to SatDump!"
+msgstr "欢迎使用 SatDump！"
+
+msgid "White Balance"
+msgstr "白平衡"
+
+msgid "Zoom In"
+msgstr "放大"
+
+msgid "Zoom Out"
+msgstr "缩小"
+
+msgid "default"
+msgstr "默认"
+
+msgid "hidden"
+msgstr "隐藏"
+
