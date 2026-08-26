@@ -8,6 +8,11 @@
 #include <exception>
 #include <thread>
 
+#ifdef _WIN32
+#include <time.h>
+#define timegm _mkgmtime
+#endif
+
 namespace satdump
 {
     template <typename T>

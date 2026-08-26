@@ -1,7 +1,7 @@
+#define SATDUMP_DLL_EXPORT 1
 #include "db/kepler/kepler_handler.h"
 #include "i18n.h"
 #include <cstdlib>
-#define SATDUMP_DLL_EXPORT 1
 #include "core/config.h"
 #include "core/plugin.h"
 #include "core/resources.h"
