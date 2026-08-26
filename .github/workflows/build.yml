@@ -43,12 +43,6 @@ jobs:
       - name: Clone vcpkg (latest, avoids stale msys2 mirror URLs in old registries)
         run: git clone --depth 1 https://github.com/microsoft/vcpkg
 
-      - name: Install CMake 3.31 (stable baseline for vcpkg)
-        run: |
-          Invoke-WebRequest -Uri "https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-windows-x86_64.zip" -OutFile "$env:RUNNER_TEMP\cmake.zip"
-          Expand-Archive "$env:RUNNER_TEMP\cmake.zip" "$env:RUNNER_TEMP\cmake"
-          "$env:RUNNER_TEMP\cmake\cmake-3.31.6-windows-x86_64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
       - name: Bootstrap vcpkg
         run: .\vcpkg\bootstrap-vcpkg.bat
 
@@ -137,9 +131,12 @@ jobs:
       - name: Build native dependencies (android/deps)
         run: |
           git submodule update --init --recursive android/deps
+          sudo apt-get install -y python3 python3-pip
+          pip3 install mako
           cd android/deps
           export ANDROID_HOME=$ANDROID_SDK_ROOT
           sh build.sh
+          test -f output/arm64-v8a/lib/libvolk.a || (echo "FATAL: android/deps build did not produce libvolk.a" && exit 1)
 
       - name: Build debug APK
         working-directory: android
