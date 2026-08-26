@@ -76,7 +76,7 @@ namespace satdump
     void LoadingScreenSink::push_frame(std::string str)
     {
         std::pair<int, int> dims = backend::beginFrame();
-        float scale = style::ui_scale;
+        float scale = ui_scale;
         ImGui::SetNextWindowPos({0, 0});
         ImGui::SetNextWindowSize({(float)dims.first, (float)dims.second});
         ImGui::Begin("Loading Screen", nullptr, NOWINDOW_FLAGS | ImGuiWindowFlags_NoDecoration);

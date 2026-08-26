@@ -40,10 +40,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Clone vcpkg
-        run: git clone --depth 1 -b 2025.01.13 https://github.com/microsoft/vcpkg
+      - name: Clone vcpkg (latest, avoids stale msys2 mirror URLs in old registries)
+        run: git clone --depth 1 https://github.com/microsoft/vcpkg
 
-      - name: Install CMake 3.31 (vcpkg 2025.01.13 is not compatible with CMake 4.x)
+      - name: Install CMake 3.31 (stable baseline for vcpkg)
         run: |
           Invoke-WebRequest -Uri "https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-windows-x86_64.zip" -OutFile "$env:RUNNER_TEMP\cmake.zip"
           Expand-Archive "$env:RUNNER_TEMP\cmake.zip" "$env:RUNNER_TEMP\cmake"
