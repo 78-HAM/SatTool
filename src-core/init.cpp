@@ -5,6 +5,7 @@
 #include "core/config.h"
 #include "core/plugin.h"
 #include "core/resources.h"
+#include "core/ui_safety.h"
 #include "init.h"
 #include "logger.h"
 #include "satdump_vars.h"
@@ -64,8 +65,25 @@ namespace satdump
 #endif
         }
 
-        setlocale(LC_ALL, "");
-        bindtextdomain("satdump", resources::getResourcePath("i18n").c_str());
+        const char *active_locale = setlocale(LC_ALL, "");
+#if !defined(_WIN32) && !defined(__ANDROID__)
+        if (!lang.empty() && ui_safety::needsUtf8LocaleFallback(active_locale))
+        {
+            if (setlocale(LC_MESSAGES, "C.UTF-8") == nullptr)
+                setlocale(LC_MESSAGES, "en_US.UTF-8");
+        }
+#else
+        closeLoadedMessageCatalog("satdump");
+#endif
+
+        const std::string catalog_path = resources::getResourcePath("i18n");
+#if defined(_WIN32) || defined(__ANDROID__)
+        if (!lang.empty() && !bindtextdomain("satdump", catalog_path.c_str()))
+            logger->error("Failed to load language catalog for %s from %s", lang.c_str(), catalog_path.c_str());
+#else
+        if (bindtextdomain("satdump", catalog_path.c_str()) == nullptr)
+            logger->error("Failed to configure language catalogs from %s", catalog_path.c_str());
+#endif
         textdomain("satdump");
 
         current_language = lang;

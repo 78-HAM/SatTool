@@ -1,5 +1,6 @@
 #include "json_editor.h"
 #include "core/style.h"
+#include "core/ui_safety.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_stdlib.h"
 
@@ -7,6 +8,13 @@ namespace satdump
 {
     namespace widgets
     {
+        inline float InputWidthWithDeleteButton()
+        {
+            const ImGuiStyle &imgui_style = ImGui::GetStyle();
+            const float delete_width = ImGui::CalcTextSize(u8"\uf00d").x + imgui_style.FramePadding.x * 2.0f + imgui_style.ItemSpacing.x;
+            return ui_safety::fittedInputWidth(ImGui::GetContentRegionAvail().x, delete_width);
+        }
+
         template <typename T>
         inline void AddButton(T &json, bool allow_add)
         {
@@ -167,10 +175,19 @@ namespace satdump
                         ImGui::SameLine();
                     }
 
-                    ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
-                    int val = jsonItem.value();
-                    if (ImGui::InputInt(std::string("##" + this_key).c_str(), &val))
-                        jsonItem.value() = val;
+                    ImGui::SetNextItemWidth(InputWidthWithDeleteButton());
+                    if (jsonItem.value().is_number_unsigned())
+                    {
+                        uint64_t val = jsonItem.value().template get<uint64_t>();
+                        if (ImGui::InputScalar(std::string("##" + this_key).c_str(), ImGuiDataType_U64, &val))
+                            jsonItem.value() = val;
+                    }
+                    else
+                    {
+                        int64_t val = jsonItem.value().template get<int64_t>();
+                        if (ImGui::InputScalar(std::string("##" + this_key).c_str(), ImGuiDataType_S64, &val))
+                            jsonItem.value() = val;
+                    }
                     delete_item = DeleteButton();
                 }
                 else if (jsonItem.value().is_number_float())
@@ -181,7 +198,7 @@ namespace satdump
                         ImGui::SameLine();
                     }
 
-                    ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
+                    ImGui::SetNextItemWidth(InputWidthWithDeleteButton());
                     double val = jsonItem.value();
                     if (ImGui::InputDouble(std::string("##" + this_key).c_str(), &val))
                         jsonItem.value() = val;
@@ -195,7 +212,7 @@ namespace satdump
                         ImGui::SameLine();
                     }
 
-                    ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
+                    ImGui::SetNextItemWidth(InputWidthWithDeleteButton());
                     std::string val = jsonItem.value();
                     if (val.find("\n") == std::string::npos ? ImGui::InputText(std::string("##" + this_key).c_str(), &val) : ImGui::InputTextMultiline(std::string("##" + this_key).c_str(), &val))
                         jsonItem.value() = val;
@@ -271,24 +288,25 @@ namespace satdump
                         }
                         else if (jsonItem.value().is_number_integer() || jsonItem.value().is_number_unsigned())
                         {
-                            int64_t val = 0;
-                            try
+                            ImGui::SetNextItemWidth(InputWidthWithDeleteButton());
+                            if (jsonItem.value().is_number_unsigned())
                             {
-                                val = jsonItem.value().get<int64_t>();
+                                uint64_t val = jsonItem.value().get<uint64_t>();
+                                if (ImGui::InputScalar(std::string("##" + this_key).c_str(), ImGuiDataType_U64, &val))
+                                    jsonItem.value() = val;
                             }
-                            catch (std::exception &)
+                            else
                             {
-                                // Value out of range, keep 0
+                                int64_t val = jsonItem.value().get<int64_t>();
+                                if (ImGui::InputScalar(std::string("##" + this_key).c_str(), ImGuiDataType_S64, &val))
+                                    jsonItem.value() = val;
                             }
-                            ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
-                            if (ImGui::InputScalar(std::string("##" + this_key).c_str(), ImGuiDataType_S64, &val))
-                                jsonItem.value() = val;
                             delete_item = DeleteButton();
                         }
                         else if (jsonItem.value().is_number_float())
                         {
                             double val = jsonItem.value();
-                            ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
+                            ImGui::SetNextItemWidth(InputWidthWithDeleteButton());
                             if (ImGui::InputDouble(std::string("##" + this_key).c_str(), &val))
                                 jsonItem.value() = val;
                             delete_item = DeleteButton();
@@ -296,7 +314,7 @@ namespace satdump
                         else if (jsonItem.value().is_string())
                         {
                             std::string val = jsonItem.value();
-                            ImGui::SetNextItemWidth(std::max(60.0f * ui_scale, ImGui::GetContentRegionAvail().x - 30.0f * ui_scale));
+                            ImGui::SetNextItemWidth(InputWidthWithDeleteButton());
                             if (val.find("\n") == std::string::npos ? ImGui::InputText(std::string("##" + this_key).c_str(), &val)
                                                                     : ImGui::InputTextMultiline(std::string("##" + this_key).c_str(), &val))
                                 jsonItem.value() = val;

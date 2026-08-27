@@ -135,7 +135,7 @@ namespace satdump
         if (update_ui)
         {
             style::setStyle();
-            style::setFonts(ui_scale);
+            style::setFonts();
             update_ui = false;
         }
 

@@ -3,6 +3,7 @@
 #include "common/detect_header.h"
 #include "common/widgets/json_editor.h"
 #include "core/config.h"
+#include "core/ui_safety.h"
 #include "i18n.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_stdlib.h"
@@ -316,12 +317,12 @@ namespace satdump
 
     void PipelineUISelector::renderParamTable()
     {
+        const float table_width = ImGui::GetContentRegionAvail().x;
         if (ImGui::BeginTable("##pipelineoptions", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
         {
-            // TODOREWORKUI?
-            int label_width = ImGui::CalcTextSize(_("Output Directory")).x;
-            ImGui::TableSetupColumn("##pipelinesmaincolumn1", ImGuiTableColumnFlags_WidthStretch, label_width);
-            ImGui::TableSetupColumn("##pipelinesmaincolumn2", ImGuiTableColumnFlags_WidthStretch, label_width);
+            ImGui::TableSetupColumn("##pipelineparametername", ImGuiTableColumnFlags_WidthFixed,
+                                    ui_safety::labelColumnWidth(table_width, ui_scale));
+            ImGui::TableSetupColumn("##pipelineparametervalue", ImGuiTableColumnFlags_WidthStretch);
 
             for (std::pair<std::string, satdump::params::EditableParameter> &p : parameters_ui)
                 p.second.draw();

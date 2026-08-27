@@ -2,6 +2,7 @@
 #include "imgui/imgui_stdlib.h"
 #include "logger.h"
 #include "params.h"
+#include "core/ui_safety.h"
 
 namespace satdump
 {
@@ -69,6 +70,8 @@ namespace satdump
                 d_options_str = "";
                 for (std::string &opt : d_options)
                     d_options_str += opt + '\0';
+                if (d_options.empty())
+                    d_options_str += std::string("<Empty>") + '\0';
 
                 if (hasValue)
                 {
@@ -110,9 +113,14 @@ namespace satdump
             {
                 d_type = PARAM_COLOR;
                 std::vector<float> color = p_json["value"].get<std::vector<float>>();
-                p_color[0] = color[0];
-                p_color[1] = color[1];
-                p_color[2] = color[2];
+                if (color.size() >= 3)
+                {
+                    p_color[0] = color[0];
+                    p_color[1] = color[1];
+                    p_color[2] = color[2];
+                }
+                else
+                    logger->error("Color parameter \"%s\" must contain at least three components", d_name.c_str());
             }
             else if (type_str == "baseband_type")
             {
@@ -200,7 +208,14 @@ namespace satdump
             else if (d_type == PARAM_BOOL)
                 ImGui::Checkbox(d_id.c_str(), &p_bool);
             else if (d_type == PARAM_OPTIONS)
+            {
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+                if (d_options.empty())
+                    ImGui::BeginDisabled();
                 ImGui::Combo(d_id.c_str(), &d_option, d_options_str.c_str());
+                if (d_options.empty())
+                    ImGui::EndDisabled();
+            }
             else if (d_type == PARAM_PATH)
                 file_select->draw();
             else if (d_type == PARAM_TIMESTAMP)
@@ -213,16 +228,19 @@ namespace satdump
                 baseband_type.draw_playback_combo(d_id.c_str());
             else if (d_type == PARAM_LABELED_OPTIONS)
             {
-                if (ImGui::Combo(d_id.c_str(), &d_option, d_options_str.c_str()) && d_option != (int)d_labeled_opts.size())
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+                if (ImGui::Combo(d_id.c_str(), &d_option, d_options_str.c_str()) &&
+                    ui_safety::validIndex(d_option, d_labeled_opts.size()))
                     p_string = d_labeled_opts[d_option].first;
 
                 if (p_bool) // Allow Manual
                 {
-                    if (d_option != (int)d_labeled_opts.size())
+                    const bool custom_value = d_option == static_cast<int>(d_labeled_opts.size());
+                    if (!custom_value)
                         ImGui::BeginDisabled();
                     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                     ImGui::InputText(std::string(d_id + "_custom").c_str(), &p_string);
-                    if (d_option != (int)d_labeled_opts.size())
+                    if (!custom_value)
                         ImGui::EndDisabled();
                 }
             }
@@ -240,7 +258,7 @@ namespace satdump
             else if (d_type == PARAM_BOOL)
                 v = p_bool;
             else if (d_type == PARAM_OPTIONS)
-                v = d_options[d_option];
+                v = ui_safety::validIndex(d_option, d_options.size()) ? d_options[d_option] : std::string();
             else if (d_type == PARAM_PATH)
                 return file_select->getPath();
             else if (d_type == PARAM_TIMESTAMP)
@@ -281,9 +299,12 @@ namespace satdump
             else if (d_type == PARAM_COLOR)
             {
                 std::vector<float> color = v.get<std::vector<float>>();
-                p_color[0] = color[0];
-                p_color[1] = color[1];
-                p_color[2] = color[2];
+                if (color.size() >= 3)
+                {
+                    p_color[0] = color[0];
+                    p_color[1] = color[1];
+                    p_color[2] = color[2];
+                }
             }
             else if (d_type == PARAM_BASEBAND_TYPE)
                 baseband_type = v.get<std::string>();

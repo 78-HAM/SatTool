@@ -1,5 +1,7 @@
 #include "backend.h"
 #include "core/config.h"
+#include "core/style.h"
+#include "core/ui_safety.h"
 #include "init.h"
 #include "loader/loader.h"
 #include "logger.h"
@@ -93,7 +95,8 @@ void init(struct android_app *app)
         // ImGui::StyleColorsClassic();
 
         initLogger();
-        style::setFonts(backend::device_scale);
+        ui_scale = satdump::ui_safety::effectiveScale(backend::device_scale, 1.0f);
+        style::setFonts();
         HideSoftKeyboardInput();
         eglSwapInterval(g_EglDisplay, 0);
         std::shared_ptr<satdump::LoadingScreenSink> loading_screen_sink = std::make_shared<satdump::LoadingScreenSink>();

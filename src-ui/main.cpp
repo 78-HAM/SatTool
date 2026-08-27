@@ -7,6 +7,7 @@
 #include "core/plugin.h"
 #include "core/resources.h"
 #include "core/style.h"
+#include "core/ui_safety.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_filedrop.h"
 #include "imgui/imgui_image.h"
@@ -217,7 +218,8 @@ int main(int argc, char *argv[])
 #endif
 
     // Set font
-    style::setFonts(backend::device_scale);
+    ui_scale = satdump::ui_safety::effectiveScale(backend::device_scale, 1.0f);
+    style::setFonts();
 
     // Init Loading Screen
     std::shared_ptr<satdump::LoadingScreenSink> loading_screen_sink = std::make_shared<satdump::LoadingScreenSink>();

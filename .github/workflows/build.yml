@@ -33,17 +33,42 @@ jobs:
           python3 tools/gen_zh_i18n.py
           git diff --exit-code -- resources/i18n/zh_CN || (echo "zh_CN catalogs are out of date! Run: python3 tools/gen_zh_i18n.py" && exit 1)
 
-      - name: Package install tree
+      - name: Run UI and i18n regression tests
         run: |
-          DESTDIR="$RUNNER_TEMP/sattool-linux" cmake --install build --config Release > /tmp/install.log 2>&1 || { tail -50 /tmp/install.log; exit 1; }
-          tar -C "$RUNNER_TEMP" -czf sattool-linux.tar.gz sattool-linux
+          g++ -std=c++17 -Isrc-core src-testing/ui_regression_tests.cpp -o /tmp/ui_regression_tests
+          /tmp/ui_regression_tests
+          g++ -std=c++17 -D__ANDROID__ -Isrc-core \
+            src-testing/i18n_switch_test.cpp src-core/libs/libintl-tiny/libintl.cpp \
+            -o /tmp/i18n_switch_test
+          /tmp/i18n_switch_test
+          g++ -std=c++17 -Isrc-core src-testing/cjk_font_test.cpp \
+            src-core/imgui/imgui.cpp src-core/imgui/imgui_draw.cpp \
+            src-core/imgui/imgui_tables.cpp src-core/imgui/imgui_widgets.cpp \
+            -o /tmp/cjk_font_test
+          /tmp/cjk_font_test
+
+      - name: Package install tree and DEB
+        run: |
+          staging="$RUNNER_TEMP/sattool-linux"
+          cmake --install build --config Release --prefix "$staging/usr" > /tmp/install.log 2>&1 || { tail -50 /tmp/install.log; exit 1; }
+          test -x "$staging/usr/bin/satdump-ui"
+          test -x "$staging/usr/bin/satdump"
+          test -f "$staging/usr/share/satdump/satdump_cfg.json"
+          test -f "$staging/usr/share/satdump/resources/i18n/zh_CN/LC_MESSAGES/satdump.mo"
+          test -f "$staging/usr/share/satdump/resources/fonts/NotoSansSC-Regular.otf"
+          mkdir -p dist
+          tar -C "$RUNNER_TEMP" -czf dist/sattool-linux-install-tree.tar.gz sattool-linux
+          cmake --build build --target package -j$(nproc)
+          find build -maxdepth 1 -type f -name '*.deb' -exec cp {} dist/ \;
+          test -n "$(find dist -maxdepth 1 -type f -name '*.deb' -print -quit)"
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: sattool-linux
-          path: sattool-linux.tar.gz
-          retention-days: 14
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
 
   build-windows:
     runs-on: windows-latest
@@ -114,40 +139,52 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Verify binaries
-        shell: pwsh
-        run: |
-          if (!(Test-Path build\Release\satdump-ui.exe)) { throw "satdump-ui.exe missing!" }
-          if (!(Test-Path build\Release\satdump.exe)) { throw "satdump.exe missing!" }
+      - name: Install NSIS
+        run: choco install nsis --yes --no-progress
 
-      - name: Stage Windows release files
+      - name: Stage and verify Windows release
         shell: pwsh
         run: |
           $staging = Join-Path $env:RUNNER_TEMP "sattool-windows"
-          New-Item -ItemType Directory -Force -Path $staging | Out-Null
-          # SatDump binaries we built (exe + our own dlls + plugins tree)
-          Copy-Item build\Release\satdump-ui.exe $staging\
-          Copy-Item build\Release\satdump.exe $staging\
-          Get-ChildItem build\Release\*.dll -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $staging\ }
-          if (Test-Path build\Release\plugins) { Copy-Item build\Release\plugins $staging\ -Recurse }
-          # Runtime DLLs from vcpkg installed tree (glfw, libpng, zlib, fftw, hdf5, curl, nng, etc.)
-          # Without these the exes fail to start with "missing dll" errors.
-          $vcpkgBin = Join-Path $env:GITHUB_WORKSPACE "vcpkg\installed\x64-windows\bin"
-          if (Test-Path $vcpkgBin) {
-            Get-ChildItem "$vcpkgBin\*.dll" -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $staging\ -Force }
-          } else { Write-Warning "vcpkg bin dir not found at $vcpkgBin" }
-          # Resources (pipelines, themes, maps, fonts, i18n catalogs, etc.)
-          if (Test-Path resources) { Copy-Item resources $staging\ -Recurse }
-          Compress-Archive -Path $staging -DestinationPath sattool-windows.zip -Force
-          Get-Item sattool-windows.zip | ForEach-Object { "artifact size: " + $_.Length + " bytes" }
-          Write-Output "Staged files:"; Get-ChildItem $staging | ForEach-Object { "  " + $_.Name }
+          cmake --install build --config Release --prefix $staging
+
+          $required = @(
+            "bin\satdump-ui.exe",
+            "bin\satdump.exe",
+            "share\satdump\satdump_cfg.json",
+            "share\satdump\resources\i18n\zh_CN\LC_MESSAGES\satdump.mo",
+            "share\satdump\resources\fonts\NotoSansSC-Regular.otf"
+          )
+          foreach ($path in $required) {
+            if (!(Test-Path (Join-Path $staging $path))) { throw "Installed file missing: $path" }
+          }
+
+          Push-Location $env:RUNNER_TEMP
+          try {
+            & (Join-Path $staging "bin\satdump.exe") --help
+            if ($LASTEXITCODE -ne 0) { throw "Installed satdump.exe smoke test failed with exit code $LASTEXITCODE" }
+          } finally {
+            Pop-Location
+          }
+
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path "$staging\*" -DestinationPath dist\sattool-windows-portable.zip -Force
+
+      - name: Build NSIS installer
+        shell: pwsh
+        run: |
+          cpack --config build\CPackConfig.cmake -C Release -G NSIS -B dist
+          if (!(Get-ChildItem dist\*.exe -ErrorAction SilentlyContinue)) { throw "NSIS installer missing" }
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: sattool-windows
-          path: sattool-windows.zip
-          retention-days: 14
+          path: |
+            dist/*.zip
+            dist/*.exe
+          if-no-files-found: error
+          retention-days: 30
 
   build-android:
     runs-on: ubuntu-latest
@@ -212,6 +249,8 @@ jobs:
         run: |
           ls -la android/app/build/outputs/apk/debug/
           test -f android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/resources/i18n/zh_CN/LC_MESSAGES/satdump.mo'
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/resources/fonts/NotoSansSC-Regular.otf'
           cp android/app/build/outputs/apk/debug/app-debug.apk sattool-android-debug.apk
 
       - name: Upload Android artifact
@@ -219,4 +258,5 @@ jobs:
         with:
           name: sattool-android-debug
           path: sattool-android-debug.apk
-          retention-days: 14
+          if-no-files-found: error
+          retention-days: 30

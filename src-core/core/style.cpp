@@ -4,6 +4,7 @@
 #include "backend.h"
 #include "config.h"
 #include "core/resources.h"
+#include "core/ui_safety.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
 #include "init.h"
@@ -53,8 +54,8 @@ namespace style
     void setStyle()
     {
         // Set standard theme info
-        ui_scale = backend::device_scale * getValueOrDefault(satdump::satdump_cfg.main_cfg["user_interface"]["manual_dpi_scaling"]["value"], 1.0f);
-        ui_scale = std::clamp(ui_scale, 0.5f, 3.0f); // Avoid extreme values (tiny fonts, huge sizes, crashes)
+        const float manual_scale = getValueOrDefault(satdump::satdump_cfg.main_cfg["user_interface"]["manual_dpi_scaling"]["value"], 1.0f);
+        ui_scale = satdump::ui_safety::effectiveScale(backend::device_scale, manual_scale);
         ImGuiStyle &style = ImGui::GetStyle();
         style = ImGuiStyle();
         theme = Theme();
@@ -283,7 +284,7 @@ namespace style
         ImGui::PopStyleColor(3);
     }
 
-    void setFonts(float dpi_scaling)
+    void setFonts()
     {
         ImGuiIO &io = ImGui::GetIO();
         io.Fonts->Clear();
@@ -300,7 +301,7 @@ namespace style
             {0xea60, 0xebeb, 0}, //
         };
         float macos_fbs = macos_framebuffer_scale();
-        float font_scaling = dpi_scaling * macos_fbs;
+        float font_scaling = ui_scale * macos_fbs;
 
         // Clamp to a minimum font size. Extremely small UI scale values (eg, 0.1)
         // produced ~1-2px fonts and crashed in the font atlas packing step.

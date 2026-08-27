@@ -44,7 +44,7 @@ namespace style
     void setStyle();
     void beginDisabled();
     void endDisabled();
-    void setFonts(float dpi_scaling);
+    void setFonts();
 
     float macos_framebuffer_scale();
 }

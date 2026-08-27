@@ -215,11 +215,11 @@ def write_mo(path, entries):
     data += struct.pack("<I", trans_table_offset)
     data += struct.pack("<I", 0)  # Hash table size : 0 = simple format
     data += struct.pack("<I", 0)  # Hash table offset : unused with size 0
-    for off in orig_offsets:
-        data += struct.pack("<I", len(entries[orig_offsets.index(off)][0].encode("utf-8")) + 1)
+    for index, off in enumerate(orig_offsets):
+        data += struct.pack("<I", len(entries[index][0].encode("utf-8")))
         data += struct.pack("<I", off)
-    for off in trans_offsets:
-        data += struct.pack("<I", len(entries[trans_offsets.index(off)][1].encode("utf-8")) + 1)
+    for index, off in enumerate(trans_offsets):
+        data += struct.pack("<I", len(entries[index][1].encode("utf-8")))
         data += struct.pack("<I", off)
     data += orig_blob
     data += trans_blob

@@ -17,6 +17,7 @@
 
 #include "core/resources.h"
 #include "core/style.h"
+#include "core/ui_safety.h"
 #include <algorithm>
 
 namespace satdump
@@ -46,6 +47,13 @@ namespace satdump
         bool advanced_mode = false;
 
         widgets::TimedMessage saved_message;
+
+        void setupParameterColumns(float available_width)
+        {
+            ImGui::TableSetupColumn("##setting_name", ImGuiTableColumnFlags_WidthFixed,
+                                    ui_safety::labelColumnWidth(available_width, ui_scale));
+            ImGui::TableSetupColumn("##setting_value", ImGuiTableColumnFlags_WidthStretch);
+        }
 
         void setup()
         {
@@ -132,8 +140,10 @@ namespace satdump
             ImGui::SeparatorText(_("Core Settings"));
             if (ImGui::CollapsingHeader(_("User Interface")))
             {
+                const float table_width = ImGui::GetContentRegionAvail().x;
                 if (ImGui::BeginTable("##satdumpuisettings", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
                 {
+                    setupParameterColumns(table_width);
                     // Theme Selection
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
@@ -141,6 +151,7 @@ namespace satdump
                     if (ImGui::IsItemHovered())
                         ImGui::SetTooltip(_("Set the style and color of SatDump"));
                     ImGui::TableSetColumnIndex(1);
+                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                     ImGui::Combo("##themeselection", &selected_theme, themes_str.c_str());
 
                     // Standard user interface settings
@@ -153,8 +164,10 @@ namespace satdump
 
             if (ImGui::CollapsingHeader(_("General SatDump")))
             {
+                const float table_width = ImGui::GetContentRegionAvail().x;
                 if (ImGui::BeginTable("##satdumpgeneralsettings", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
                 {
+                    setupParameterColumns(table_width);
 #if ENABLE_I18N
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
@@ -168,6 +181,7 @@ namespace satdump
                             if (current_language == opt.first)
                                 display_name = opt.second;
 
+                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                         if (ImGui::BeginCombo("##languageCombo", display_name.c_str()))
                         {
                             for (auto &opt : language_options)
@@ -193,6 +207,7 @@ namespace satdump
                     if (ImGui::IsItemHovered())
                         ImGui::SetTooltip(_("OpenCL Device SatDump will use for accelerated computing where it can help, eg, for some image processing tasks such as projections."));
                     ImGui::TableSetColumnIndex(1);
+                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                     ImGui::Combo("##opencldeviceselection", &opencl_devices_id, opencl_devices_str.c_str());
 #endif
 
@@ -281,8 +296,10 @@ namespace satdump
 
             if (ImGui::CollapsingHeader(_("File Input/Output")))
             {
+                const float table_width = ImGui::GetContentRegionAvail().x;
                 if (ImGui::BeginTable("##satdumpoutput_directories", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
                 {
+                    setupParameterColumns(table_width);
                     for (std::pair<std::string, satdump::params::EditableParameter> &p : settings_output_directories)
                         p.second.draw();
                     ImGui::EndTable();
@@ -333,9 +350,12 @@ namespace satdump
             {
 #ifdef USE_OPENCL
                 // Save OpenCL Device selection
-                satdump::satdump_cfg.main_cfg["satdump_general"]["opencl_device"]["platform"] = opencl_devices_enum[opencl_devices_id].platform_id;
-                satdump::satdump_cfg.main_cfg["satdump_general"]["opencl_device"]["device"] = opencl_devices_enum[opencl_devices_id].device_id;
-                opencl::resetOCLContext();
+                if (ui_safety::validIndex(opencl_devices_id, opencl_devices_enum.size()))
+                {
+                    satdump::satdump_cfg.main_cfg["satdump_general"]["opencl_device"]["platform"] = opencl_devices_enum[opencl_devices_id].platform_id;
+                    satdump::satdump_cfg.main_cfg["satdump_general"]["opencl_device"]["device"] = opencl_devices_enum[opencl_devices_id].device_id;
+                    opencl::resetOCLContext();
+                }
 #endif
 
                 // Most general settings
@@ -347,7 +367,8 @@ namespace satdump
                     satdump::satdump_cfg.main_cfg["satdump_directories"][p.first]["value"] = p.second.getValue();
 
                 // Theme
-                satdump::satdump_cfg.main_cfg["user_interface"]["theme"]["value"] = themes[selected_theme];
+                if (ui_safety::validIndex(selected_theme, themes.size()))
+                    satdump::satdump_cfg.main_cfg["user_interface"]["theme"]["value"] = themes[selected_theme];
 
                 // Plugin Settings
                 for (auto &plugin_hdl : satdump_cfg.plugin_config_handlers)

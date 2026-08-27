@@ -35,7 +35,7 @@ namespace satdump
             };
 
         private:
-            ParameterType d_type;
+            ParameterType d_type = PARAM_STRING;
             std::string d_name;
             int d_imgui_id;
             std::string d_id;
@@ -44,16 +44,16 @@ namespace satdump
         private:
             // All the values we might need
             std::string p_string;
-            int p_int;
-            double p_float;
-            bool p_bool;
+            int p_int = 0;
+            double p_float = 0.0;
+            bool p_bool = false;
             float p_color[4] = {0, 0, 0, 0};
             dsp::BasebandType baseband_type;
             std::shared_ptr<FileSelectWidget> file_select;
             std::shared_ptr<widgets::DateTimePicker> date_time_picker;
             std::shared_ptr<widgets::NotatedNum<int64_t>> notated_int;
 
-            int d_option;
+            int d_option = 0;
             std::string d_options_str;
             std::vector<std::string> d_options;
             std::vector<std::pair<std::string, std::string>> d_labeled_opts;
