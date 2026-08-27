@@ -8,6 +8,7 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_stdlib.h"
 #include "logger.h"
+#include "nlohmann/json_utils.h"
 #include "utils/string.h"
 
 #include <algorithm>
