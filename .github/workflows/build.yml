@@ -86,7 +86,7 @@ jobs:
       - name: Install dependencies
         # Core-only package list from windows/Configure-vcpkg.ps1 (+ volk).
         # SDR-specific dependencies are skipped, the matching plugins are disabled below.
-        run: .\vcpkg\vcpkg install --triplet x64-windows pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd opencl curl hdf5[cpp] sqlite3
+        run: .\vcpkg\vcpkg install --triplet x64-windows pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd opencl curl hdf5[cpp,hl] sqlite3
 
       - name: Build VOLK from source (vcpkg's volk port is the Vulkan loader)
         run: |
