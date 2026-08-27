@@ -28,6 +28,13 @@ endif()
 
 project(SatDump)
 
+# POSIX exposes timegm(), while the Microsoft C runtime provides the
+# equivalent _mkgmtime().  Keep the cross-platform call sites unchanged so
+# Windows builds include the same product and HDF5 processing plugins.
+if(MSVC OR (WIN32 AND NOT MINGW))
+    add_compile_definitions(timegm=_mkgmtime)
+endif()
+
 option(BUILD_GUI "Build the GUI" ON)
 option(BUILD_TESTING "Build the testing program" OFF)
 option(BUILD_TOOLS "Build the tools programs" OFF)
