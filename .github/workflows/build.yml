@@ -125,12 +125,22 @@ jobs:
         run: |
           $staging = Join-Path $env:RUNNER_TEMP "sattool-windows"
           New-Item -ItemType Directory -Force -Path $staging | Out-Null
+          # SatDump binaries we built (exe + our own dlls + plugins tree)
           Copy-Item build\Release\satdump-ui.exe $staging\
           Copy-Item build\Release\satdump.exe $staging\
-          Get-ChildItem build\Release\*.dll,build\Release\plugins -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $staging\ -Recurse }
+          Get-ChildItem build\Release\*.dll -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $staging\ }
+          if (Test-Path build\Release\plugins) { Copy-Item build\Release\plugins $staging\ -Recurse }
+          # Runtime DLLs from vcpkg installed tree (glfw, libpng, zlib, fftw, hdf5, curl, nng, etc.)
+          # Without these the exes fail to start with "missing dll" errors.
+          $vcpkgBin = Join-Path $env:GITHUB_WORKSPACE "vcpkg\installed\x64-windows\bin"
+          if (Test-Path $vcpkgBin) {
+            Get-ChildItem "$vcpkgBin\*.dll" -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $staging\ -Force }
+          } else { Write-Warning "vcpkg bin dir not found at $vcpkgBin" }
+          # Resources (pipelines, themes, maps, fonts, i18n catalogs, etc.)
           if (Test-Path resources) { Copy-Item resources $staging\ -Recurse }
           Compress-Archive -Path $staging -DestinationPath sattool-windows.zip -Force
-          Get-Item sattool-windows.zip | ForEach-Object { "artifact size: " + $_.Length }
+          Get-Item sattool-windows.zip | ForEach-Object { "artifact size: " + $_.Length + " bytes" }
+          Write-Output "Staged files:"; Get-ChildItem $staging | ForEach-Object { "  " + $_.Name }
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
