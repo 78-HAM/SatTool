@@ -116,7 +116,10 @@ inline ContainedContext::~ContainedContext()
 inline void ContainedContext::setFontDensity()
 {
 #if IMGUI_VERSION_NUM >= 19198
-    ImGui::SetFontRasterizerDensity(roundf(m_scale * 100.0f) / 100.0f); // Round density to two digits.
+    // Legacy renderers, including Android's bundled OpenGL backend, cannot
+    // service dynamic font texture updates and ImGui asserts if this is called.
+    if ((ImGui::GetIO().BackendFlags & ImGuiBackendFlags_RendererHasTextures) != 0)
+        ImGui::SetFontRasterizerDensity(roundf(m_scale * 100.0f) / 100.0f); // Round density to two digits.
 #endif
 }
 

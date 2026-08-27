@@ -7,11 +7,41 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
+msgid "%s\nAOS : %s\nLOS : %s\nEl : %.2f"
+msgstr "%s\nAOS：%s\nLOS：%s\n仰角：%.2f"
+
+msgid "1 day"
+msgstr "1 天"
+
+msgid "14 days"
+msgstr "14 天"
+
+msgid "3 days"
+msgstr "3 天"
+
+msgid "4 hours"
+msgstr "4 小时"
+
+msgid "7 days"
+msgstr "7 天"
+
+msgid "AOS in"
+msgstr "AOS 倒计时"
+
+msgid "AZ EL Decimal rounding"
+msgstr "方位/仰角小数取整"
+
 msgid "About"
 msgstr "关于"
 
 msgid "Add"
 msgstr "添加"
+
+msgid "Add Item"
+msgstr "添加项目"
+
+msgid "Add Layer"
+msgstr "添加图层"
 
 msgid "Add Overlay"
 msgstr "添加叠加层"
@@ -19,8 +49,29 @@ msgstr "添加叠加层"
 msgid "Add Recorder"
 msgstr "添加录制器"
 
+msgid "Add Selection"
+msgstr "添加"
+
+msgid "Add layer"
+msgstr "添加图层"
+
+msgid "Add milliseconds to the output filenames for basebands recorded in the recorder"
+msgstr "为录制器输出的基带文件名附加毫秒信息。"
+
+msgid "Add to Projections"
+msgstr "添加到投影"
+
 msgid "Add to projection"
 msgstr "添加到投影"
+
+msgid "Add..."
+msgstr "添加..."
+
+msgid "Added!"
+msgstr "已添加！"
+
+msgid "Address"
+msgstr "地址"
 
 msgid "Advanced"
 msgstr "高级"
@@ -37,8 +88,23 @@ msgstr "高级设置"
 msgid "Albedo"
 msgstr "反照率"
 
+msgid "Albedo : %.2f %%"
+msgstr "反照率：%.2f %%"
+
+msgid "Allows full editing of all SatDump options. Be warned: invalid configurations\nmay result in crashes, corruption of data, and more. Use at your own risk!"
+msgstr "允许完整编辑 SatDump 的所有选项。注意：错误配置可能导致崩溃、数据损坏等问题，请自行承担风险。"
+
+msgid "Altitude (m)"
+msgstr "高度（米）"
+
 msgid "Altitude (m)##tpers"
 msgstr "高度（米）##tpers"
+
+msgid "Altitude (meters above sea level) of your station's QTH"
+msgstr "你的台站 QTH 海拔（米，基于海平面）。"
+
+msgid "Angle"
+msgstr "倾角"
 
 msgid "Angle##tpers"
 msgstr "倾角##tpers"
@@ -49,14 +115,38 @@ msgstr "抗锯齿"
 msgid "Apply"
 msgstr "应用"
 
+msgid "Apply LUT"
+msgstr "应用 LUT"
+
 msgid "Archive Loader"
 msgstr "归档加载器"
+
+msgid "Array"
+msgstr "数组"
+
+msgid "Arrow Keys Control"
+msgstr "方向键控制"
+
+msgid "Arrow Keys Control Increment"
+msgstr "方向键控制步进"
+
+msgid "Auto Mode"
+msgstr "自动模式"
 
 msgid "Auto Mode###pojautomode"
 msgstr "自动模式###pojautomode"
 
+msgid "Auto Scale Mode"
+msgstr "自动缩放模式"
+
 msgid "Auto Scale Mode##projautoscalemode"
 msgstr "自动缩放模式##projautoscalemode"
+
+msgid "Automatically Process Products"
+msgstr "自动处理产品"
+
+msgid "Automatically play audio from pipelines that support it,\nlike NOAA APT and Inmarsat Aero"
+msgstr "自动播放支持音频输出的流水线，例如 NOAA APT 和 Inmarsat Aero。"
 
 msgid "Autotrack Engaged:"
 msgstr "自动跟踪已启用："
@@ -64,8 +154,17 @@ msgstr "自动跟踪已启用："
 msgid "Avg Num"
 msgstr "平均次数"
 
+msgid "Azimuth"
+msgstr "方位角"
+
+msgid "Azimuth Rate"
+msgstr "方位角速率"
+
 msgid "Azimuth##tpers"
 msgstr "方位角##tpers"
+
+msgid "Back"
+msgstr "后视"
 
 msgid "Backscatter"
 msgstr "后向散射"
@@ -73,11 +172,23 @@ msgstr "后向散射"
 msgid "Bandwidth : %s / %s"
 msgstr "带宽：%s / %s"
 
+msgid "Baseband Format"
+msgstr "基带格式"
+
+msgid "Baseband Recorder directory"
+msgstr "基带录制目录"
+
 msgid "Bit Depth"
 msgstr "位深"
 
 msgid "Bits"
 msgstr "比特"
+
+msgid "Blend"
+msgstr "混合"
+
+msgid "Boolean"
+msgstr "布尔值"
 
 msgid "Borders"
 msgstr "边界"
@@ -91,8 +202,14 @@ msgstr "亮度"
 msgid "Brightness Temperature"
 msgstr "亮温"
 
+msgid "By enabling this setting, you can allow your rotator to go beyond the default 0-360 degree azimuth range"
+msgstr "启用后可允许转子超出默认 0-360 度方位范围。"
+
 msgid "Bytes"
 msgstr "字节"
+
+msgid "Calibration Error! - Invalid Value"
+msgstr "校准错误：无效数值"
 
 msgid "Calibration Error. Please Report!"
 msgstr "校准错误，请反馈！"
@@ -106,14 +223,23 @@ msgstr "校准最小值 %f"
 msgid "Calibration Unit %s"
 msgstr "校准单位 %s"
 
+msgid "Can be used to offset the signal."
+msgstr "可用于对信号进行频率偏移。"
+
 msgid "Can't drag parent onto child handler!"
 msgstr "不能将父项拖到子处理程序上！"
+
+msgid "Cancel"
+msgstr "取消"
 
 msgid "Cannot crop while processing!"
 msgstr "处理中无法裁剪！"
 
 msgid "Center Coordinates :"
 msgstr "中心坐标："
+
+msgid "Channel"
+msgstr "通道"
 
 msgid "Channel##selectechannel"
 msgstr "通道##selectechannel"
@@ -124,11 +250,32 @@ msgstr "通道"
 msgid "Cities"
 msgstr "城市"
 
+msgid "Clear Cache"
+msgstr "清除缓存"
+
 msgid "Clear Cache###deleteosmtiles"
 msgstr "清除缓存###deleteosmtiles"
 
 msgid "Clear Tile Map (OSM) Cache"
 msgstr "清除瓦片地图（OSM）缓存"
+
+msgid "Compact Detailed"
+msgstr "紧凑详细"
+
+msgid "Composite"
+msgstr "合成图"
+
+msgid "Composite Info"
+msgstr "合成说明"
+
+msgid "Config"
+msgstr "配置"
+
+msgid "Configure"
+msgstr "配置"
+
+msgid "Connect"
+msgstr "连接"
 
 msgid "Contrast"
 msgstr "对比度"
@@ -141,6 +288,9 @@ msgstr "已复制到剪贴板！"
 
 msgid "Core Settings"
 msgstr "核心设置"
+
+msgid "Correct"
+msgstr "校正"
 
 msgid "Could not process image! %s"
 msgstr "图像处理失败！%s"
@@ -157,8 +307,17 @@ msgstr "裁剪"
 msgid "Crop must be bigger than 0!"
 msgstr "裁剪区域必须大于 0！"
 
+msgid "Current image can't be projected!"
+msgstr "当前图像无法投影！"
+
 msgid "Custom"
 msgstr "自定义"
+
+msgid "DC Blocking"
+msgstr "直流抑制"
+
+msgid "DC Blocking allows removing a DC Spike / Offset present on some SDRs.\n A classic example would be the HackRF which often has this sort of issue."
+msgstr "直流抑制可去除部分 SDR 上存在的直流尖峰/偏移。\nHackRF 就是常见例子。"
 
 msgid "DSP Flowgraph"
 msgstr "DSP 流程图"
@@ -169,6 +328,12 @@ msgstr "日期："
 msgid "Debug"
 msgstr "调试"
 
+msgid "Decimal Place Precision"
+msgstr "小数位精度"
+
+msgid "Decimation"
+msgstr "抽取率"
+
 msgid "Decimation##recorderdecimation"
 msgstr "抽取率##recorderdecimation"
 
@@ -178,8 +343,62 @@ msgstr "解码为："
 msgid "Default"
 msgstr "默认"
 
+msgid "Default Borders Color"
+msgstr "默认边界颜色"
+
+msgid "Default Cities Color"
+msgstr "默认城市颜色"
+
+msgid "Default Img Output Directory"
+msgstr "默认图像输出目录"
+
+msgid "Default Input Directory"
+msgstr "默认输入目录"
+
+msgid "Default Lat/Lon Color"
+msgstr "默认经纬网颜色"
+
+msgid "Default Output Directory"
+msgstr "默认输出目录"
+
 msgid "Default Pipeline Configs"
 msgstr "默认流水线配置"
+
+msgid "Default Proj Output Directory"
+msgstr "默认投影输出目录"
+
+msgid "Default QTH Color"
+msgstr "默认 QTH 颜色"
+
+msgid "Default QTH Label"
+msgstr "默认 QTH 标签"
+
+msgid "Default Shores Color"
+msgstr "默认海岸线颜色"
+
+msgid "Default map QTH color"
+msgstr "地图 QTH 标记的默认颜色。"
+
+msgid "Default map borders color"
+msgstr "地图边界的默认颜色。"
+
+msgid "Default map cities color"
+msgstr "地图城市标记的默认颜色。"
+
+msgid "Default map label for QTH marker"
+msgstr "地图上 QTH 标记的默认标签。"
+
+msgid "Default map latlon grid overlay color"
+msgstr "地图经纬网叠加层的默认颜色。"
+
+msgid "Default map shores color"
+msgstr "地图海岸线的默认颜色。"
+
+msgid "Defines the overall UI scale. This can be used to make UI elements bigger or smaller\n\n1.0 = normal\n0.5 = half size\n2.0 = double size"
+msgstr "定义整体界面缩放比例，可用于放大或缩小界面元素。\n\n1.0 = 正常\n0.5 = 一半大小\n2.0 = 双倍大小"
+
+msgid "Defines the time when should the user be warned about not enough disk space.\nSet to 0 to disable"
+msgstr "定义剩余磁盘空间不足时的警告阈值时间。\n设为 0 可禁用。"
 
 msgid "Delete"
 msgstr "删除"
@@ -187,14 +406,41 @@ msgstr "删除"
 msgid "Delete all cached tiles (OSM, and other sources)."
 msgstr "删除所有缓存的地图瓦片（OSM 及其他来源）。"
 
+msgid "Demod FFT Waterfall"
+msgstr "解调 FFT 瀑布图"
+
 msgid "Despeckle"
 msgstr "去斑点"
+
+msgid "Detailed"
+msgstr "详细"
+
+msgid "Device"
+msgstr "设备"
+
+msgid "Diaplay Range Control"
+msgstr "显示范围控制"
 
 msgid "Directory: %s"
 msgstr "目录：%s"
 
+msgid "Disable correction!"
+msgstr "请关闭校正！"
+
+msgid "Disconnect"
+msgstr "断开连接"
+
 msgid "Display"
 msgstr "显示"
+
+msgid "Display Local Time"
+msgstr "显示本地时间"
+
+msgid "Display Range Control"
+msgstr "显示范围控制"
+
+msgid "Displays times as local time throughout the scheduler UI only.\nAll other times are in UTC."
+msgstr "仅在调度器界面中以本地时间显示。\n其他时间仍为 UTC。"
 
 msgid "Documentation"
 msgstr "文档"
@@ -202,17 +448,44 @@ msgstr "文档"
 msgid "Dot Map"
 msgstr "点图"
 
+msgid "Double"
+msgstr "双精度数"
+
+msgid "Down"
+msgstr "下视"
+
 msgid "Downloading : %s"
 msgstr "下载中：%s"
+
+msgid "Draw Color"
+msgstr "绘制颜色"
 
 msgid "Draw Color##shapefilecolor"
 msgstr "绘制颜色##shapefilecolor"
 
+msgid "Elevation"
+msgstr "仰角"
+
+msgid "Elevation Rate"
+msgstr "仰角速率"
+
 msgid "Emissive Radiance"
 msgstr "发射辐亮度"
 
+msgid "Enable the FFT Waterfall shown in the small FFT available in demodulators\nThis does increase CPU usage"
+msgstr "启用解调器小型 FFT 里的瀑布图显示。\n这会增加 CPU 占用。"
+
+msgid "Engage"
+msgstr "启用"
+
+msgid "Engage Autotrack"
+msgstr "启用自动跟踪"
+
 msgid "Equalize"
 msgstr "均衡化"
+
+msgid "Equirectangular"
+msgstr "等经纬度投影"
 
 msgid "Error"
 msgstr "错误"
@@ -226,11 +499,20 @@ msgstr "正在退出 SatDump，再见！"
 msgid "Experimental"
 msgstr "实验性"
 
+msgid "Export Config"
+msgstr "导出配置"
+
+msgid "Export to CLI"
+msgstr "导出到 CLI"
+
 msgid "Export/Import"
 msgstr "导出/导入"
 
 msgid "Expression"
 msgstr "表达式"
+
+msgid "FFT Enable"
+msgstr "启用 FFT"
 
 msgid "FFT Max"
 msgstr "FFT 最大值"
@@ -247,6 +529,9 @@ msgstr "FFT 大小"
 msgid "Failed Geo-Correcting image!"
 msgstr "地理校正失败！"
 
+msgid "Fast"
+msgstr "快速"
+
 msgid "Favourites"
 msgstr "收藏"
 
@@ -259,8 +544,14 @@ msgstr "文件：%s"
 msgid "File Input/Output"
 msgstr "文件输入/输出"
 
+msgid "File Source"
+msgstr "文件源"
+
 msgid "Fill Map"
 msgstr "填充地图"
+
+msgid "Finish processing when stopping live"
+msgstr "停止实时处理后完成后续处理"
 
 msgid "First-Party Support"
 msgstr "官方产品支持"
@@ -271,20 +562,53 @@ msgstr "适应"
 msgid "Font Size"
 msgstr "字体大小"
 
+msgid "For developers only!"
+msgstr "仅供开发者使用！"
+
+msgid "Format"
+msgstr "格式"
+
 msgid "Format##basebandrecordformat"
 msgstr "格式##basebandrecordformat"
 
 msgid "Free Space: %.2f GB"
 msgstr "剩余空间：%.2f GB"
 
+msgid "Freq"
+msgstr "频率预设"
+
 msgid "Freq###presetscombo"
 msgstr "频率预设###presetscombo"
+
+msgid "Frequency : %f GHz"
+msgstr "频率：%f GHz"
+
+msgid "Frequency : %f Hz"
+msgstr "频率：%f Hz"
+
+msgid "Frequency : %f MHz"
+msgstr "频率：%f MHz"
+
+msgid "Frequency : %f kHz"
+msgstr "频率：%f kHz"
 
 msgid "Frequency Scale"
 msgstr "频率刻度"
 
+msgid "Frequency Shift"
+msgstr "频率偏移"
+
+msgid "Frequency to update TLEs. Auto update happens at launch only\n\nWarning: The older your TLEs, the more inaccurate projections\nmay be."
+msgstr "TLE 的更新频率。自动更新只会在启动时执行。\n\n警告：TLE 越旧，投影结果可能越不准确。"
+
 msgid "Frequency: %s"
 msgstr "频率：%s"
+
+msgid "Front"
+msgstr "前视"
+
+msgid "General"
+msgstr "常规"
 
 msgid "General Purpose Satellite Data Processor"
 msgstr "通用卫星数据处理器"
@@ -292,14 +616,29 @@ msgstr "通用卫星数据处理器"
 msgid "General SatDump"
 msgstr "SatDump 常规设置"
 
+msgid "Generate Projection"
+msgstr "生成投影"
+
+msgid "Generating, please wait..."
+msgstr "正在生成，请稍候..."
+
 msgid "Geo Correct"
 msgstr "地理校正"
+
+msgid "Get tile from server"
+msgstr "从服务器获取瓦片"
+
+msgid "Go"
+msgstr "转到"
 
 msgid "Go##loadfromhttpgo"
 msgstr "转到##loadfromhttpgo"
 
 msgid "Graph"
 msgstr "图表"
+
+msgid "HTTP Server"
+msgstr "HTTP 服务器"
 
 msgid "Handler"
 msgstr "处理程序"
@@ -310,11 +649,23 @@ msgstr "处理程序将显示在这里…"
 msgid "Help"
 msgstr "帮助"
 
+msgid "Horizons"
+msgstr "地平线目标"
+
+msgid "Horizons ID %d"
+msgstr "地平线目标 ID %d"
+
 msgid "Hue/Saturation"
 msgstr "色相/饱和度"
 
+msgid "Hz"
+msgstr "频率（Hz）"
+
 msgid "IDLE"
 msgstr "空闲"
+
+msgid "IQ Decimation"
+msgstr "IQ 抽取"
 
 msgid "IQ Size: %.2f GB"
 msgstr "IQ 大小：%.2f GB"
@@ -322,17 +673,50 @@ msgstr "IQ 大小：%.2f GB"
 msgid "IQ Size: %.2f MB"
 msgstr "IQ 大小：%.2f MB"
 
+msgid "IQ Swap"
+msgstr "IQ 交换"
+
 msgid "Image"
 msgstr "图像"
+
+msgid "Image Filename Template"
+msgstr "图像文件名模板"
 
 msgid "Image To Handler"
 msgstr "图像处理程序"
 
+msgid "Images"
+msgstr "图像"
+
+msgid "Import"
+msgstr "导入"
+
+msgid "Import Rotator Settings"
+msgstr "导入转子设置"
+
+msgid "Import Scheduler Options"
+msgstr "导入调度器选项"
+
+msgid "Import Tracked Objects"
+msgstr "导入跟踪对象"
+
+msgid "Import from CLI"
+msgstr "从 CLI 导入"
+
+msgid "In some cases, the I and Q branches can be swapped.\nThat can happen when using some downconverters,\nor perhaps some software that records the file in an unusual way."
+msgstr "在某些情况下，I 和 Q 支路可能会互换。\n这可能出现在某些变频器或以特殊方式录制文件的软件中。"
+
 msgid "Individual Equalize"
 msgstr "独立均衡化"
 
+msgid "Info"
+msgstr "说明"
+
 msgid "Input File"
 msgstr "输入文件"
+
+msgid "Input Image"
+msgstr "输入图像"
 
 msgid "Input Level"
 msgstr "输入级别"
@@ -340,8 +724,14 @@ msgstr "输入级别"
 msgid "Input file is invalid!"
 msgstr "输入文件无效！"
 
+msgid "Instrument Config"
+msgstr "仪器配置"
+
 msgid "Instrument Config Editor"
 msgstr "仪器配置编辑器"
+
+msgid "Integer"
+msgstr "整数"
 
 msgid "Interpolate"
 msgstr "插值"
@@ -349,17 +739,32 @@ msgstr "插值"
 msgid "Interpolate##interpolatebutton"
 msgstr "插值##interpolatebutton"
 
+msgid "Invalid URL! must be https://server/{z}/{x}/{y}.ext"
+msgstr "无效 URL！格式必须为 https://server/{z}/{x}/{y}.ext"
+
 msgid "Invalid image for a LUT!"
 msgstr "无效的 LUT 图像！"
 
 msgid "Invert"
 msgstr "反相"
 
+msgid "JPEG 2000 Image (*.j2k)"
+msgstr "JPEG 2000 图像 (*.j2k)"
+
+msgid "JPEG Image (*.jpg, *.jpeg)"
+msgstr "JPEG 图像 (*.jpg, *.jpeg)"
+
 msgid "JSON From Clipboard"
 msgstr "从剪贴板读取 JSON"
 
 msgid "JSON To Clipboard"
 msgstr "复制 JSON 到剪贴板"
+
+msgid "Key:"
+msgstr "键："
+
+msgid "LOS in"
+msgstr "LOS 倒计时"
 
 msgid "LUT Generator"
 msgstr "LUT 生成器"
@@ -369,6 +774,9 @@ msgstr "语言"
 
 msgid "Last updated: %s"
 msgstr "上次更新：%s"
+
+msgid "Lat"
+msgstr "纬度"
 
 msgid "Lat##br"
 msgstr "纬度##br"
@@ -385,14 +793,47 @@ msgstr "纬度##tpers"
 msgid "Lat/Lon Grid"
 msgstr "经纬网"
 
+msgid "Latitude of your station's QTH (North is positive; South is negative)"
+msgstr "你的台站 QTH 纬度（北纬为正，南纬为负）。"
+
+msgid "Launch an offline processing task when you press \"Stop\",\nto finish processing down to the end of the pipeline."
+msgstr "按下“停止”后启动一个离线处理任务，将流水线后续处理完整跑完。"
+
+msgid "Layers"
+msgstr "图层"
+
+msgid "Layers :"
+msgstr "图层列表："
+
+msgid "Live"
+msgstr "实时"
+
 msgid "Live Processing"
 msgstr "实时处理"
+
+msgid "Live Processing Directory"
+msgstr "实时处理目录"
+
+msgid "Live Processing Output Autogeneration"
+msgstr "实时处理输出自动生成"
+
+msgid "Load"
+msgstr "加载"
+
+msgid "Load Dataset/Products :"
+msgstr "加载数据集/产品："
 
 msgid "Load First-Party"
 msgstr "加载官方产品"
 
 msgid "Load##archiveloadertablebutton_"
 msgstr "加载##archiveloadertablebutton_"
+
+msgid "Log Level"
+msgstr "日志级别"
+
+msgid "Lon"
+msgstr "经度"
 
 msgid "Lon##br"
 msgstr "经度##br"
@@ -406,14 +847,71 @@ msgstr "经度##tl"
 msgid "Lon##tpers"
 msgstr "经度##tpers"
 
+msgid "Longitude of your station's QTH (East is positive; West is negative)"
+msgstr "你的台站 QTH 经度（东经为正，西经为负）。"
+
+msgid "MHz (LO offset)"
+msgstr "MHz（本振偏移）"
+
 msgid "MHz (LO offset)##downupconverter"
 msgstr "MHz（本振偏移）##downupconverter"
+
+msgid "Make module windows in the recorder float.\nThis allows dragging them around at will"
+msgstr "让录制器中的模块窗口以浮动方式显示，便于自由拖动。"
+
+msgid "Manual Brightness/Contrast"
+msgstr "手动亮度/对比度"
+
+msgid "Map"
+msgstr "地图"
+
+msgid "Map Overlay"
+msgstr "地图叠加"
+
+msgid "Max: %d"
+msgstr "最大值：%d"
+
+msgid "Maximum"
+msgstr "最大值"
+
+msgid "Maximum Azimuth"
+msgstr "最大方位角"
 
 msgid "Median Blur"
 msgstr "中值模糊"
 
+msgid "Meridian flip correction"
+msgstr "过顶翻转修正"
+
+msgid "Min El."
+msgstr "最小仰角"
+
+msgid "Min: %d"
+msgstr "最小值：%d"
+
+msgid "Minimum"
+msgstr "最小值"
+
+msgid "Minimum Azimuth"
+msgstr "最小方位角"
+
+msgid "Minimum Elevation"
+msgstr "最低仰角"
+
+msgid "Mode :"
+msgstr "模式："
+
 msgid "Mode:"
 msgstr "模式："
+
+msgid "Multi Mode"
+msgstr "多目标模式"
+
+msgid "NO"
+msgstr "否"
+
+msgid "Name"
+msgstr "名称"
 
 msgid "Never"
 msgstr "从未"
@@ -421,14 +919,29 @@ msgstr "从未"
 msgid "New Projection"
 msgstr "新建投影"
 
+msgid "Next Event"
+msgstr "下一事件"
+
 msgid "No Active VFOs"
 msgstr "当前没有活动 VFO"
 
 msgid "No file selected"
 msgstr "未选择文件"
 
+msgid "No layers loaded!"
+msgstr "尚未加载图层！"
+
+msgid "No timestamps!"
+msgstr "没有时间戳！"
+
+msgid "None (Use CPU)"
+msgstr "无（使用 CPU）"
+
 msgid "Normalize"
 msgstr "归一化"
+
+msgid "Northing (m)"
+msgstr "北向坐标（米）"
 
 msgid "Northing (m)##utm"
 msgstr "北向坐标（米）##utm"
@@ -439,20 +952,56 @@ msgstr "不可用，直到 "
 msgid "Note : Some settings will require SatDump to be restarted\nto take effect!"
 msgstr "注意：某些设置需要重启 SatDump 后才会生效！"
 
+msgid "Nothing implemented there yet!"
+msgstr "这里还没有实现任何内容！"
+
+msgid "Object"
+msgstr "对象"
+
 msgid "Object Information"
 msgstr "对象信息"
+
+msgid "Offline processing"
+msgstr "离线处理"
+
+msgid "Old Algorithm"
+msgstr "旧算法"
+
+msgid "Opacity"
+msgstr "不透明度"
+
+msgid "Opacity is for overlay mode only"
+msgstr "不透明度仅在叠加模式下生效"
+
+msgid "Open"
+msgstr "打开"
 
 msgid "Open File"
 msgstr "打开文件"
 
+msgid "Open Viewer after decoding"
+msgstr "解码后打开查看器"
+
 msgid "Open binary file"
 msgstr "打开二进制文件"
+
+msgid "Open the decoded data in the viewer after decoding is done"
+msgstr "解码完成后在查看器中打开数据。"
 
 msgid "OpenCL Device"
 msgstr "OpenCL 设备"
 
 msgid "OpenCL Device SatDump will use for accelerated computing where it can help, eg, for some image processing tasks such as projections."
 msgstr "SatDump 会在适合的场景使用此 OpenCL 设备进行加速，例如部分图像处理和投影任务。"
+
+msgid "Optional, Space-Track account for historical TLEs"
+msgstr "可选，用于获取历史 TLE 的 Space-Track 账号。"
+
+msgid "Optional, Space-Track password for historical TLEs"
+msgstr "可选，用于获取历史 TLE 的 Space-Track 密码。"
+
+msgid "Other"
+msgstr "其他"
 
 msgid "Others"
 msgstr "其他"
@@ -466,8 +1015,47 @@ msgstr "输出目录："
 msgid "Output folder is invalid!"
 msgstr "输出文件夹无效！"
 
+msgid "Output image :"
+msgstr "输出图像："
+
+msgid "Overlay"
+msgstr "叠加"
+
+msgid "PBM Image (*.pbm, *.pgm)"
+msgstr "PBM 图像 (*.pbm, *.pgm)"
+
+msgid "PNG Image (*.png)"
+msgstr "PNG 图像 (*.png)"
+
 msgid "Palette"
 msgstr "调色板"
+
+msgid "Park Az"
+msgstr "停泊方位"
+
+msgid "Park El"
+msgstr "停泊仰角"
+
+msgid "Park while idle"
+msgstr "空闲时停泊"
+
+msgid "Path to a folder where I/Q recordings will be saved"
+msgstr "I/Q 录音保存目录。"
+
+msgid "Path to the default folder to open when saving a projection in the viewer."
+msgstr "查看器保存投影图像时默认打开的目录。"
+
+msgid "Path to the default folder to open when saving an image in the viewer."
+msgstr "查看器保存图像时默认打开的目录。"
+
+msgid "Path to the default folder to open when selecting an input file in offline processing."
+msgstr "离线处理选择输入文件时默认打开的目录。"
+
+msgid "Path to the default folder to open when selecting an output directory in offline processing."
+msgstr "离线处理选择输出目录时默认打开的目录。"
+
+msgid "Path to the default folder to use to store live processing\nOnly valid when automatic generation is enabled!"
+msgstr "实时处理默认输出目录。\n仅在启用自动生成时生效！"
 
 msgid "Period (Bits)"
 msgstr "周期（比特）"
@@ -477,6 +1065,18 @@ msgstr "选择"
 
 msgid "Pipeline: %s"
 msgstr "流水线：%s"
+
+msgid "Play Audio"
+msgstr "播放音频"
+
+msgid "Play/demod the baseband as fast as your PC can handle it"
+msgstr "以计算机可承受的最快速度播放/解调基带"
+
+msgid "Please select a valid output directory first"
+msgstr "请先选择有效的输出目录"
+
+msgid "Please set a valid samplerate first"
+msgstr "请先设置有效的采样率"
 
 msgid "Please wait for processing to end first!"
 msgstr "请等待处理完成！"
@@ -505,6 +1105,12 @@ msgstr "极化：V"
 msgid "Polygon "
 msgstr "多边形 "
 
+msgid "Port"
+msgstr "端口"
+
+msgid "Preset"
+msgstr "预设"
+
 msgid "Preset Info"
 msgstr "预设信息"
 
@@ -514,23 +1120,71 @@ msgstr "预设"
 msgid "Preview Image"
 msgstr "预览图像"
 
+msgid "Process products once the pipeline is done."
+msgstr "流水线完成后自动处理产品。"
+
+msgid "Processed Image Format"
+msgstr "处理后图像格式"
+
 msgid "Processing"
 msgstr "处理"
 
 msgid "Product Data"
 msgstr "产品数据"
 
+msgid "Product Image Format"
+msgstr "产品图像格式"
+
+msgid "Products"
+msgstr "产品"
+
+msgid "Progress"
+msgstr "进度"
+
 msgid "Project"
 msgstr "项目"
+
+msgid "Projected"
+msgstr "已投影"
 
 msgid "Projection"
 msgstr "投影"
 
+msgid "Projection Config File"
+msgstr "投影配置文件"
+
+msgid "Projections"
+msgstr "投影"
+
+msgid "QTH Altitude"
+msgstr "QTH 海拔"
+
+msgid "QTH Latitude"
+msgstr "QTH 纬度"
+
+msgid "QTH Longitude"
+msgstr "QTH 经度"
+
 msgid "Quick Open"
 msgstr "快速打开"
 
+msgid "Quite OK Image (*.qoi)"
+msgstr "QOI 图像 (*.qoi)"
+
 msgid "RECORDING"
 msgstr "录制中"
+
+msgid "RGB Composites"
+msgstr "RGB 合成"
+
+msgid "Radiance"
+msgstr "辐亮度"
+
+msgid "Radiance : %.10f"
+msgstr "辐亮度：%.10f"
+
+msgid "Range (km)"
+msgstr "距离（千米）"
 
 msgid "Range Max"
 msgstr "范围最大值"
@@ -538,14 +1192,35 @@ msgstr "范围最大值"
 msgid "Range Min"
 msgstr "范围最小值"
 
+msgid "Raw Counts"
+msgstr "原始计数"
+
+msgid "Raw Image"
+msgstr "原始图像"
+
+msgid "Record"
+msgstr "录制"
+
 msgid "Recorder"
 msgstr "录制器"
+
+msgid "Recorder Baseband Filename Milliseconds"
+msgstr "录制器基带文件名带毫秒"
+
+msgid "Recorder Floating Windows"
+msgstr "录制器浮动窗口"
+
+msgid "Recorder: Time for disk space warning (in seconds)"
+msgstr "录制器：磁盘空间警告时间（秒）"
 
 msgid "Recording"
 msgstr "录制"
 
 msgid "Reflective Radiance"
 msgstr "反射辐亮度"
+
+msgid "Refresh"
+msgstr "刷新"
 
 msgid "Refresh (Image Only)"
 msgstr "刷新（仅图像）"
@@ -562,11 +1237,23 @@ msgstr "已注册流水线："
 msgid "Reload"
 msgstr "重新加载"
 
+msgid "Remeber size and position of the window when closing SatDump. It will open in the same configuration on next launch"
+msgstr "关闭 SatDump 时记住窗口大小和位置，下次启动时恢复。"
+
+msgid "Remember Window Size and Position"
+msgstr "记住窗口大小和位置"
+
 msgid "Remove Background"
 msgstr "去除背景"
 
+msgid "Remove Selection"
+msgstr "移除"
+
 msgid "Replicate"
 msgstr "复制"
+
+msgid "Reset"
+msgstr "重置"
 
 msgid "Reset##advanced_settings"
 msgstr "重置##advanced_settings"
@@ -580,11 +1267,23 @@ msgstr "重置##tle_settings"
 msgid "Root"
 msgstr "根"
 
+msgid "Rotate"
+msgstr "旋转"
+
+msgid "Rotator Az"
+msgstr "转子方位"
+
 msgid "Rotator Config"
 msgstr "转子配置"
 
 msgid "Rotator Configuration"
 msgstr "转子配置"
+
+msgid "Rotator El"
+msgstr "转子仰角"
+
+msgid "Samplerate"
+msgstr "采样率"
 
 msgid "SatDump Downconverter UI"
 msgstr "SatDump 下变频器界面"
@@ -592,17 +1291,53 @@ msgstr "SatDump 下变频器界面"
 msgid "SatDump Log"
 msgstr "SatDump 日志"
 
+msgid "SatDump UI"
+msgstr "SatDump 界面"
+
+msgid "Satellite (TPERS)"
+msgstr "卫星视角（TPERS）"
+
+msgid "Satellite and Time"
+msgstr "卫星与时间"
+
 msgid "Satellite finder"
 msgstr "卫星查找器"
+
+msgid "Satellites"
+msgstr "卫星"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Save ALL SatDump logs to a file.\nThis is useful to send in\nbug reports and such."
+msgstr "将 SatDump 的全部日志保存到文件。\n这对提交 bug 报告很有帮助。"
 
 msgid "Save Image"
 msgstr "保存图像"
 
+msgid "Save Map"
+msgstr "保存地图"
+
+msgid "Save Projected Image"
+msgstr "保存投影图像"
+
+msgid "Save Projection"
+msgstr "保存投影"
+
 msgid "Save cancelled"
 msgstr "已取消保存"
 
+msgid "Save log file"
+msgstr "保存日志文件"
+
 msgid "Saved current image at %s"
 msgstr "当前图像已保存至 %s"
+
+msgid "Scale"
+msgstr "比例尺"
+
+msgid "Scale (m/px)"
+msgstr "比例尺（米/像素）"
 
 msgid "Scale (m/px)##stereo"
 msgstr "比例尺（米/像素）##stereo"
@@ -613,8 +1348,14 @@ msgstr "比例尺（米/像素）##utm"
 msgid "Scale Rank (Cities Only)"
 msgstr "等级缩放（仅城市）"
 
+msgid "Scale X (m/px)"
+msgstr "X 比例尺（米/像素）"
+
 msgid "Scale X (m/px)##projscalexauto"
 msgstr "X 比例尺（米/像素）##projscalexauto"
+
+msgid "Scale Y (m/px)"
+msgstr "Y 比例尺（米/像素）"
 
 msgid "Scale Y (m/px)##projscalexauto"
 msgstr "Y 比例尺（米/像素）##projscalexauto"
@@ -625,11 +1366,29 @@ msgstr "比例尺##tpers"
 msgid "Schedule and Config"
 msgstr "计划与配置"
 
+msgid "Scheduler Options"
+msgstr "调度选项"
+
 msgid "Scheduling"
 msgstr "计划"
 
+msgid "Search"
+msgstr "搜索"
+
+msgid "Search All Satellites"
+msgstr "搜索全部卫星"
+
+msgid "Search Selected"
+msgstr "搜索已选目标"
+
+msgid "Search pipelines"
+msgstr "搜索流水线"
+
 msgid "Select Image"
 msgstr "选择图像"
+
+msgid "Select Input Baseband"
+msgstr "选择输入基带文件"
 
 msgid "Select Input File"
 msgstr "选择输入文件"
@@ -639,6 +1398,15 @@ msgstr "选择输出目录"
 
 msgid "Select Preset..."
 msgstr "选择预设..."
+
+msgid "Select a valid import file first"
+msgstr "请先选择有效的导入文件"
+
+msgid "Select at least one setting to import"
+msgstr "请至少选择一项要导入的设置"
+
+msgid "Select projection view first!"
+msgstr "请先切换到投影视图！"
 
 msgid "Selected Folder:"
 msgstr "已选文件夹："
@@ -655,8 +1423,23 @@ msgstr "设置已保存"
 msgid "Shores"
 msgstr "海岸线"
 
+msgid "Should live processing automatically generate an output folder?"
+msgstr "实时处理是否自动生成输出文件夹？"
+
+msgid "Show ImGui Demo"
+msgstr "显示 ImGui 演示窗口"
+
+msgid "Show Scale"
+msgstr "显示刻度"
+
+msgid "Show Status Bar"
+msgstr "显示状态栏"
+
 msgid "Show Waterfall"
 msgstr "显示瀑布图"
+
+msgid "Show status bar with last log at the bottom of the UI"
+msgstr "在界面底部显示带有最新日志的状态栏。"
 
 msgid "Since "
 msgstr "自 "
@@ -676,8 +1459,20 @@ msgstr "大小：%.2f MB"
 msgid "Source"
 msgstr "信号源"
 
+msgid "Source ID"
+msgstr "信号源 ID"
+
+msgid "South"
+msgstr "南半球"
+
 msgid "South###projutmsouth"
 msgstr "南半球###projutmsouth"
+
+msgid "Space-Track Login (Optional)"
+msgstr "Space-Track 登录名（可选）"
+
+msgid "Space-Track Password (Optional)"
+msgstr "Space-Track 密码（可选）"
 
 msgid "Start"
 msgstr "开始"
@@ -694,8 +1489,14 @@ msgstr "开始###startrecording"
 msgid "Starting "
 msgstr "正在启动 "
 
+msgid "Stereo"
+msgstr "立体投影"
+
 msgid "Stop"
 msgstr "停止"
+
+msgid "Stop SDR When IDLE"
+msgstr "空闲时停止 SDR"
 
 msgid "Stop##"
 msgstr "停止##"
@@ -706,8 +1507,17 @@ msgstr "停止##stopprocessing"
 msgid "Stop##stoprecording"
 msgstr "停止##stoprecording"
 
+msgid "Stopping..."
+msgstr "停止中..."
+
 msgid "Stopping...##stoppingprocessing"
 msgstr "停止中...##stoppingprocessing"
+
+msgid "String"
+msgstr "字符串"
+
+msgid "Successfully exported config"
+msgstr "配置导出成功"
 
 msgid "Sun Angle"
 msgstr "太阳角"
@@ -718,14 +1528,44 @@ msgstr "太阳角修正反照率"
 msgid "Sun Angle Compensated Reflective Radiance"
 msgstr "太阳角修正反射辐亮度"
 
+msgid "TIFF Image (*.tif, *.tiff)"
+msgstr "TIFF 图像 (*.tif, *.tiff)"
+
+msgid "TLE Auto Update Interval"
+msgstr "TLE 自动更新间隔"
+
 msgid "TLE Settings"
 msgstr "TLE 设置"
+
+msgid "Temperature"
+msgstr "温度"
+
+msgid "Temperature : %.2f °C"
+msgstr "温度：%.2f °C"
+
+msgid "Template used when saving images in the viewer. Variables available:\n - $y - year\n - $M - month\n - $d - day\n - $h - hour\n - $m - minute\n - $s - second\n - $t - unix timestamp\n - $c - composite/channel name\n - $C - composite/channel name (caps)\n - $a - composite/channel name (abbreviated)\n - $i - instrument name\n - $I - instrument name (caps)\n - $o - satellite/object\n - $O - satellite/object (caps)"
+msgstr "查看器保存图像时使用的文件名模板。可用变量：\n - $y - 年\n - $M - 月\n - $d - 日\n - $h - 时\n - $m - 分\n - $s - 秒\n - $t - Unix 时间戳\n - $c - 合成图/通道名称\n - $C - 合成图/通道名称（大写）\n - $a - 合成图/通道名称（缩写）\n - $i - 仪器名称\n - $I - 仪器名称（大写）\n - $o - 卫星/对象\n - $O - 卫星/对象（大写）"
 
 msgid "Temporary"
 msgstr "临时"
 
+msgid "The logger level of SatDump in the console.\nEg, if you wish to only show errors\nor every little thing that's going on"
+msgstr "SatDump 控制台日志级别。\n例如只显示错误，或显示所有详细信息。"
+
+msgid "The old algorithm will\ndeal with very bad (noisy) data\nbetter.\nThe new one is preferred if\npossible though, as results\nare a lot nicer! :-)\nIf you had to use this\nand the data was not that bad\nplease report as a bug!"
+msgstr "旧算法更适合处理非常差、噪声很重的数据。\n如果条件允许，仍然更推荐新算法，因为结果会好很多。\n如果你的数据并不差却必须使用旧算法，请提交 bug 反馈。"
+
+msgid "The sample format of the recorded baseband.\nThis depends on the settings of your recording software,\nbut some common formats are cs16 (SDR#, etc),\ncf32 (GQRX), cu8 (HDSDR), etc"
+msgstr "录制基带的采样格式。\n这取决于你的录制软件设置，常见格式包括 cs16（SDR# 等）、cf32（GQRX）、cu8（HDSDR）等。"
+
 msgid "Theme"
 msgstr "主题"
+
+msgid "Tile Map (OSM)"
+msgstr "瓦片地图（OSM）"
+
+msgid "Tile URL"
+msgstr "瓦片 URL"
 
 msgid "Time left: %02d:%02d:%02d:%02d"
 msgstr "剩余时间：%02d:%02d:%02d:%02d"
@@ -736,14 +1576,32 @@ msgstr "工具"
 msgid "Top Left Coordinates :"
 msgstr "左上角坐标："
 
+msgid "Track"
+msgstr "跟踪"
+
 msgid "Tracking"
 msgstr "跟踪"
 
 msgid "Tracking Configuration"
 msgstr "跟踪配置"
 
+msgid "Type"
+msgstr "类型"
+
 msgid "Type##rotatortype"
 msgstr "类型##rotatortype"
+
+msgid "Type:"
+msgstr "类型："
+
+msgid "UI Scaling"
+msgstr "界面缩放"
+
+msgid "UTM (Mercator)"
+msgstr "UTM（墨卡托）"
+
+msgid "UTM Zone"
+msgstr "UTM 分区"
 
 msgid "UTM Zone###projutmzone"
 msgstr "UTM 分区###projutmzone"
@@ -751,11 +1609,17 @@ msgstr "UTM 分区###projutmzone"
 msgid "Undo"
 msgstr "撤销"
 
+msgid "Unit"
+msgstr "单位"
+
 msgid "Unit : %f %s"
 msgstr "单位：%f %s"
 
 msgid "Unit##calibunit"
 msgstr "单位##calibunit"
+
+msgid "Unpark Time"
+msgstr "提前解停时间"
 
 msgid "Update"
 msgstr "更新"
@@ -766,6 +1630,15 @@ msgstr "立即更新 IERS 公报"
 msgid "Update Keplers Now"
 msgstr "立即更新 Kepler 星历"
 
+msgid "Update Passes"
+msgstr "更新过境"
+
+msgid "Update Period (s)"
+msgstr "更新周期（秒）"
+
+msgid "Update TLEs Now"
+msgstr "立即更新 TLE"
+
 msgid "Update###updateIERS"
 msgstr "更新###updateIERS"
 
@@ -774,6 +1647,9 @@ msgstr "更新###updateKeplers"
 
 msgid "Update###updatecalib"
 msgstr "更新###updatecalib"
+
+msgid "Updating, please wait..."
+msgstr "正在更新，请稍候..."
 
 msgid "Use Range"
 msgstr "使用范围"
@@ -784,8 +1660,17 @@ msgstr "用户界面"
 msgid "VFOs"
 msgstr "VFO"
 
+msgid "View"
+msgstr "视图"
+
+msgid "Viewer"
+msgstr "查看器"
+
 msgid "WIP Tracking"
 msgstr "WIP 跟踪"
+
+msgid "Wait for the processing to finish!"
+msgstr "请等待当前处理完成！"
 
 msgid "Warning"
 msgstr "警告"
@@ -793,11 +1678,32 @@ msgstr "警告"
 msgid "Waterfall Rate"
 msgstr "瀑布图刷新率"
 
+msgid "Wavelength : %f cm"
+msgstr "波长：%f cm"
+
+msgid "Wavelength : %f mm"
+msgstr "波长：%f mm"
+
+msgid "Wavelength : %f nm"
+msgstr "波长：%f nm"
+
+msgid "Wavelength : %f µm"
+msgstr "波长：%f µm"
+
+msgid "Wavenumber : %f cm⁻¹"
+msgstr "波数：%f cm⁻¹"
+
 msgid "Welcome to SatDump!"
 msgstr "欢迎使用 SatDump！"
 
 msgid "White Balance"
 msgstr "白平衡"
+
+msgid "YES"
+msgstr "是"
+
+msgid "ZIQ seeking may be slow!"
+msgstr "ZIQ 定位可能较慢！"
 
 msgid "Zoom In"
 msgstr "放大"
@@ -805,9 +1711,36 @@ msgstr "放大"
 msgid "Zoom Out"
 msgstr "缩小"
 
+msgid "[Auto]"
+msgstr "[自动]"
+
+msgid "[Disabled]"
+msgstr "[禁用]"
+
+msgid "[Object]"
+msgstr "[对象]"
+
+msgid "critical"
+msgstr "严重"
+
+msgid "debug"
+msgstr "调试"
+
 msgid "default"
 msgstr "默认"
 
+msgid "error"
+msgstr "错误"
+
 msgid "hidden"
 msgstr "隐藏"
+
+msgid "info"
+msgstr "信息"
+
+msgid "trace"
+msgstr "跟踪"
+
+msgid "warn"
+msgstr "警告"
 

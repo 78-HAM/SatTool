@@ -106,6 +106,9 @@ jobs:
           -DBUILD_GUI=ON
           -DENABLE_I18N=ON
           -DPLUGINS_ALL=OFF
+          -DPLUGIN_XRIT=ON
+          -DPLUGIN_FIRSTPARTY_SUPPORT=ON
+          -DPLUGIN_BITVIEW_APP=ON
           -DPLUGIN_AIRSPY_SDR_SUPPORT=OFF
           -DPLUGIN_HYDRASDR_SDR_SUPPORT=OFF
           -DPLUGIN_AIRSPYHF_SDR_SUPPORT=OFF
@@ -153,7 +156,11 @@ jobs:
             "bin\satdump.exe",
             "share\satdump\satdump_cfg.json",
             "share\satdump\resources\i18n\zh_CN\LC_MESSAGES\satdump.mo",
-            "share\satdump\resources\fonts\NotoSansSC-Regular.otf"
+            "share\satdump\resources\fonts\NotoSansSC-Regular.otf",
+            "lib\satdump\plugins\xrit_support.dll",
+            "lib\satdump\plugins\firstparty_support.dll",
+            "lib\satdump\plugins\firstparty_loader_support.dll",
+            "lib\satdump\plugins\bitview_app.dll"
           )
           foreach ($path in $required) {
             if (!(Test-Path (Join-Path $staging $path))) { throw "Installed file missing: $path" }
@@ -165,6 +172,14 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Installed satdump.exe smoke test failed with exit code $LASTEXITCODE" }
           } finally {
             Pop-Location
+          }
+
+          $gui = Start-Process (Join-Path $staging "bin\satdump-ui.exe") -WorkingDirectory (Join-Path $staging "bin") -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 8
+          if ($gui.HasExited) {
+            if ($gui.ExitCode -ne 0) { throw "Installed satdump-ui.exe smoke test failed with exit code $($gui.ExitCode)" }
+          } else {
+            Stop-Process -Id $gui.Id
           }
 
           New-Item -ItemType Directory -Force -Path dist | Out-Null
@@ -251,6 +266,9 @@ jobs:
           test -f android/app/build/outputs/apk/debug/app-debug.apk
           unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/resources/i18n/zh_CN/LC_MESSAGES/satdump.mo'
           unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/resources/fonts/NotoSansSC-Regular.otf'
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'lib/arm64-v8a/libfirstparty_support.so'
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'lib/arm64-v8a/libfirstparty_loader_support.so'
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'lib/arm64-v8a/libbitview_app.so'
           cp android/app/build/outputs/apk/debug/app-debug.apk sattool-android-debug.apk
 
       - name: Upload Android artifact

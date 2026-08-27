@@ -75,7 +75,7 @@ public:
     void setDefaultDir(std::string new_path);
 
 private:
-    std::string label, selection_text, id, btnid, default_dir, path;
+    std::string label, selection_text, id, default_dir, path;
     bool directory, waiting_for_res, allow_url;
     fileutils::FileSelTh *file_select;
     fileutils::DirSelTh *dir_select;

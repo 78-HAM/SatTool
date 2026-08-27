@@ -1,6 +1,7 @@
 #include "notated_num.h"
 #include "common/dsp_source_sink/format_notated.h"
 #include "common/rimgui.h"
+#include "i18n.h"
 #include "logger.h"
 #include <regex>
 
@@ -81,7 +82,10 @@ namespace satdump
         template <typename T>
         bool NotatedNum<T>::draw()
         {
-            RImGui::InputText(d_id.c_str(), &display_val, ImGuiInputTextFlags_AutoSelectAll);
+            const std::size_t id_marker = d_id.find("##");
+            const std::string visible_label = d_id.substr(0, id_marker);
+            const std::string translated_id = std::string(_(visible_label.c_str())) + "###notated_" + d_id;
+            RImGui::InputText(translated_id.c_str(), &display_val, ImGuiInputTextFlags_AutoSelectAll);
             bool retval = RImGui::IsItemDeactivatedAfterEdit();
             if (retval)
                 parse_input();

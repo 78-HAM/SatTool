@@ -17,7 +17,6 @@ namespace satdump
     PipelineUISelector::PipelineUISelector(bool live_mode) : live_mode(live_mode)
     {
         nlohmann::ordered_json params = satdump_cfg.main_cfg["user_interface"]["default_offline_parameters"];
-        advanced_mode = satdump::satdump_cfg.main_cfg["user_interface"]["advanced_mode"]["value"].get_ptr<nlohmann::json::boolean_t *>();
 
         for (nlohmann::detail::iteration_proxy_value<nlohmann::detail::iter_impl<nlohmann::ordered_json>> cfg : params.items())
             if (!cfg.value().contains("no_live") || !live_mode)
@@ -331,7 +330,7 @@ namespace satdump
             ImGui::EndTable();
         }
 
-        if (*advanced_mode)
+        if (getValueOrDefault(satdump::satdump_cfg.main_cfg["user_interface"]["advanced_mode"]["value"], false))
         {
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5 * ui_scale);
             ImGui::SeparatorText(_("Advanced Parameters"));

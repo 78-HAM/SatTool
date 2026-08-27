@@ -301,12 +301,8 @@ namespace style
             {0xea60, 0xebeb, 0}, //
         };
         float macos_fbs = macos_framebuffer_scale();
-        float font_scaling = ui_scale * macos_fbs;
-
-        // Clamp to a minimum font size. Extremely small UI scale values (eg, 0.1)
-        // produced ~1-2px fonts and crashed in the font atlas packing step.
-        if (theme.font_size > 0)
-            font_scaling = std::max(font_scaling, 8.0f / theme.font_size);
+        const float font_pixel_size = satdump::ui_safety::fontPixelSize(theme.font_size, ui_scale, macos_fbs);
+        const float font_scaling = font_pixel_size / theme.font_size;
 
         ImFontConfig config;
         baseFont = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/" + theme.font + ".ttf").c_str(), theme.font_size * font_scaling, &config, def);
@@ -332,7 +328,7 @@ namespace style
             {
                 ImFontConfig cjk_config;
                 cjk_config.MergeMode = true;
-                ImFont *cjk_font = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/NotoSansSC-Regular.otf").c_str(), theme.font_size * font_scaling, &cjk_config, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+                ImFont *cjk_font = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/NotoSansSC-Regular.otf").c_str(), satdump::ui_safety::cjkFontPixelSize(font_pixel_size), &cjk_config, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
                 if (cjk_font == nullptr)
                     logger->error("Failed to load bundled CJK font! Chinese UI text may not render correctly.");
             }
@@ -347,7 +343,11 @@ namespace style
         // hugeFont = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/" + theme.font + ".ttf").c_str(), 128.0f * font_scaling); //, &config, ranges);
         io.Fonts->Build();
         io.FontDefault = baseFont; // After Clear()/rebuild, the default font must be re-pointed at the new one
-        io.FontGlobalScale = 1 / macos_fbs;
+        // ImGui 1.92 separates the logical font size from atlas rasterization.
+        // Keep the theme size as the base and apply the complete UI scale through
+        // FontScaleMain, while the larger atlas size above preserves DPI quality.
+        ImGui::GetStyle().FontSizeBase = theme.font_size;
+        ImGui::GetStyle().FontScaleMain = ui_scale;
 
         backend::rebuildFonts();
     }

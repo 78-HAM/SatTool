@@ -199,14 +199,11 @@ class MainActivity : NativeActivity(), TextWatcher {
         Log.w(TAG, "Extracting '" + rpath + "' to '" + lpath + "'");
 
         // This is a file, extract it
-        val _os = FileOutputStream(lpath);
-        val _is = aman.open(rpath);
-        val ilen = _is.available();
-        var fbuf = ByteArray(ilen);
-        _is.read(fbuf, 0, ilen);
-        _os.write(fbuf);
-        _os.close();
-        _is.close();
+        aman.open(rpath).use { input ->
+            FileOutputStream(lpath).use { output ->
+                input.copyTo(output)
+            }
+        }
 
         return 0;
     }
@@ -229,14 +226,11 @@ class MainActivity : NativeActivity(), TextWatcher {
             // Extract if file
             if (ext == 0) {
                 // This is a file, extract it
-                val _os = FileOutputStream(lpath);
-                val _is = aman.open(rpath);
-                val ilen = _is.available();
-                var fbuf = ByteArray(ilen);
-                _is.read(fbuf, 0, ilen);
-                _os.write(fbuf);
-                _os.close();
-                _is.close();
+                aman.open(rpath).use { input ->
+                    FileOutputStream(lpath).use { output ->
+                        input.copyTo(output)
+                    }
+                }
             }
 
             ecount++;

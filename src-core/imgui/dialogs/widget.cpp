@@ -19,7 +19,6 @@ FileSelectWidget::FileSelectWidget(std::string label, std::string selection_text
     url_valid = false;
     default_dir = ".";
     id = "##filepathselection" + label;
-    btnid = _(u8"\ufc6e Open##filepathselectionbutton") + label;
 }
 
 FileSelectWidget::~FileSelectWidget()
@@ -34,6 +33,7 @@ bool FileSelectWidget::draw(std::string hint)
 {
     bool changed = false;
     bool disabled = waiting_for_res;
+    const std::string open_button_id = std::string(u8"\ufc6e ") + _("Open") + "###filepathselectionbutton" + label;
 
 #ifdef _MSC_VER
     if (default_dir == ".")
@@ -53,7 +53,7 @@ bool FileSelectWidget::draw(std::string hint)
     {
         ImGuiStyle &style = ImGui::GetStyle();
         float textbox_width =
-            ImGui::GetContentRegionAvail().x - (ImGui::CalcTextSize(btnid.c_str(), nullptr, true).x + ImGui::CalcTextSize("Load").x + style.ItemSpacing.x * 2 + style.FramePadding.x * 4);
+            ImGui::GetContentRegionAvail().x - (ImGui::CalcTextSize(open_button_id.c_str(), nullptr, true).x + ImGui::CalcTextSize(_("Load")).x + style.ItemSpacing.x * 2 + style.FramePadding.x * 4);
         if (textbox_width < 20 * ui_scale)
             textbox_width = 20 * ui_scale;
         ImGui::SetNextItemWidth(textbox_width);
@@ -65,7 +65,7 @@ bool FileSelectWidget::draw(std::string hint)
         ImGui::PopStyleColor();
 
     ImGui::SameLine();
-    if (ImGui::Button(btnid.c_str()))
+    if (ImGui::Button(open_button_id.c_str()))
     {
         if (!directory)
         {
@@ -122,7 +122,7 @@ bool FileSelectWidget::draw(std::string hint)
         url_valid = path.find("http") == 0;
         if (disabled || (!file_valid && !url_valid))
             style::beginDisabled();
-        changed |= ImGui::Button(std::string("Load##" + label).c_str());
+        changed |= ImGui::Button(std::string(_("Load") + std::string("###filepathselectionload") + label).c_str());
         if (disabled || (!file_valid && !url_valid))
             style::endDisabled();
     }

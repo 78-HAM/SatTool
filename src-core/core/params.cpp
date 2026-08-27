@@ -3,6 +3,7 @@
 #include "logger.h"
 #include "params.h"
 #include "core/ui_safety.h"
+#include "i18n.h"
 
 namespace satdump
 {
@@ -180,9 +181,9 @@ namespace satdump
         {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%s", d_name.c_str());
+            ImGui::Text("%s", _(d_name.c_str()));
             if (ImGui::IsItemHovered() && d_description.size() > 0)
-                ImGui::SetTooltip("%s", d_description.c_str());
+                ImGui::SetTooltip("%s", _(d_description.c_str()));
             ImGui::TableSetColumnIndex(1);
 
             if (d_type == PARAM_STRING)

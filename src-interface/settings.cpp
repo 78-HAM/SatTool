@@ -346,7 +346,7 @@ namespace satdump
             }
 
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5 * ui_scale);
-            if (ImGui::Button("Save"))
+            if (ImGui::Button(_("Save")))
             {
 #ifdef USE_OPENCL
                 // Save OpenCL Device selection

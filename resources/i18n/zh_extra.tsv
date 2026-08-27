@@ -3,6 +3,23 @@
 # Merged on top of zh_dict.tsv by tools/gen_zh_i18n.py (last wins).
 Welcome to SatDump!	欢迎使用 SatDump！
 Add	添加
+Add...	添加...
+Add Item	添加项目
+Key:	键：
+Type:	类型：
+Object	对象
+Array	数组
+String	字符串
+Integer	整数
+Double	双精度数
+Boolean	布尔值
+[Object]	[对象]
+File Source	文件源
+Select Input Baseband	选择输入基带文件
+Fast	快速
+Progress	进度
+Play/demod the baseband as fast as your PC can handle it	以计算机可承受的最快速度播放/解调基带
+ZIQ seeking may be slow!	ZIQ 定位可能较慢！
 Add Recorder	添加录制器
 Add Overlay	添加叠加层
 Add to projection	添加到投影

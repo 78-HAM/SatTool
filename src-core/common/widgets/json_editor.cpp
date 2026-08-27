@@ -1,6 +1,7 @@
 #include "json_editor.h"
 #include "core/style.h"
 #include "core/ui_safety.h"
+#include "i18n.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_stdlib.h"
 
@@ -18,31 +19,32 @@ namespace satdump
         template <typename T>
         inline void AddButton(T &json, bool allow_add)
         {
-            if (allow_add && ImGui::Button("Add..."))
-                ImGui::OpenPopup("Add Item");
+            if (allow_add && ImGui::Button(_("Add...")))
+                ImGui::OpenPopup(_("Add Item"));
 
             ImVec2 center = ImGui::GetMainViewport()->GetCenter();
             ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-            if (ImGui::BeginPopupModal("Add Item", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+            if (ImGui::BeginPopupModal(_("Add Item"), NULL, ImGuiWindowFlags_AlwaysAutoResize))
             {
                 static std::string new_key = "new_item";
                 if (json.is_object())
                 {
-                    ImGui::TextUnformatted("Key:");
+                    ImGui::TextUnformatted(_("Key:"));
                     ImGui::SameLine();
                     ImGui::InputText("##label", &new_key, ImGuiInputTextFlags_AutoSelectAll);
                 }
 
                 static int selected = 0;
                 ImGui::SameLine();
-                ImGui::TextUnformatted("Type:");
+                ImGui::TextUnformatted(_("Type:"));
                 ImGui::SameLine();
-                ImGui::Combo("##Type", &selected, "Object\0Array\0String\0Integer\0Double\0Boolean\0\0");
+                const std::string type_options = std::string(_("Object")) + '\0' + _("Array") + '\0' + _("String") + '\0' + _("Integer") + '\0' + _("Double") + '\0' + _("Boolean") + '\0';
+                ImGui::Combo("##Type", &selected, type_options.c_str());
                 ImGuiStyle &style = ImGui::GetStyle();
-                ImGui::SetCursorPos({(ImGui::GetContentRegionAvail().x / 2) - ((ImGui::CalcTextSize("Add").x + ImGui::CalcTextSize("Cancel").x + style.ItemSpacing.x + style.FramePadding.x * 4) / 2),
+                ImGui::SetCursorPos({(ImGui::GetContentRegionAvail().x / 2) - ((ImGui::CalcTextSize(_("Add")).x + ImGui::CalcTextSize(_("Cancel")).x + style.ItemSpacing.x + style.FramePadding.x * 4) / 2),
                                      ImGui::GetCursorPosY() + 5.0f * ui_scale});
 
-                if (ImGui::Button("Add"))
+                if (ImGui::Button(_("Add")))
                 {
                     if (json.is_object())
                     {
@@ -93,7 +95,7 @@ namespace satdump
                     ImGui::CloseCurrentPopup();
                 }
                 ImGui::SameLine();
-                if (ImGui::Button("Cancel"))
+                if (ImGui::Button(_("Cancel")))
                 {
                     ImGui::CloseCurrentPopup();
                 }
@@ -135,7 +137,7 @@ namespace satdump
                 {
                     bool nodeOpen = ImGui::TreeNode(std::string((json.is_array() ? "##" : "") + this_key).c_str());
                     ImGui::SameLine();
-                    ImGui::TextDisabled("%s", "[Object]");
+                    ImGui::TextDisabled("%s", _("[Object]"));
                     delete_item = DeleteButton();
                     if (nodeOpen)
                     {
@@ -243,12 +245,16 @@ namespace satdump
             ImGui::SameLine();
             AddButton<nlohmann::json>(json, true);
             ImGui::SameLine();
-            bool ret = ImGui::Button(std::string("Reset##" + std::string(id)).c_str());
+            bool ret = ImGui::Button(std::string(std::string(_("Reset")) + "##" + id).c_str());
 
             if (json.size() > 0)
             {
-                if (ImGui::BeginTable(std::string(std::string(id) + "##table").c_str(), 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+                const float table_width = ImGui::GetContentRegionAvail().x;
+                if (ImGui::BeginTable(std::string(std::string(id) + "##table").c_str(), 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
                 {
+                    ImGui::TableSetupColumn("##json_key", ImGuiTableColumnFlags_WidthFixed,
+                                            ui_safety::labelColumnWidth(table_width, ui_scale));
+                    ImGui::TableSetupColumn("##json_value", ImGuiTableColumnFlags_WidthStretch);
                     int array_index = 0;
                     bool delete_item = false;
 
@@ -269,7 +275,7 @@ namespace satdump
                         ImGui::TableSetColumnIndex(1);
                         if (jsonItem.value().is_object())
                         {
-                            ImGui::TextDisabled("%s", "[Object]");
+                            ImGui::TextDisabled("%s", _("[Object]"));
                             delete_item = DeleteButton();
                             JSONTreeEditor(jsonItem.value(), this_key.c_str());
                         }

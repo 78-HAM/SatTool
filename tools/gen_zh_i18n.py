@@ -296,13 +296,17 @@ def main():
     if os.path.exists(EXTRA_DICT_DEFAULT):
         dict_map.update(load_dict(EXTRA_DICT_DEFAULT))
 
-    translated = []
+    # Keep the complete curated dictionary in the runtime catalog. Several UI
+    # labels come from JSON/plugin data and cannot be discovered by source scans.
+    translated_map = {msgid: zh for msgid, zh in dict_map.items() if msgid and zh}
     matched = 0
     for msgid in sorted(strid):
         zh = translate_msgid(dict_map, msgid)
         if zh is not None:
-            translated.append((msgid, zh))
+            translated_map[msgid] = zh
             matched += 1
+
+    translated = sorted(translated_map.items())
 
     print("candidate msgids : %d" % len(strid))
     print("dictionary       : %d entries" % len(dict_map))

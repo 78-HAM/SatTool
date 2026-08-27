@@ -14,6 +14,12 @@ int main()
     assert(effectiveScale(NAN, 1.0f) == 1.0f);
     assert(effectiveScale(1.0f, NAN) == 1.0f);
 
+    assert(fontPixelSize(16.0f, 1.0f, 1.0f) == 16.0f);
+    assert(fontPixelSize(16.0f, 0.5f, 1.0f) == 8.0f);
+    assert(fontPixelSize(16.0f, 0.1f, 1.0f) == 8.0f);
+    assert(fontPixelSize(16.0f, 1.0f, 2.0f) == 32.0f);
+    assert(cjkFontPixelSize(8.0f) > 8.0f);
+
     assert(fittedInputWidth(200.0f, 30.0f) == 170.0f);
     assert(fittedInputWidth(20.0f, 30.0f) == 1.0f);
     assert(fittedInputWidth(NAN, 30.0f) == 1.0f);
@@ -22,6 +28,8 @@ int main()
     assert(labelColumnWidth(400.0f, 1.0f) == 168.0f);
     assert(labelColumnWidth(1000.0f, 2.0f) == 420.0f);
     assert(labelColumnWidth(NAN, 1.0f) == 1.0f);
+    assert(fittedInputWidth(1000.0f, labelColumnWidth(1000.0f, 1.0f)) == 780.0f);
+    assert(fittedInputWidth(400.0f, labelColumnWidth(400.0f, 1.0f)) == 232.0f);
 
     assert(validIndex(0, std::size_t{1}));
     assert(!validIndex(-1, std::size_t{1}));

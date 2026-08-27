@@ -16,6 +16,22 @@ namespace satdump::ui_safety
         return std::clamp(device_scale * manual_scale, 0.5f, 3.0f);
     }
 
+    inline float fontPixelSize(float theme_font_size, float ui_scale, float framebuffer_scale)
+    {
+        if (!std::isfinite(theme_font_size) || theme_font_size <= 0.0f)
+            theme_font_size = 16.0f;
+        if (!std::isfinite(ui_scale) || ui_scale <= 0.0f)
+            ui_scale = 1.0f;
+        if (!std::isfinite(framebuffer_scale) || framebuffer_scale <= 0.0f)
+            framebuffer_scale = 1.0f;
+        return std::max(8.0f, theme_font_size * ui_scale * framebuffer_scale);
+    }
+
+    inline float cjkFontPixelSize(float base_font_size)
+    {
+        return base_font_size * 1.1f;
+    }
+
     inline float fittedInputWidth(float available_width, float reserved_width)
     {
         if (!std::isfinite(available_width) || !std::isfinite(reserved_width))
