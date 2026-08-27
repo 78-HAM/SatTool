@@ -1,4 +1,5 @@
 #include "file_source.h"
+#include "i18n.h"
 #include "common/detect_header.h"
 #include "common/utils.h"
 #include "core/config.h"
