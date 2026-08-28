@@ -14,6 +14,7 @@ def require(relative, needle):
 
 
 workflow = ".github/workflows/build.yml"
+require(workflow, "runs-on: windows-2022")
 require(workflow, "-DPLUGINS_ALL=ON")
 require(workflow, "-DPLUGIN_SDDC_SDR_SUPPORT=ON")
 require(workflow, "shell: pwsh")

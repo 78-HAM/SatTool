@@ -73,7 +73,8 @@ jobs:
           retention-days: 30
 
   build-windows:
-    runs-on: windows-latest
+    # The third-party SDR SDK build scripts target the stable VS 2022/v143 ABI.
+    runs-on: windows-2022
     env:
       VCPKG_DISABLE_METRICS: "1"
     steps:
