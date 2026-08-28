@@ -9,6 +9,10 @@ def read(relative):
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
+def read_bytes(relative):
+    return (ROOT / relative).read_bytes()
+
+
 def require(relative, needle):
     assert needle in read(relative), f"{relative} is missing {needle!r}"
 
@@ -28,6 +32,9 @@ require("src-interface/loader/loader.cpp", 'title = "SatTool";')
 require("android/app/build.gradle", 'applicationId "com.sattool.app"')
 require("android/app/build.gradle", 'versionName "0.0.1"')
 require("android/app/src/main/res/values/strings.xml", ">SatTool<")
+assert read_bytes("resources/icon.png") == read_bytes("icon.png"), (
+    "the welcome screen still uses a different legacy icon asset"
+)
 
 for path in (
     "sattool.desktop",
