@@ -194,7 +194,22 @@ jobs:
       - name: Install Android SDK / NDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-34 build-tools;30.0.3 ndk;25.2.9519653'
+          packages: 'platform-tools platforms;android-34 build-tools;30.0.3'
+
+      - name: Install Android NDK with retries
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if sdkmanager 'ndk;25.2.9519653'; then
+              test -d "$ANDROID_SDK_ROOT/ndk/25.2.9519653"
+              exit 0
+            fi
+            echo "NDK install attempt $attempt failed; removing the partial archive before retrying"
+            rm -rf "$ANDROID_SDK_ROOT/ndk/25.2.9519653" "$ANDROID_SDK_ROOT/.temp"
+            sleep $((attempt * 5))
+          done
+          echo 'FATAL: Android NDK 25.2.9519653 could not be installed after 3 attempts'
+          exit 1
 
       - name: Install Gradle 7.6.4 (no wrapper in this repo)
         run: |
