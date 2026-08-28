@@ -244,10 +244,28 @@ rm -recurse -force libad9361-iio
 # Not compatible with ARM at this time
 if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
 {
+    Write-Output "Building Cypress CyAPI..."
+    $cyusb_revision = "9a143094a78ec708f8c426de429a8fce9e7b47be"
+    git clone https://github.com/kategray/CyUSB
+    cd CyUSB
+    git checkout $cyusb_revision
+    $cyapi_toolset_args = @("/p:PlatformToolset=v143")
+    if($env:VisualStudioVersion -and ([version]$env:VisualStudioVersion -ge [version]"18.0"))
+    {
+        $cyapi_toolset_args = @("/p:PlatformToolset=v145")
+    }
+    msbuild -m -v:m /p:Configuration=Release /p:Platform=$generator @cyapi_toolset_args .\library\cpp\CyAPI.vcxproj
+    $cyapi_library = ".\library\cpp\lib\$sdrplay_arch\CyAPI.lib"
+    if(!(Test-Path $cyapi_library))
+    {
+        throw "CyAPI build did not produce $cyapi_library"
+    }
+    $null = mkdir license
+    cp COPYING license\license.txt
+    $fx3_arg = "-DFX3_SDK_PATH=$((Get-Item .).FullName)"
+    cd ..
+
     Write-Output "Building LimeSuite..."
-    Invoke-WebRequest -Uri "https://www.satdump.org/FX3-SDK.zip" -OutFile FX3-SDK.zip
-    Expand-Archive FX3-SDK.zip .
-    $fx3_arg = "-DFX3_SDK_PATH=$($(Get-Item .\FX3-SDK).FullName)"
     git clone https://github.com/myriadrf/LimeSuite # v23.11.0 (latest as of this writing) is not compatible with the latest MSVC
     cd LimeSuite
     $null = mkdir build-dir
@@ -256,7 +274,7 @@ if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
     cmake --build . --config Release
     cmake --install .
     cd ..\..
-    rm -recurse -force LimeSuite
+    rm -recurse -force LimeSuite, CyUSB
 }
 
 Write-Output "Building bladeRF..."
@@ -267,17 +285,11 @@ Clear-Content cmake/modules/FindLibUSB.cmake
 (Get-Content -raw CMakeLists.txt) -replace "(?ms)find_package\(LibPThreadsWin32\).*endif\(LIBUSB_FOUND\)", "" | Set-Content -Encoding ASCII CMakeLists.txt
 $null = mkdir build
 cd build
-cmake $build_args $fx3_arg -DTREAT_WARNINGS_AS_ERRORS=OFF -DLIBPTHREADSWIN32_INCLUDE_DIRS="$($standard_include)" -DLIBUSB_INCLUDE_DIRS="$($libusb_include)" -DLIBUSB_LIBRARIES="$($libusb_lib)" -DLIBPTHREADSWIN32_LIBRARIES="$($pthread_lib)" -DTEST_LIBBLADERF=OFF -DLIBUSB_FOUND=ON -DLIBPTHREADSWIN32_FOUND=ON -DLIBUSB_VERSION="$($(ls ..\..\..\..\installed\vcpkg\info\libusb*).BaseName.split('_')[1])" ..
+cmake $build_args -DENABLE_BACKEND_LIBUSB=ON -DENABLE_BACKEND_CYAPI=OFF -DTREAT_WARNINGS_AS_ERRORS=OFF -DLIBPTHREADSWIN32_INCLUDE_DIRS="$($standard_include)" -DLIBUSB_INCLUDE_DIRS="$($libusb_include)" -DLIBUSB_LIBRARIES="$($libusb_lib)" -DLIBPTHREADSWIN32_LIBRARIES="$($pthread_lib)" -DTEST_LIBBLADERF=OFF -DLIBUSB_FOUND=ON -DLIBPTHREADSWIN32_FOUND=ON -DLIBUSB_VERSION="$($(ls ..\..\..\..\installed\vcpkg\info\libusb*).BaseName.split('_')[1])" ..
 cmake --build . --config Release
 cmake --install .
 cd ..\..\..
 rm -recurse -force bladeRF
-
-# Not compatible with ARM at this time
-if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
-{
-    rm -recurse -force FX3-SDK, FX3-SDK.zip
-}
 
 Write-Output "Building UHD..."
 git clone https://github.com/EttusResearch/uhd # v4.8 (latest as of this writing) is not compatible with the latest MSVC

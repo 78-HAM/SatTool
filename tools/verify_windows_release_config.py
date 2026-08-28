@@ -25,6 +25,14 @@ require(dependency_script, "hdf5[cpp,hl]")
 require(dependency_script, '"/p:PlatformToolset=v145"')
 require(dependency_script, "/p:Platform=$generator /p:Configuration=Release @libusb_toolset_args")
 require(dependency_script, "/p:Platform=$generator /p:Configuration=Debug @libusb_toolset_args")
+require(dependency_script, "9a143094a78ec708f8c426de429a8fce9e7b47be")
+require(dependency_script, "CyAPI.vcxproj")
+require(dependency_script, "/p:Configuration=Release /p:Platform=$generator")
+require(dependency_script, "-DENABLE_BACKEND_LIBUSB=ON")
+require(dependency_script, "-DENABLE_BACKEND_CYAPI=OFF")
+assert "www.satdump.org/FX3-SDK.zip" not in read(dependency_script), (
+    "windows dependency setup still uses the dead FX3 SDK archive"
+)
 for runtime in (
     "airspy.dll",
     "airspyhf.dll",
@@ -79,6 +87,19 @@ for plugin in (
     "rtltcp_support",
     "spyserver_support",
     "sdrpp_server_support",
+):
+    require(workflow, plugin)
+
+require(workflow, '$ANDROID_SDK_ROOT/build-tools/30.0.3/aapt')
+require(workflow, 'unzip -Z1 "$apk"')
+for plugin in (
+    "analog_support",
+    "dvb_support",
+    "fengyun3_support",
+    "goes_support",
+    "meteor_support",
+    "noaa_metop_support",
+    "xrit_support",
 ):
     require(workflow, plugin)
 

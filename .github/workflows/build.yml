@@ -255,25 +255,50 @@ jobs:
 
       - name: Verify APK
         run: |
-          ls -la android/app/build/outputs/apk/debug/
-          test -f android/app/build/outputs/apk/debug/app-debug.apk
-          aapt dump badging android/app/build/outputs/apk/debug/app-debug.apk | grep -q "package: name='com.sattool.app' versionCode='1' versionName='0.0.1'"
-          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/resources/i18n/zh_CN/LC_MESSAGES/sattool.mo'
-          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/resources/fonts/NotoSansSC-Regular.otf'
-          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'lib/arm64-v8a/libfirstparty_support.so'
-          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'lib/arm64-v8a/libfirstparty_loader_support.so'
-          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'lib/arm64-v8a/libbitview_app.so'
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          aapt="$ANDROID_SDK_ROOT/build-tools/30.0.3/aapt"
+          ls -la "$(dirname "$apk")"
+          test -f "$apk"
+          test -x "$aapt"
+          "$aapt" dump badging "$apk" > "$RUNNER_TEMP/apk-badging.txt"
+          grep -q "package: name='com.sattool.app' versionCode='1' versionName='0.0.1'" "$RUNNER_TEMP/apk-badging.txt"
+          unzip -Z1 "$apk" > "$RUNNER_TEMP/apk-files.txt"
+          for asset in \
+            assets/resources/i18n/zh_CN/LC_MESSAGES/sattool.mo \
+            assets/resources/fonts/NotoSansSC-Regular.otf; do
+            grep -Fxq "$asset" "$RUNNER_TEMP/apk-files.txt" || {
+              echo "FATAL: Android resource is missing from APK: $asset"
+              exit 1
+            }
+          done
+          for plugin in \
+            aim_support analog_support aws_support bitview_app bluewalker3_support \
+            cluster_support cubesat_support dmsp_support dscovr_support dvb_support \
+            earthcare_support elektro_arktika_support eos_support fengyun2_support \
+            fengyun3_support fengyun4_support firstparty_loader_support firstparty_support \
+            gcom_support geonetcast_support gk2a_support goes_support himawari_support \
+            hinode_support inmarsat_support insat_support jason3_support jpss_support \
+            kanopus_support landsat_support mats_support meteor_support meteosat_support \
+            metopsg_support noaa_metop_support oceansat_support orbcomm_support \
+            others_support proba_support radiosonde_support seawifs_support simd_neon \
+            spacex_support stereo_support tools_app tubsat_support umka_support \
+            uvsq_support webhook_app wipsettings_app wsf_support xrit_support; do
+            grep -Fxq "lib/arm64-v8a/lib${plugin}.so" "$RUNNER_TEMP/apk-files.txt" || {
+              echo "FATAL: Android decoder/application plugin is missing from APK: lib${plugin}.so"
+              exit 1
+            }
+          done
           for plugin in \
             airspy_sdr_support airspyhf_sdr_support hydrasdr_sdr_support \
             hackrf_sdr_support limesdr_sdr_support plutosdr_sdr_support \
             rtlsdr_sdr_support mirisdr_sdr_support net_source_support \
             remote_sdr_support rtltcp_support spyserver_support sdrpp_server_support; do
-            unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q "lib/arm64-v8a/lib${plugin}.so" || {
+            grep -Fxq "lib/arm64-v8a/lib${plugin}.so" "$RUNNER_TEMP/apk-files.txt" || {
               echo "FATAL: Android SDR plugin is missing from APK: lib${plugin}.so"
               exit 1
             }
           done
-          cp android/app/build/outputs/apk/debug/app-debug.apk SatTool-V0.0.1-Android-arm64.apk
+          cp "$apk" SatTool-V0.0.1-Android-arm64.apk
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
