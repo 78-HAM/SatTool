@@ -292,7 +292,9 @@ cd ..\..\..
 rm -recurse -force bladeRF
 
 Write-Output "Building UHD..."
-git clone https://github.com/EttusResearch/uhd # v4.8 (latest as of this writing) is not compatible with the latest MSVC
+# Pin the latest stable release. The upstream master branch tracks release
+# candidates and can acquire new mandatory dependencies without warning.
+git clone https://github.com/EttusResearch/uhd --depth 1 -b v4.10.0.0
 cd uhd\host
 $null = mkdir build
 cd build

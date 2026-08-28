@@ -30,6 +30,10 @@ require(dependency_script, "CyAPI.vcxproj")
 require(dependency_script, "/p:Configuration=Release /p:Platform=$generator")
 require(dependency_script, "-DENABLE_BACKEND_LIBUSB=ON")
 require(dependency_script, "-DENABLE_BACKEND_CYAPI=OFF")
+require(dependency_script, "git clone https://github.com/EttusResearch/uhd --depth 1 -b v4.10.0.0")
+assert "git clone https://github.com/EttusResearch/uhd #" not in read(dependency_script), (
+    "windows dependency setup still follows the mutable UHD default branch"
+)
 assert "www.satdump.org/FX3-SDK.zip" not in read(dependency_script), (
     "windows dependency setup still uses the dead FX3 SDK archive"
 )
