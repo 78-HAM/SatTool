@@ -16,7 +16,7 @@ namespace spyserver
 
         output->clearWriteStop();
 
-        sendHandshake("SatDump");
+        sendHandshake("SatTool");
 
         client->readAsync(sizeof(SpyServerMessageHeader), (uint8_t *)&receivedHeader, dataHandler, this);
     }

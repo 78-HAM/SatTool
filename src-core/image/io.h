@@ -173,7 +173,7 @@ namespace satdump
 
         /**
          * @brief Append default image file format extension
-         * as configured in satdump_cfg.json.
+         * as configured in sattool_cfg.json.
          *
          * @param file path of the image (with or without extension)
          * @param prod if true, returns the default file extesions for product images

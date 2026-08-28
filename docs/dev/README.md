@@ -18,7 +18,7 @@
 ```
 SatTool/                      # 仓库根(原 SatDump)
 ├── CMakeLists.txt            # 顶层构建:定义 BUILD_GUI/BUILD_ZIQ 等 option,CPack 打包
-├── satdump_cfg.json          # 默认配置(用户自定义存 config/settings.json)
+├── sattool_cfg.json          # 默认配置(用户自定义存 config/settings.json)
 ├── resources/                # ★ 数据资源:pipelines/*.json(流水线定义)、校准、LUT、地图、字体…
 ├── src-core/                 # ★ 核心库 satdump_core(全部逻辑,UI 也在内用 ImGui 绘制)
 │   ├── init.cpp              # 初始化编排

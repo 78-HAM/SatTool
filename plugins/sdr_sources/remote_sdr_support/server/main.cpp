@@ -36,7 +36,7 @@ bool source_is_started = false;
 int main(int argc, char *argv[])
 {
     initLogger();
-    logger->info("Starting SatDump SDR Server v" + (std::string)satdump::SATDUMP_VERSION);
+    logger->info("Starting SatTool SDR Server V" + (std::string)satdump::SATDUMP_VERSION);
 
     int port_used = 5656;
     try

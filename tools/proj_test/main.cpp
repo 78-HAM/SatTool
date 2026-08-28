@@ -46,7 +46,7 @@ int main(int /*argc*/, char *argv[])
     initLogger();
 
     // std::string user_path = std::string(getenv("HOME")) + "/.config/satdump";
-    // satdump::config::loadConfig("satdump_cfg.json", user_path);
+    // satdump::config::loadConfig("sattool_cfg.json", user_path);
     // initFileSink();
 
     // We don't wanna spam with init this time around

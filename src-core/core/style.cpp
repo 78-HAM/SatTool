@@ -81,7 +81,7 @@ namespace style
         }
         catch (std::exception &)
         {
-            logger->error("Failed to load any theme! Your SatDump installation may be missing critical files.");
+            logger->error("Failed to load any theme! Your SatTool installation may be missing critical files.");
             return;
         }
 
@@ -340,6 +340,19 @@ namespace style
         bigFont = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/" + theme.font + ".ttf").c_str(), 45.0f * font_scaling); //, &config, ranges);
         if (bigFont == nullptr)
             bigFont = baseFont;
+#if ENABLE_I18N
+        else if (satdump::current_language == "zh_CN" && resources::resourceExists("fonts/NotoSansSC-Regular.otf"))
+        {
+            ImFontConfig big_cjk_config;
+            big_cjk_config.MergeMode = true;
+            ImFont *big_cjk_font = io.Fonts->AddFontFromFileTTF(
+                resources::getResourcePath("fonts/NotoSansSC-Regular.otf").c_str(),
+                satdump::ui_safety::cjkFontPixelSize(45.0f * font_scaling),
+                &big_cjk_config, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+            if (big_cjk_font == nullptr)
+                logger->error("Failed to load the large bundled CJK font! Chinese headings may not render correctly.");
+        }
+#endif
         // hugeFont = io.Fonts->AddFontFromFileTTF(resources::getResourcePath("fonts/" + theme.font + ".ttf").c_str(), 128.0f * font_scaling); //, &config, ranges);
         io.Fonts->Build();
         io.FontDefault = baseFont; // After Clear()/rebuild, the default font must be re-pointed at the new one

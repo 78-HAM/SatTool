@@ -20,6 +20,18 @@ int main()
     assert(base_font->IsGlyphInFont(0x8BBE));
     assert(base_font->IsGlyphInFont(0x7F6E));
 
+    ImFont *big_font = atlas.AddFontDefault();
+    assert(big_font != nullptr);
+    ImFontConfig big_config;
+    big_config.MergeMode = true;
+    ImFont *big_merged_font = atlas.AddFontFromFileTTF(
+        "resources/fonts/NotoSansSC-Regular.otf", 48.0f, &big_config,
+        atlas.GetGlyphRangesChineseSimplifiedCommon());
+    assert(big_merged_font == big_font);
+    assert(atlas.Build());
+    assert(big_font->IsGlyphInFont(0x4E2D));
+    assert(big_font->IsGlyphInFont(0x6587));
+
     ImGuiContext *context = ImGui::CreateContext();
     ImGui::GetIO().BackendFlags &= ~ImGuiBackendFlags_RendererHasTextures;
     ContainedContext contained;

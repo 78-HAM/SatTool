@@ -29,7 +29,7 @@ namespace satdump::ui_safety
 
     inline float cjkFontPixelSize(float base_font_size)
     {
-        return base_font_size * 1.1f;
+        return base_font_size * 1.2f;
     }
 
     inline float fittedInputWidth(float available_width, float reserved_width)

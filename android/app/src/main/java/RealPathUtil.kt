@@ -61,7 +61,7 @@ object RealPathUtil {
                 val split = docId.split(":".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
                 val type = split[0]
 
-                Log.w("SatDump", "Fetching file with ID " + docId);
+                Log.w("SatTool", "Fetching file with ID " + docId);
                 if ("primary".equals(type, ignoreCase = true)) {
                     return Environment.getExternalStorageDirectory().toString() + "/" + split[1]
                 }

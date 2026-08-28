@@ -7,7 +7,7 @@ if(NOT ANDROID)
   target_link_libraries(experimental_devices_support PUBLIC satdump_core)
   target_include_directories(experimental_devices_support PUBLIC .)
 
-  install(TARGETS experimental_devices_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+  install(TARGETS experimental_devices_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)
 
   if(MSVC)
     target_link_libraries(${PROJECT_NAME} PRIVATE setupapi)

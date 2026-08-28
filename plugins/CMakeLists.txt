@@ -497,7 +497,7 @@ if(PLUGIN_BOCHUM_SUPPORT)
 endif()
 
 option(PLUGIN_EXPERIMENTAL_DEVICES_SUPPORT
-       "Enable Experimental Devices support (SatDump DC and more later)" ON)
+       "Enable Experimental Devices support (SatTool DC and more later)" ON)
 
 if(PLUGIN_EXPERIMENTAL_DEVICES_SUPPORT)
   add_subdirectory(experimental_devices_support)

@@ -30,7 +30,7 @@ namespace satdump
         std::vector<config::PluginConfigHandler> plugin_config_handlers; // TODOREWORK handle UI rendering here!
 
     public:                                 // TODOREWORK make private again asap!
-        nlohmann::ordered_json default_cfg; // The main system-wide satdump_cfg.json
+        nlohmann::ordered_json default_cfg; // The main system-wide sattool_cfg.json
         std::string user_cfg_path;
 
     private:

@@ -1,4 +1,4 @@
-﻿# Preps satdump for execution within the debugger
+# Preps satdump for execution within the debugger
 # MSVC 2022 seems to build in a ./out/... folder
 # Assume this is true
 param(
@@ -44,7 +44,7 @@ cp -r ..\..\..\resources Debug
 mkdir Debug\plugins | Out-Null
 cp -force plugins\Debug\*.dll Debug\plugins
 cp -force plugins\Debug\*.pdb Debug\plugins
-cp -force ..\..\..\satdump_cfg.json Debug
+cp -force ..\..\..\sattool_cfg.json Debug
 
 if(-not $fast)
 {

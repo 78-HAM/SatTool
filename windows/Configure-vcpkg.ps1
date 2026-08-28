@@ -1,6 +1,10 @@
-﻿param([string]$platform="x64-windows") #or x86-windows, arm64-windows
+param([string]$platform="x64-windows") #or x86-windows, arm64-windows
 $ErrorActionPreference = "Stop"
 $PSDefaultParameterValues['*:ErrorAction']='Stop'
+if(Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue)
+{
+    $PSNativeCommandUseErrorActionPreference = $true
+}
 
 if(!!(Get-Command 'tf' -ErrorAction SilentlyContinue) -eq $false -and $Env:GITHUB_WORKSPACE -eq $null)
 {
@@ -61,12 +65,12 @@ if($env:PROCESSOR_ARCHITECTURE -ne $arch)
 #Setup vcpkg
 Write-Output "Configuring vcpkg..."
 cd "$(Split-Path -Parent $MyInvocation.MyCommand.Path)\.."
-git clone https://github.com/microsoft/vcpkg -b 2025.01.13
+git clone --depth 1 https://github.com/microsoft/vcpkg
 cd vcpkg
 .\bootstrap-vcpkg.bat
 
 # Core packages. libxml2 is for libiio
-.\vcpkg install --triplet $platform pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd armadillo opencl curl[schannel] hdf5[cpp] sqlite3
+.\vcpkg install --triplet $platform pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd opencl curl[schannel] hdf5[cpp,hl] sqlite3
 
 # Entirely for UHD...
 .\vcpkg install --triplet $platform boost-chrono boost-date-time boost-filesystem boost-program-options boost-system boost-serialization boost-thread `
@@ -79,7 +83,9 @@ cd build
 $build_args="-DCMAKE_TOOLCHAIN_FILE=$($(Get-Item ..\scripts\buildsystems\vcpkg.cmake).FullName)", "-DVCPKG_TARGET_TRIPLET=$platform", "-DCMAKE_INSTALL_PREFIX=$($(Get-Item ..\installed\$platform).FullName)", "-DCMAKE_BUILD_TYPE=Release", "-A", $generator
 $standard_include=$(Get-Item ..\installed\$platform\include).FullName
 $standard_lib=$(Get-Item ..\installed\$platform\lib).FullName
-$pthread_lib=$(Get-Item ..\installed\$platform\lib\pthreadVC3.lib).FullName
+$pthread_candidates = @(Get-ChildItem ..\installed\$platform\lib -Filter "pthread*.lib" | Where-Object { $_.Name -notmatch "\.dll\.lib$" })
+if($pthread_candidates.Count -eq 0) { Write-Error "The vcpkg pthreads port did not install a link library under installed\$platform\lib" }
+$pthread_lib = $pthread_candidates[0].FullName
 $libusb_include=$(Get-Item ..\installed\$platform\include\libusb-1.0).FullName
 $libusb_lib=$(Get-Item ..\installed\$platform\lib\libusb-1.0.lib).FullName
 if($env:PROCESSOR_ARCHITECTURE -ne $arch)
@@ -294,4 +300,27 @@ Remove-Item sdrplay.zip
 #Clean Up (Some packages are silly)
 mv installed\$platform\lib\*.dll installed\$platform\bin\
 mv installed\$platform\bin\*.lib installed\$platform\lib\
+
+$required_runtime_dlls = @(
+    "airspy.dll",
+    "airspyhf.dll",
+    "bladerf.dll",
+    "fobos.dll",
+    "hackrf.dll",
+    "hydrasdr.dll",
+    "libad9361.dll",
+    "libiio.dll",
+    "libusb-1.0.dll",
+    "LimeSuite.dll",
+    "rtlsdr.dll",
+    "sdrplay_api.dll",
+    "uhd.dll"
+)
+foreach($runtime_dll in $required_runtime_dlls)
+{
+    if(!(Test-Path (Join-Path "installed\$platform\bin" $runtime_dll)))
+    {
+        throw "Required SDR runtime was not built: $runtime_dll"
+    }
+}
 cd ..

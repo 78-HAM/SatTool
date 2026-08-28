@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Terminal=false
+Exec=@CMAKE_INSTALL_PREFIX@/bin/sattool-ui
+Name=SatTool
+Icon=@CMAKE_INSTALL_PREFIX@/share/sattool/icon.png
+StartupWMClass=SatTool V@SATDUMP_VERSION@
+Categories=Science;HamRadio
+Keywords=Satellite;SDR

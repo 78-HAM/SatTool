@@ -18,10 +18,10 @@ if(UNIX OR MSVC)
 
     if(MSVC)
         target_compile_definitions(aaronia_sdr_support PUBLIC RTSA_LIB_PATH="${AARONIA_RTSA_SUITE_PATH}/sdk/AaroniaRTSAAPI.dll")
-        install(TARGETS aaronia_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins RUNTIME_DEPENDENCY_SET satdump_deps)
+        install(TARGETS aaronia_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins RUNTIME_DEPENDENCY_SET satdump_deps)
     else()
         target_compile_definitions(aaronia_sdr_support PUBLIC RTSA_LIB_PATH="${AARONIA_RTSA_SUITE_PATH}/libAaroniaRTSAAPI.so")
-        install(TARGETS aaronia_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+        install(TARGETS aaronia_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)
     endif()
 
     target_include_directories(aaronia_sdr_support PUBLIC src)

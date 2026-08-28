@@ -73,18 +73,18 @@ namespace satdump
                 setlocale(LC_MESSAGES, "en_US.UTF-8");
         }
 #else
-        closeLoadedMessageCatalog("satdump");
+        closeLoadedMessageCatalog("sattool");
 #endif
 
         const std::string catalog_path = resources::getResourcePath("i18n");
 #if defined(_WIN32) || defined(__ANDROID__)
-        if (!lang.empty() && !bindtextdomain("satdump", catalog_path.c_str()))
+        if (!lang.empty() && !bindtextdomain("sattool", catalog_path.c_str()))
             logger->error("Failed to load language catalog for %s from %s", lang.c_str(), catalog_path.c_str());
 #else
-        if (bindtextdomain("satdump", catalog_path.c_str()) == nullptr)
+        if (bindtextdomain("sattool", catalog_path.c_str()) == nullptr)
             logger->error("Failed to configure language catalogs from %s", catalog_path.c_str());
 #endif
-        textdomain("satdump");
+        textdomain("sattool");
 
         current_language = lang;
     }
@@ -100,39 +100,34 @@ namespace satdump
 
         auto lvl = logger->get_level();
         logger->set_level(slog::LOG_INFO);
-        logger->info("   _____       __  ____                      ");
-        logger->info("  / ___/____ _/ /_/ __ \\__  ______ ___  ____ ");
-        logger->info("  \\__ \\/ __ `/ __/ / / / / / / __ `__ \\/ __ \\");
-        logger->info(" ___/ / /_/ / /_/ /_/ / /_/ / / / / / / /_/ /");
-        logger->info("/____/\\__,_/\\__/_____/\\__,_/_/ /_/ /_/ .___/ ");
-        logger->info("                                    /_/      ");
+        logger->info("SatTool");
         logger->info(_("Starting ") + getSatDumpVersionName());
         logger->info("");
         logger->set_level(lvl);
 
 #ifdef _WIN32
-        if (std::filesystem::exists("satdump_cfg.json"))
+        if (std::filesystem::exists("sattool_cfg.json"))
             user_path = "./config";
         else
-            user_path = std::string(getenv("APPDATA")) + "/satdump";
+            user_path = std::string(getenv("APPDATA")) + "/SatTool";
 #elif __ANDROID__
         user_path = ".";
 #else
-        user_path = std::string(getenv("HOME")) + "/.config/satdump";
+        user_path = std::string(getenv("HOME")) + "/.config/sattool";
 #endif
 
         try
         {
-            if (std::filesystem::exists("satdump_cfg.json"))
-                satdump_cfg.load("satdump_cfg.json", user_path);
+            if (std::filesystem::exists("sattool_cfg.json"))
+                satdump_cfg.load("sattool_cfg.json", user_path);
             else
-                satdump_cfg.load(satdump::RESPATH + "satdump_cfg.json", user_path);
+                satdump_cfg.load(satdump::RESPATH + "sattool_cfg.json", user_path);
 
             db = std::make_shared<DBHandler>(user_path + "/main.db");
         }
         catch (std::exception &e)
         {
-            logger->critical(_("Error loading SatDump config! SatDump will now exit. Error:\n%s"), e.what());
+            logger->critical(_("Error loading SatTool config! SatTool will now exit. Error:\n%s"), e.what());
             // if (is_gui)
             //    pfd::message("SatDump", "Error loading SatDump config! SatDump will now exit. Error:\n\n" + std::string(e.what()), pfd::choice::ok, pfd::icon::error); TODOREWORK bring this back
             exit(1);
@@ -230,7 +225,7 @@ namespace satdump
         logger->error("██║  ██║██╔══██║██║╚██╗██║██║   ██║██╔══╝  ██╔══██╗");
         logger->error("██████╔╝██║  ██║██║ ╚████║╚██████╔╝███████╗██║  ██║");
         logger->error("╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝");
-        logger->error(_("SatDump has NOT been built in Release mode."));
+        logger->error(_("SatTool has NOT been built in Release mode."));
         logger->error(_("If you are not a developer but intending to use the software,"));
         logger->error(_("you probably do not want this. If so, make sure to"));
         logger->error(_("specify -DCMAKE_BUILD_TYPE=Release in CMake."));
@@ -242,7 +237,7 @@ namespace satdump
 
     void exitSatDump()
     {
-        logger->info(_("Exiting SatDump! Bye!"));
+        logger->info(_("Exiting SatTool! Bye!"));
         taskScheduler.reset();
     }
 } // namespace satdump

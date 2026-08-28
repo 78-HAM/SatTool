@@ -36,11 +36,11 @@ if(${HDF5_FOUND})
   if(MSVC OR BUILD_MSVC)
     install(
       TARGETS firstparty_support
-      DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins
+      DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins
       RUNTIME_DEPENDENCY_SET satdump_deps)
   else()
     install(TARGETS firstparty_support
-            DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)
   endif()
 
   # Loader plugin
@@ -53,11 +53,11 @@ if(${HDF5_FOUND})
     if(MSVC OR BUILD_MSVC)
       install(
         TARGETS firstparty_loader_support
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins
         RUNTIME_DEPENDENCY_SET satdump_deps)
     else()
       install(TARGETS firstparty_loader_support
-              DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+              DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)
     endif()
   endif()
 

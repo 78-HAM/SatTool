@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.sattool.sattool</id>
+
+  <name>SatTool</name>
+  <summary>SatTool is a general purpose satellite data processing software</summary>
+
+  <metadata_license>GPL-3.0-or-later</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      A one-stop-shop that provides all the necessary stages to get from the satellite transmission to actual products.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">sattool.desktop</launchable>
+</component>

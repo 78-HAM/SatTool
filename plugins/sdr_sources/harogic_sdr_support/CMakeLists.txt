@@ -31,7 +31,7 @@ if(LibHTRA_FOUND)
     )
     
     # Install the final plugin library to the correct location
-    install(TARGETS harogic_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+    install(TARGETS harogic_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)
 else()
     message(WARNING "Harogic HTRA library could not be found! Not building harogic_sdr_support plugin.")
 endif()

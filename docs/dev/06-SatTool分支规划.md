@@ -12,10 +12,10 @@
 | 顶层 `CMakeLists.txt` | `project(SatDump)`,CPACK 名称/厂商/NSIS 文案 | `project(SatTool)`,改名 `CPACK_PACKAGE_*`、`CPACK_PACKAGE_INSTALL_DIRECTORY`、NSIS brand/header |
 | `src-core/satdump_vars.*` | 版本名/资源搜索路径宏 | 按需改版本名与文案 |
 | `src-core/init.cpp` | `user_path`:`%APPDATA%/satdump`、`~/.config/satdump`、`./config`;`main.db` | 换成 sattoool 目录(注意:改名会丢弃用户旧配置,可做一次迁移逻辑) |
-| `satdump_cfg.json` 文件名 + `core/config.cpp` 加载逻辑 | 默认配置名 `satdump_cfg.json` | 改名或保留兼容;`install(...)` 同步 |
+| `sattool_cfg.json` 文件名 + `core/config.cpp` 加载逻辑 | 默认配置名 `sattool_cfg.json` | 改名或保留兼容;`install(...)` 同步 |
 | `src-core/core/resources.cpp` / init | `resources/` 子目录逻辑 | 一般保留 |
 | `plugins/CMakeLists.txt` | 插件输出目录 `plugins/`、include 路径 | 保留机制,路径可不动 |
-| 桌面集成 | `satdump.desktop`、`satdump.appdata.xml`、`satdump_install` | 改名称/ID/文案 |
+| 桌面集成 | `sattool.desktop`、`sattool.appdata.xml`、`satdump_install` | 改名称/ID/文案 |
 | 可执行与库名 | `satdump` / `satdump-ui` / `satdump_core` / `satdump_interface` | CMake target + `SATDUMP_DLL` 导出宏可见性;UI 标题/src-ui 窗口标题 |
 | Android | `org.satdump.SatDump`、gradle 名称 | 换包名 |
 | Docker | Dockerfile/docker-compose 镜像名、`COMMAND` 默认命令 | 改名 |
@@ -30,7 +30,7 @@
    - 阶段 1(搭建):完成第 2 节全部改名,构建/打包/CI 通过;
    - 阶段 2(差异化):把 SatTool 新能力全部做成 plugins/<sattool_*> 插件 + resources 配置,不动 src-core;能实现 80% 需求;
    - 阶段 3(必要时):仅当确需改核心行为(如新 pipeline 引擎、新 UI 范式)才 fork 核心模块,并在本 dev 文档系列记录偏离点。
-3. **配置兼容**:`satdump_cfg.json` 结构不变的话,用户配置可直接沿用;若改 user_path,第一次启动做一次旧目录检测/复制。
+3. **配置兼容**:`sattool_cfg.json` 结构不变的话,用户配置可直接沿用;若改 user_path,第一次启动做一次旧目录检测/复制。
 
 ## 4. 可用的差异化扩展点(基于 01-05 章)
 

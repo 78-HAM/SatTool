@@ -116,7 +116,7 @@ namespace satdump
 
                 auto fun = [this, is_save_as]()
                 {
-                    std::string save_at = is_save_as ? backend::saveFileDialog({{"SatDump DSP Flowgraph", "satdump_dsp_flowgraph"}}, "", "flowgraph.satdump_dsp_flowgraph") : current_file;
+                    std::string save_at = is_save_as ? backend::saveFileDialog({{"SatTool DSP Flowgraph", "sattool_dsp_flowgraph"}}, "", "flowgraph.sattool_dsp_flowgraph") : current_file;
 
                     logger->info("Saving flowgraph : " + save_at);
                     if (save_at == "")
@@ -132,7 +132,7 @@ namespace satdump
             {
                 auto fun = [this]()
                 {
-                    std::string load_at = backend::selectFileDialog({{"SatDump DSP Flowgraph", "satdump_dsp_flowgraph"}}, "");
+                    std::string load_at = backend::selectFileDialog({{"SatTool DSP Flowgraph", "sattool_dsp_flowgraph"}, {"Legacy DSP Flowgraph", "satdump_dsp_flowgraph"}}, "");
 
                     logger->info("Loading flowgraph : " + load_at);
                     if (load_at == "")

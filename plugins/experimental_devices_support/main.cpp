@@ -22,7 +22,7 @@ public:
         {
             if (ImGui::BeginMenu(_("Experimental")))
             {
-                if (ImGui::MenuItem(_("SatDump Downconverter UI")))
+                if (ImGui::MenuItem(_("SatTool Downconverter UI")))
                     evt.master_handler->addSubHandler(std::make_shared<satdump::exp_devs::SatDumpDownconverHandler>());
                 ImGui::EndMenu();
             }

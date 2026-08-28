@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.12)
 file(GLOB_RECURSE SatDump_cli_CPPS *.cpp)
 
 add_executable(satdump ${SatDump_cli_CPPS})
+set_target_properties(satdump PROPERTIES OUTPUT_NAME sattool)
 target_include_directories(satdump PUBLIC src-cli src-core)
 
 # Link against the core

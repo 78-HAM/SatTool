@@ -26,7 +26,7 @@ if(MSVC OR BUILD_MSVC)
     set(VCPKG_APPLOCAL_DEPS CACHE BOOL FALSE)
 endif()
 
-project(SatDump)
+project(SatTool)
 
 # POSIX exposes timegm(), while the Microsoft C runtime provides the
 # equivalent _mkgmtime().  Keep the cross-platform call sites unchanged so
@@ -177,8 +177,8 @@ if((NOT DEFINED ENV{CI}) AND NOT DEFINED ANDROID)
     endif()
 endif()
 
-project(SatDump VERSION "2.0.0")
-set(SATDUMP_VERSION_TYPE "alpha")
+project(SatTool VERSION "0.0.1")
+set(SATDUMP_VERSION_TYPE "")
 
 # Check if the current commit has a tag
 execute_process(
@@ -228,6 +228,11 @@ else()
     set(SATDUMP_VERSION_TAG "${GIT_HAS_BRANCH}/${CMAKE_BUILD_TYPE}")
 endif()
 
+# SatTool V0.0.1 is a product release identifier. Keep it stable regardless
+# of the source branch or commit hash used by CI.
+set(SATDUMP_VERSION "${PROJECT_VERSION}")
+set(SATDUMP_VERSION_TAG "")
+
 # Used for error messages
 string(LENGTH "${CMAKE_SOURCE_DIR}/" SOURCE_PATH_SIZE)
 add_compile_definitions(SOURCE_PATH_SIZE=${SOURCE_PATH_SIZE})
@@ -242,7 +247,7 @@ if(NOT ANDROID)
 endif()
 
 if(OPENCL_FOUND AND BUILD_OPENCL)
-    message("OpenCL Found! SatDump will support accelerated GPU computing.")
+    message("OpenCL Found! SatTool will support accelerated GPU computing.")
 else()
     message("OpenCL NOT found or disabled!")
     set(BUILD_OPENCL OFF)
@@ -267,7 +272,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message("██║  ██║██╔══██║██║╚██╗██║██║   ██║██╔══╝  ██╔══██╗")
     message("██████╔╝██║  ██║██║ ╚████║╚██████╔╝███████╗██║  ██║")
     message("╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝")
-    message("Building SatDump in Debug mode!")
+    message("Building SatTool in Debug mode!")
     message("")
 endif()
 
@@ -302,13 +307,13 @@ add_subdirectory(plugins)
 
 # Install configuration
 if((NOT ANDROID) AND ENABLE_INSTALL)
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION share/satdump)
-    install(FILES ${CMAKE_SOURCE_DIR}/satdump_cfg.json DESTINATION share/satdump)
-    install(FILES ${CMAKE_SOURCE_DIR}/icon.png DESTINATION share/satdump)
-    configure_file(${CMAKE_SOURCE_DIR}/satdump.desktop ${CMAKE_CURRENT_BINARY_DIR}/satdump.desktop @ONLY)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources DESTINATION share/sattool)
+    install(FILES ${CMAKE_SOURCE_DIR}/sattool_cfg.json DESTINATION share/sattool)
+    install(FILES ${CMAKE_SOURCE_DIR}/icon.png DESTINATION share/sattool)
+    configure_file(${CMAKE_SOURCE_DIR}/sattool.desktop ${CMAKE_CURRENT_BINARY_DIR}/sattool.desktop @ONLY)
 
     if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/satdump.desktop DESTINATION share/applications)
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sattool.desktop DESTINATION share/applications)
     endif()
 
     # Create uninstall target
@@ -316,9 +321,9 @@ if((NOT ANDROID) AND ENABLE_INSTALL)
     add_custom_target(uninstall ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
 
     # CPack Configuration
-    set(CPACK_PACKAGE_NAME ${PROJECT_NAME} CACHE STRING "satdump-${PROJECT_VERSION}")
+    set(CPACK_PACKAGE_NAME ${PROJECT_NAME} CACHE STRING "SatTool-${PROJECT_VERSION}")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A satellite data processing software" CACHE STRING "")
-    set(CPACK_PACKAGE_VENDOR "SatDump")
+    set(CPACK_PACKAGE_VENDOR "SatTool")
     set(CPACK_PACKAGE_CONTACT "Aang23")
 
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libfftw3-bin, libvolk-bin | libvolk2-bin, libpng16-16, libnng1, librtlsdr0 | librtlsdr2, libhackrf0, libairspy0, libairspyhf1, libglfw3 | libglfw3-wayland, libzstd1, libjemalloc2 | libjemalloc1, libportaudiocpp0, libhdf5-hl-100t64 | libhdf5-hl-100 | libhdf5-103 | libhdf5-100 | libhdf5-310, libdbus-1-dev, libsqlite3-0, libxrandr2, libuhd4.1.0 | libuhd4.6.0 | libuhd4.8.0 | libuhd4.9.0")
@@ -351,21 +356,21 @@ if((NOT ANDROID) AND ENABLE_INSTALL)
 
         # Generate Installer
         set(CPACK_GENERATOR NSIS)
-        set(CPACK_PACKAGE_INSTALL_DIRECTORY SatDump)
+        set(CPACK_PACKAGE_INSTALL_DIRECTORY SatTool)
         set(CPACK_NSIS_MANIFEST_DPI_AWARE ON)
         set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
         set(CPACK_NSIS_MODIFY_PATH ON)
-        set(CPACK_NSIS_BRANDING_TEXT "SatDump - General Purpose Satellite Data Processor")
+        set(CPACK_NSIS_BRANDING_TEXT "SatTool - General Purpose Satellite Data Processor")
         set(CPACK_NSIS_MUI_HEADERIMAGE "${PROJECT_SOURCE_DIR}\\\\windows\\\\installer-header.bmp")
         set(CPACK_NSIS_MUI_ICON "${PROJECT_SOURCE_DIR}\\\\windows\\\\icon.ico")
         if(BUILD_GUI)
-            set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\satdump-ui.exe")
-            set(CPACK_PACKAGE_EXECUTABLES ${CPACK_PACKAGE_EXECUTABLES} "satdump-ui" "SatDump")
-            list(APPEND CPACK_NSIS_CREATE_ICONS_EXTRA "CreateShortCut \\\"$DESKTOP\\\\SatDump.lnk\\\" \\\"$INSTDIR\\\\bin\\\\satdump-ui.exe\\\"")
-            list(APPEND CPACK_NSIS_DELETE_ICONS_EXTRA "Delete \\\"$DESKTOP\\\\SatDump.lnk\\\"")
+            set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\sattool-ui.exe")
+            set(CPACK_PACKAGE_EXECUTABLES ${CPACK_PACKAGE_EXECUTABLES} "sattool-ui" "SatTool")
+            list(APPEND CPACK_NSIS_CREATE_ICONS_EXTRA "CreateShortCut \\\"$DESKTOP\\\\SatTool.lnk\\\" \\\"$INSTDIR\\\\bin\\\\sattool-ui.exe\\\"")
+            list(APPEND CPACK_NSIS_DELETE_ICONS_EXTRA "Delete \\\"$DESKTOP\\\\SatTool.lnk\\\"")
         endif()
         if(PLUGIN_REMOTE_SDR_SUPPORT)
-            set(CPACK_PACKAGE_EXECUTABLES ${CPACK_PACKAGE_EXECUTABLES} "satdump_sdr_server" "SatDump SDR Server")
+            set(CPACK_PACKAGE_EXECUTABLES ${CPACK_PACKAGE_EXECUTABLES} "sattool_sdr_server" "SatTool SDR Server")
         endif()
 
         install(RUNTIME_DEPENDENCY_SET satdump_deps
@@ -377,13 +382,23 @@ if((NOT ANDROID) AND ENABLE_INSTALL)
             "^vc.*"
             "^msvcp.*"
             "^concrt.*"
-            "satdump_core.dll"
-            "satdump_interface.dll"
+            "sattool_core.dll"
+            "sattool_interface.dll"
             POST_EXCLUDE_REGEXES
             ".*system32/.*\\.dll"
             DIRECTORIES
             "${PROJECT_SOURCE_DIR}/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/bin"
         )
+
+        # SDRPlay is loaded with dlopen/LoadLibrary, so it is invisible to
+        # CMake's imported-DLL dependency scanner and must be installed explicitly.
+        if(PLUGIN_SDRPLAY_SDR_SUPPORT)
+            set(SDRPLAY_RUNTIME_DLL "${PROJECT_SOURCE_DIR}/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/bin/sdrplay_api.dll")
+            if(NOT EXISTS "${SDRPLAY_RUNTIME_DLL}")
+                message(FATAL_ERROR "SDRPlay support is enabled but sdrplay_api.dll is missing: ${SDRPLAY_RUNTIME_DLL}")
+            endif()
+            install(FILES "${SDRPLAY_RUNTIME_DLL}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+        endif()
     else()
         set(CPACK_GENERATOR DEB)
         #set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)

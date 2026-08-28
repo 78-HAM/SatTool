@@ -1,4 +1,4 @@
-package com.altillimity.satdump
+package com.sattool.app
 
 import android.app.NativeActivity
 import android.os.Bundle
@@ -40,7 +40,7 @@ import android.text.InputType;
 import android.view.WindowManager;
 
 import org.woheller69.freeDroidWarn.FreeDroidWarn;
-import org.satdump.SatDump.BuildConfig;
+import com.sattool.app.BuildConfig;
 
 // Extension on intent
 fun Intent?.getFilePath(context: Context): String {
@@ -53,7 +53,7 @@ fun Intent?.getFilePathDir(context: Context): String {
 }
 
 class MainActivity : NativeActivity(), TextWatcher {
-    private val TAG : String = "SatDump";
+    private val TAG : String = "SatTool";
 
     fun checkAndAsk(permission: String) {
         if (PermissionChecker.checkSelfPermission(this, permission) != PermissionChecker.PERMISSION_GRANTED) {
@@ -131,7 +131,7 @@ class MainActivity : NativeActivity(), TextWatcher {
         val aman = getAssets();
         extractDir(aman, fdir + "/resources", "resources");
         // extractDir(aman, fdir + "/plugins", "plugins");
-        extractFile(aman, fdir + "/satdump_cfg.json", "satdump_cfg.json");
+        extractFile(aman, fdir + "/sattool_cfg.json", "sattool_cfg.json");
         //createIfDoesntExist(fdir + "/plugins");
 
         return fdir;

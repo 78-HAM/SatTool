@@ -56,7 +56,7 @@ int main_old(int argc, char *argv[])
     }TODOREWORK*/
     else if (std::string(argv[1]) == "version" || std::string(argv[1]) == "--v")
     {
-        logger->info("This is SatDump v" + (std::string)satdump::SATDUMP_VERSION);
+        logger->info("This is SatTool V" + (std::string)satdump::SATDUMP_VERSION);
         return 0;
     }
     //////////////

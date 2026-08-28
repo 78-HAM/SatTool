@@ -11,8 +11,8 @@
 #include <Windows.h>
 #include <filesystem>
 #include <shlwapi.h>
-#define LIBRARIES_SEARCH_PATH "\\..\\lib\\satdump\\"
-#define RESOURCES_SEARCH_PATH "\\..\\share\\satdump\\"
+#define LIBRARIES_SEARCH_PATH "\\..\\lib\\sattool\\"
+#define RESOURCES_SEARCH_PATH "\\..\\share\\sattool\\"
 #endif
 
 namespace satdump
@@ -77,5 +77,5 @@ namespace satdump
     std::string RESPATH = init_res_path();
     std::string LIBPATH = init_lib_path();
 
-    std::string getSatDumpVersionName() { return "SatDump v" + (std::string)SATDUMP_VERSION + (satdump::SATDUMP_VERSION_TAG.size() ? " (" + satdump::SATDUMP_VERSION_TAG + ")" : ""); }
+    std::string getSatDumpVersionName() { return "SatTool V" + (std::string)SATDUMP_VERSION + (satdump::SATDUMP_VERSION_TAG.size() ? " (" + satdump::SATDUMP_VERSION_TAG + ")" : ""); }
 } // namespace satdump

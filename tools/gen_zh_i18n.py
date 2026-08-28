@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-Generate the Simplified Chinese translation files for SatDump's gettext-based
-i18n system, from a string dictionary and the master satdump.pot catalog.
+Generate the Simplified Chinese translation files for SatTool's gettext-based
+i18n system, from a string dictionary and the master sattool.pot catalog.
 
 Usage:
     python tools/gen_zh_i18n.py [--import-old-cpp path/to/ui_translation.cpp] [pot_file] [dict_file]
 
 Defaults:
-    pot_file  = resources/i18n/po/satdump.pot
+    pot_file  = resources/i18n/po/sattool.pot
     dict_file = resources/i18n/zh_dict.tsv
 
 Outputs (always UTF-8):
-    resources/i18n/zh_CN/LC_MESSAGES/satdump.mo  (directly usable by libintl-tiny)
+    resources/i18n/zh_CN/LC_MESSAGES/sattool.mo  (directly usable by libintl-tiny)
     resources/i18n/zh_CN/LC_MESSAGES/zh_CN.po    (maintainable copy, msgfmt-compatible)
 
 The .mo writer emits the "simple" table format (no hash table), which
@@ -29,7 +29,7 @@ import sys
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-POT_DEFAULT = os.path.join(REPO_ROOT, "resources", "i18n", "po", "satdump.pot")
+POT_DEFAULT = os.path.join(REPO_ROOT, "resources", "i18n", "po", "sattool.pot")
 DICT_DEFAULT = os.path.join(REPO_ROOT, "resources", "i18n", "zh_dict.tsv")
 OUT_DIR = os.path.join(REPO_ROOT, "resources", "i18n", "zh_CN", "LC_MESSAGES")
 
@@ -232,7 +232,7 @@ def write_po(path, entries):
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write('msgid ""\n')
         f.write('msgstr ""\n')
-        f.write('"Project-Id-Version: SatDump\\n"\n')
+        f.write('"Project-Id-Version: SatTool\\n"\n')
         f.write('"Language: zh_CN\\n"\n')
         f.write('"MIME-Version: 1.0\\n"\n')
         f.write('"Content-Type: text/plain; charset=UTF-8\\n"\n')
@@ -313,7 +313,7 @@ def main():
     print("matched          : %d translations" % matched)
 
     os.makedirs(OUT_DIR, exist_ok=True)
-    mo_path = os.path.join(OUT_DIR, "satdump.mo")
+    mo_path = os.path.join(OUT_DIR, "sattool.mo")
     po_path = os.path.join(OUT_DIR, "zh_CN.po")
     write_mo(mo_path, translated)
     write_po(po_path, translated)

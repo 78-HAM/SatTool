@@ -13,13 +13,14 @@ if(MSVC)
     target_link_libraries(remote_sdr_support PUBLIC ws2_32)
 endif()
 
-install(TARGETS remote_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+install(TARGETS remote_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)
 
 # Server Exec
 file(GLOB_RECURSE remote_sdr_server_files server/*.cpp ../udp_discovery.cpp)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 add_executable(satdump_sdr_server ${remote_sdr_server_files})
+set_target_properties(satdump_sdr_server PROPERTIES OUTPUT_NAME sattool_sdr_server)
 target_include_directories(satdump_sdr_server PUBLIC server src-core .)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins)
 

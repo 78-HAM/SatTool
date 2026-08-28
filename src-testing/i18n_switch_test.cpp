@@ -13,8 +13,8 @@ int main()
 #else
     setenv("LANGUAGE", "zh_CN", 1);
 #endif
-    assert(bindtextdomain("satdump", catalog_root));
-    textdomain("satdump");
+    assert(bindtextdomain("sattool", catalog_root));
+    textdomain("sattool");
     assert(std::string(gettext("Settings")) == "\xE8\xAE\xBE\xE7\xBD\xAE");
     assert(std::string(gettext("Baseband Format")) == "\xE5\x9F\xBA\xE5\xB8\xA6\xE6\xA0\xBC\xE5\xBC\x8F");
 
@@ -23,8 +23,8 @@ int main()
 #else
     setenv("LANGUAGE", "en", 1);
 #endif
-    closeLoadedMessageCatalog("satdump");
-    assert(!bindtextdomain("satdump", catalog_root));
-    textdomain("satdump");
+    closeLoadedMessageCatalog("sattool");
+    assert(!bindtextdomain("sattool", catalog_root));
+    textdomain("sattool");
     assert(std::string(gettext("Settings")) == "Settings");
 }

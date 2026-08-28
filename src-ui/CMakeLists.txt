@@ -27,6 +27,7 @@ foreach(TMP_PATH ${SatDump_ui_CPPS})
 endforeach(TMP_PATH)
 
 add_executable(satdump-ui ${SatDump_ui_CPPS} ${WIN32_RESOURCES})
+set_target_properties(satdump-ui PROPERTIES OUTPUT_NAME sattool-ui)
 target_include_directories(satdump-ui PUBLIC . ../src-core ../src-interface ../libsdr)
 
 # Natife File Dialogs

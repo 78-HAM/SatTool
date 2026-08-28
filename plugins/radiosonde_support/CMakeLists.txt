@@ -7,4 +7,4 @@ target_link_libraries(radiosonde_support PUBLIC satdump_core)
 target_include_directories(radiosonde_support PUBLIC src)
 
 install(TARGETS radiosonde_support
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)

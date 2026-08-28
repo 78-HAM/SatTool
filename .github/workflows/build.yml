@@ -35,6 +35,8 @@ jobs:
 
       - name: Run UI and i18n regression tests
         run: |
+          python3 tools/verify_sattool_branding.py
+          python3 tools/verify_windows_release_config.py
           g++ -std=c++17 -Isrc-core src-testing/ui_regression_tests.cpp -o /tmp/ui_regression_tests
           /tmp/ui_regression_tests
           g++ -std=c++17 -D__ANDROID__ -Isrc-core \
@@ -51,13 +53,13 @@ jobs:
         run: |
           staging="$RUNNER_TEMP/sattool-linux"
           cmake --install build --config Release --prefix "$staging/usr" > /tmp/install.log 2>&1 || { tail -50 /tmp/install.log; exit 1; }
-          test -x "$staging/usr/bin/satdump-ui"
-          test -x "$staging/usr/bin/satdump"
-          test -f "$staging/usr/share/satdump/satdump_cfg.json"
-          test -f "$staging/usr/share/satdump/resources/i18n/zh_CN/LC_MESSAGES/satdump.mo"
-          test -f "$staging/usr/share/satdump/resources/fonts/NotoSansSC-Regular.otf"
+          test -x "$staging/usr/bin/sattool-ui"
+          test -x "$staging/usr/bin/sattool"
+          test -f "$staging/usr/share/sattool/sattool_cfg.json"
+          test -f "$staging/usr/share/sattool/resources/i18n/zh_CN/LC_MESSAGES/sattool.mo"
+          test -f "$staging/usr/share/sattool/resources/fonts/NotoSansSC-Regular.otf"
           mkdir -p dist
-          tar -C "$RUNNER_TEMP" -czf dist/sattool-linux-install-tree.tar.gz sattool-linux
+          tar -C "$RUNNER_TEMP" -czf dist/SatTool-V0.0.1-Linux-install-tree.tar.gz sattool-linux
           cmake --build build --target package -j$(nproc)
           find build -maxdepth 1 -type f -name '*.deb' -exec cp {} dist/ \;
           test -n "$(find dist -maxdepth 1 -type f -name '*.deb' -print -quit)"
@@ -77,24 +79,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Clone vcpkg (latest, avoids stale msys2 mirror URLs in old registries)
-        run: git clone --depth 1 https://github.com/microsoft/vcpkg
+      - name: Cache complete Windows dependencies
+        uses: actions/cache@v4
+        id: windows-deps
+        with:
+          path: vcpkg
+          key: sattool-windows-complete-v3-${{ hashFiles('windows/Configure-vcpkg.ps1') }}
 
-      - name: Bootstrap vcpkg
-        run: .\vcpkg\bootstrap-vcpkg.bat
+      - name: Set up MSBuild and Python
+        if: steps.windows-deps.outputs.cache-hit != 'true'
+        uses: microsoft/setup-msbuild@v2
 
-      - name: Install dependencies
-        # Core-only package list from windows/Configure-vcpkg.ps1 (+ volk).
-        # SDR-specific dependencies are skipped, the matching plugins are disabled below.
-        run: .\vcpkg\vcpkg install --triplet x64-windows pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd opencl curl hdf5[cpp,hl] sqlite3
+      - uses: actions/setup-python@v5
+        if: steps.windows-deps.outputs.cache-hit != 'true'
+        with:
+          python-version: '3.13'
 
-      - name: Build VOLK from source (vcpkg's volk port is the Vulkan loader)
-        run: |
-          pip install mako
-          git clone --depth 1 --recurse-submodules https://github.com/JVital2013/volk -b win-arm64
-          cmake -S volk -B volk-build -A x64 -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\vcpkg\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows" -DENABLE_TESTING=OFF -DENABLE_MODTOOL=OFF
-          cmake --build volk-build --config Release
-          cmake --install volk-build --config Release
+      - name: Install build helpers
+        if: steps.windows-deps.outputs.cache-hit != 'true'
+        run: pip install mako
+
+      - name: Build complete Windows SDR dependencies
+        if: steps.windows-deps.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: .\windows\Configure-vcpkg.ps1 -platform x64-windows
 
       - name: Configure CMake
         run: >
@@ -105,39 +113,13 @@ jobs:
           -A x64
           -DBUILD_GUI=ON
           -DENABLE_I18N=ON
-          -DPLUGINS_ALL=OFF
-          -DPLUGIN_XRIT=ON
-          -DPLUGIN_FIRSTPARTY_SUPPORT=ON
-          -DPLUGIN_BITVIEW_APP=ON
-          -DPLUGIN_AIRSPY_SDR_SUPPORT=OFF
-          -DPLUGIN_HYDRASDR_SDR_SUPPORT=OFF
-          -DPLUGIN_AIRSPYHF_SDR_SUPPORT=OFF
-          -DPLUGIN_HACKRF_SDR_SUPPORT=OFF
-          -DPLUGIN_LIMESDR_SDR_SUPPORT=OFF
-          -DPLUGIN_SDRPLAY_SDR_SUPPORT=OFF
-          -DPLUGIN_PLUTOSDR_SDR_SUPPORT=OFF
-          -DPLUGIN_BLADERF_SDR_SUPPORT=OFF
-          -DPLUGIN_LITEXM2SDR_SDR_SUPPORT=OFF
-          -DPLUGIN_USRP_SDR_SUPPORT=OFF
-          -DPLUGIN_RTLSDR_SDR_SUPPORT=OFF
-          -DPLUGIN_MIRISDR_SDR_SUPPORT=OFF
-          -DPLUGIN_SPYSERVER_SUPPORT=OFF
-          -DPLUGIN_RTLTCP_SUPPORT=OFF
-          -DPLUGIN_SDRPP_SERVER_SUPPORT=OFF
+          -DPLUGINS_ALL=ON
           -DPLUGIN_AARONIA_SDR_SUPPORT=OFF
           -DPLUGIN_HAROGIC_SDR_SUPPORT=OFF
-          -DPLUGIN_RFNM_SDR_SUPPORT=OFF
-          -DPLUGIN_FOBOSSDR_SDR_SUPPORT=OFF
+          -DPLUGIN_LITEXM2SDR_SDR_SUPPORT=OFF
           -DPLUGIN_RTAUDIO_SDR_SUPPORT=OFF
-          -DPLUGIN_NET_SOURCE_SDR_SUPPORT=OFF
-          -DPLUGIN_REMOTE_SDR_SUPPORT=OFF
-          -DPLUGIN_SDDC_SDR_SUPPORT=OFF
+          -DPLUGIN_SDDC_SDR_SUPPORT=ON
           -DPLUGIN_SOAPY_SDR_SUPPORT=OFF
-          -DPLUGIN_BOCHUM_SUPPORT=OFF
-          -DPLUGIN_EXPERIMENTAL_DEVICES_SUPPORT=OFF
-          -DPLUGIN_RTAUDIO_SINK=OFF
-          -DPLUGIN_PORTAUDIO_SINK=OFF
-          -DPLUGIN_AAUDIO_SINK=OFF
 
       - name: Build
         run: cmake --build build --config Release
@@ -145,47 +127,40 @@ jobs:
       - name: Install NSIS
         run: choco install nsis --yes --no-progress
 
+      - name: Add Visual Studio binary tools to PATH
+        shell: pwsh
+        run: |
+          $msvc = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC" | Sort-Object Name -Descending | Select-Object -First 1
+          "$($msvc.FullName)\bin\Hostx64\x64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Stage and verify Windows release
         shell: pwsh
         run: |
           $staging = Join-Path $env:RUNNER_TEMP "sattool-windows"
           cmake --install build --config Release --prefix $staging
 
-          $required = @(
-            "bin\satdump-ui.exe",
-            "bin\satdump.exe",
-            "share\satdump\satdump_cfg.json",
-            "share\satdump\resources\i18n\zh_CN\LC_MESSAGES\satdump.mo",
-            "share\satdump\resources\fonts\NotoSansSC-Regular.otf",
-            "lib\satdump\plugins\xrit_support.dll",
-            "lib\satdump\plugins\firstparty_support.dll",
-            "lib\satdump\plugins\firstparty_loader_support.dll",
-            "lib\satdump\plugins\bitview_app.dll"
-          )
-          foreach ($path in $required) {
-            if (!(Test-Path (Join-Path $staging $path))) { throw "Installed file missing: $path" }
-          }
+          .\windows\Verify-WindowsRelease.ps1 -StagingPath $staging
 
           Push-Location $env:RUNNER_TEMP
           try {
-            & (Join-Path $staging "bin\satdump.exe") --help
-            if ($LASTEXITCODE -ne 0) { throw "Installed satdump.exe smoke test failed with exit code $LASTEXITCODE" }
+            & (Join-Path $staging "bin\sattool.exe") --help
+            if ($LASTEXITCODE -ne 0) { throw "Installed sattool.exe smoke test failed with exit code $LASTEXITCODE" }
           } finally {
             Pop-Location
           }
 
-          $gui = Start-Process (Join-Path $staging "bin\satdump-ui.exe") -WorkingDirectory (Join-Path $staging "bin") -PassThru -WindowStyle Hidden
+          $gui = Start-Process (Join-Path $staging "bin\sattool-ui.exe") -WorkingDirectory (Join-Path $staging "bin") -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 8
           if ($gui.HasExited) {
             if ($gui.ExitCode -ne 0) {
-              Write-Warning "satdump-ui.exe exited with code $($gui.ExitCode) on the headless GitHub runner; portable-package GUI startup is verified on a desktop Windows host after download"
+              throw "sattool-ui.exe exited with code $($gui.ExitCode) during release smoke test"
             }
           } else {
             Stop-Process -Id $gui.Id
           }
 
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Compress-Archive -Path "$staging\*" -DestinationPath dist\sattool-windows-portable.zip -Force
+          Compress-Archive -Path "$staging\*" -DestinationPath dist\SatTool-V0.0.1-Windows-x64-portable.zip -Force
 
       - name: Build NSIS installer
         shell: pwsh
@@ -266,17 +241,28 @@ jobs:
         run: |
           ls -la android/app/build/outputs/apk/debug/
           test -f android/app/build/outputs/apk/debug/app-debug.apk
-          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/resources/i18n/zh_CN/LC_MESSAGES/satdump.mo'
+          aapt dump badging android/app/build/outputs/apk/debug/app-debug.apk | grep -q "package: name='com.sattool.app' versionCode='1' versionName='0.0.1'"
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/resources/i18n/zh_CN/LC_MESSAGES/sattool.mo'
           unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/resources/fonts/NotoSansSC-Regular.otf'
           unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'lib/arm64-v8a/libfirstparty_support.so'
           unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'lib/arm64-v8a/libfirstparty_loader_support.so'
           unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q 'lib/arm64-v8a/libbitview_app.so'
-          cp android/app/build/outputs/apk/debug/app-debug.apk sattool-android-debug.apk
+          for plugin in \
+            airspy_sdr_support airspyhf_sdr_support hydrasdr_sdr_support \
+            hackrf_sdr_support limesdr_sdr_support plutosdr_sdr_support \
+            rtlsdr_sdr_support mirisdr_sdr_support net_source_support \
+            remote_sdr_support rtltcp_support spyserver_support sdrpp_server_support; do
+            unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -q "lib/arm64-v8a/lib${plugin}.so" || {
+              echo "FATAL: Android SDR plugin is missing from APK: lib${plugin}.so"
+              exit 1
+            }
+          done
+          cp android/app/build/outputs/apk/debug/app-debug.apk SatTool-V0.0.1-Android-arm64.apk
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sattool-android-debug
-          path: sattool-android-debug.apk
+          name: sattool-android
+          path: SatTool-V0.0.1-Android-arm64.apk
           if-no-files-found: error
           retention-days: 30

@@ -10,8 +10,8 @@ if(MSVC OR BUILD_MSVC)
     set(RESOURCES_PATH "./")
     set(LIBRARIES_PATH "./")
 else()
-    set(RESOURCES_PATH "${CMAKE_INSTALL_PREFIX}/share/satdump/")
-    set(LIBRARIES_PATH "${CMAKE_INSTALL_FULL_LIBDIR}/satdump/")
+    set(RESOURCES_PATH "${CMAKE_INSTALL_PREFIX}/share/sattool/")
+    set(LIBRARIES_PATH "${CMAKE_INSTALL_FULL_LIBDIR}/sattool/")
 endif()
 
 configure_file(${PROJECT_SOURCE_DIR}/src-core/satdump_varst.cxx ${CMAKE_CURRENT_BINARY_DIR}/satdump_varst.cpp @ONLY)
@@ -122,6 +122,7 @@ unset(ANGELSCRIPT_SOURCE)
 find_package(PkgConfig)
 
 add_library(satdump_core SHARED ${SatDump_core_CPPS})
+set_target_properties(satdump_core PROPERTIES OUTPUT_NAME sattool_core)
 target_include_directories(satdump_core PUBLIC .)
 #target_precompile_headers(satdump_core PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/nlohmann/json.hpp>")
 
@@ -175,7 +176,8 @@ if(MSVC)
     endif()
 
     target_include_directories(satdump_core PUBLIC libs/lua)
-    target_link_libraries(satdump_core PUBLIC ws2_32 pthreadVC3)
+    find_library(SATTOOL_PTHREAD_LIBRARY NAMES pthreadVC3 pthread pthreads PATHS "${CMAKE_SOURCE_DIR}/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/lib" REQUIRED)
+    target_link_libraries(satdump_core PUBLIC ws2_32 ${SATTOOL_PTHREAD_LIBRARY})
 elseif(ANDROID)
     # Jemalloc
     # TODO

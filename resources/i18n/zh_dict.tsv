@@ -1,5 +1,5 @@
 Nothing implemented there yet!	这里还没有实现任何内容！
-SatDump UI	SatDump 界面
+SatTool UI	SatTool 界面
 Offline processing	离线处理
 Recorder	录制器
 Viewer	查看器
@@ -21,12 +21,12 @@ Output folder is invalid!	输出文件夹无效！
 Core Settings	核心设置
 User Interface	用户界面
 Theme	主题
-Set the style and color of SatDump	设置 SatDump 的界面风格和颜色
+Set the style and color of SatTool	设置 SatTool 的界面风格和颜色
 Show ImGui Demo	显示 ImGui 演示窗口
 For developers only!	仅供开发者使用！
-General SatDump	SatDump 常规设置
+General SatTool	SatTool 常规设置
 OpenCL Device	OpenCL 设备
-OpenCL Device SatDump will use for accelerated computing where it can help, eg, for some image processing tasks such as projections.	SatDump 会在适合的场景使用此 OpenCL 设备进行加速，例如部分图像处理和投影任务。
+OpenCL Device SatTool will use for accelerated computing where it can help, eg, for some image processing tasks such as projections.	SatTool 会在适合的场景使用此 OpenCL 设备进行加速，例如部分图像处理和投影任务。
 Update TLEs Now	立即更新 TLE
 Last updated: %s	上次更新：%s
 Never	从未
@@ -41,7 +41,7 @@ Instrument Config	仪器配置
 Default Pipeline Configs	默认流水线配置
 Reset	重置
 Settings saved	设置已保存
-Note : Some settings will require SatDump to be restarted\nto take effect!	注意：某些设置需要重启 SatDump 后才会生效！
+Note : Some settings will require SatTool to be restarted\nto take effect!	注意：某些设置需要重启 SatTool 后才会生效！
 None (Use CPU)	无（使用 CPU）
 Search pipelines	搜索流水线
 Favourites	收藏
@@ -308,15 +308,15 @@ Add milliseconds to the output filenames for basebands recorded in the recorder	
 Show Status Bar	显示状态栏
 Show status bar with last log at the bottom of the UI	在界面底部显示带有最新日志的状态栏。
 Remember Window Size and Position	记住窗口大小和位置
-Remeber size and position of the window when closing SatDump. It will open in the same configuration on next launch	关闭 SatDump 时记住窗口大小和位置，下次启动时恢复。
+Remeber size and position of the window when closing SatTool. It will open in the same configuration on next launch	关闭 SatTool 时记住窗口大小和位置，下次启动时恢复。
 Advanced Mode	高级模式
-Allows full editing of all SatDump options. Be warned: invalid configurations\nmay result in crashes, corruption of data, and more. Use at your own risk!	允许完整编辑 SatDump 的所有选项。注意：错误配置可能导致崩溃、数据损坏等问题，请自行承担风险。
+Allows full editing of all SatTool options. Be warned: invalid configurations\nmay result in crashes, corruption of data, and more. Use at your own risk!	允许完整编辑 SatTool 的所有选项。注意：错误配置可能导致崩溃、数据损坏等问题，请自行承担风险。
 Recorder: Time for disk space warning (in seconds)	录制器：磁盘空间警告时间（秒）
 Defines the time when should the user be warned about not enough disk space.\nSet to 0 to disable	定义剩余磁盘空间不足时的警告阈值时间。\n设为 0 可禁用。
 Log Level	日志级别
-The logger level of SatDump in the console.\nEg, if you wish to only show errors\nor every little thing that's going on	SatDump 控制台日志级别。\n例如只显示错误，或显示所有详细信息。
+The logger level of SatTool in the console.\nEg, if you wish to only show errors\nor every little thing that's going on	SatTool 控制台日志级别。\n例如只显示错误，或显示所有详细信息。
 Save log file	保存日志文件
-Save ALL SatDump logs to a file.\nThis is useful to send in\nbug reports and such.	将 SatDump 的全部日志保存到文件。\n这对提交 bug 报告很有帮助。
+Save ALL SatTool logs to a file.\nThis is useful to send in\nbug reports and such.	将 SatTool 的全部日志保存到文件。\n这对提交 bug 报告很有帮助。
 Product Image Format	产品图像格式
 Processed Image Format	处理后图像格式
 Automatically Process Products	自动处理产品

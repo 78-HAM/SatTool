@@ -180,7 +180,7 @@ namespace satdump
         // Get the cookie
         std::string post_fields = "identity=" + sc_login + "&password=" + sc_passw;
         curl_easy_setopt(curl, CURLOPT_COOKIEFILE, "");
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, std::string((std::string) "SatDump/v" + SATDUMP_VERSION).c_str());
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, std::string((std::string) "SatTool/V" + SATDUMP_VERSION).c_str());
         curl_easy_setopt(curl, CURLOPT_URL, "https://www.space-track.org/ajaxauth/login");
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_fields.c_str());
 
@@ -299,7 +299,7 @@ namespace satdump
         // Get the cookie
         std::string post_fields = "identity=" + sc_login + "&password=" + sc_passw;
         curl_easy_setopt(curl, CURLOPT_COOKIEFILE, "");
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, std::string((std::string) "SatDump/v" + SATDUMP_VERSION).c_str());
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, std::string((std::string) "SatTool/V" + SATDUMP_VERSION).c_str());
         curl_easy_setopt(curl, CURLOPT_URL, "https://www.space-track.org/ajaxauth/login");
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_fields.c_str());
 

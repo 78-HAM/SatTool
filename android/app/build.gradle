@@ -11,12 +11,12 @@ android {
     }
 
     defaultConfig {
-        applicationId "org.satdump.SatDump"
-        namespace "org.satdump.SatDump"
+        applicationId "com.sattool.app"
+        namespace "com.sattool.app"
         minSdkVersion 26
         targetSdkVersion 27
-        versionCode 9
-        versionName "2.0.0"
+        versionCode 1
+        versionName "0.0.1"
     }
 
     buildTypes {
@@ -78,7 +78,7 @@ task copyPipelines(type: Copy) {
 
 task copyCfg(type: Copy) {
     description = 'Copy config...'
-    from '../../satdump_cfg.json'
+    from '../../sattool_cfg.json'
     into 'assets/'
     include('*')
 }

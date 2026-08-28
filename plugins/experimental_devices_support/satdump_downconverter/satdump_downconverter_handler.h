@@ -55,7 +55,7 @@ namespace satdump
 
         public:
             std::string getID() { return "satdump_downconverter_handler"; }
-            std::string getName() { return "SatDump Downconverter"; }
+            std::string getName() { return "SatTool Downconverter"; }
         };
     } // namespace exp_devs
 }; // namespace satdump

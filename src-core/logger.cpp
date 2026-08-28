@@ -6,7 +6,7 @@
 #include <filesystem>
 #ifdef __ANDROID__
 #include <android/log.h>
-static char ag_LogTag[] = "SatDump";
+static char ag_LogTag[] = "SatTool";
 #endif
 #if defined(_WIN32)
 #include <windows.h>

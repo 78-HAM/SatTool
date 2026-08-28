@@ -101,7 +101,7 @@
             "type": "bool",
             "value": false,
             "name": "Advanced Mode",
-            "description": "Allows full editing of all SatDump options. Be warned: invalid configurations\nmay result in crashes, corruption of data, and more. Use at your own risk!"
+            "description": "Allows full editing of all SatTool options. Be warned: invalid configurations\nmay result in crashes, corruption of data, and more. Use at your own risk!"
         },
         "remaining_disk_space_time": {
             "type": "int",
@@ -124,14 +124,14 @@
                 "error",
                 "critical"
             ],
-            "description": "The logger level of SatDump in the console.\nEg, if you wish to only show errors\nor every little thing that's going on",
+            "description": "The logger level of SatTool in the console.\nEg, if you wish to only show errors\nor every little thing that's going on",
             "no_live": true
         },
         "log_to_file": {
             "type": "bool",
             "value": true,
             "name": "Save log file",
-            "description": "Save ALL SatDump logs to a file.\nThis is useful to send in\nbug reports and such."
+            "description": "Save ALL SatTool logs to a file.\nThis is useful to send in\nbug reports and such."
         },
         "product_format": {
             "type": "labeled_options",

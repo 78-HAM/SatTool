@@ -1,5 +1,4 @@
 #include "loader.h"
-#include "const.h"
 #include "core/backend.h"
 #include "core/resources.h"
 #include "core/style.h"
@@ -9,7 +8,6 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_flags.h"
 #include "imgui/imgui_image.h"
-#include <random>
 #include <thread>
 
 namespace satdump
@@ -19,19 +17,11 @@ namespace satdump
         // TODOREWORK This can only work if the logger provides data from the MAIN thread!
         thread_id = std::this_thread::get_id();
 
-        const time_t timevalue = time(0);
-        std::tm *timeConstant = gmtime(&timevalue);
         image::Image image;
-        std::random_device dev;
-        std::mt19937 rng(dev());
-        std::uniform_int_distribution<std::mt19937::result_type> check(1, 1000);
-        loader_constant = ((timeConstant->tm_mon - 3) == 0 && (timeConstant->tm_mday - 1) == 0) ? (check(rng) != 42) : (check(rng) == 42);
-        title = loader_constant ? satdump::loader_constant_title : _("SatDump");
-        slogan = loader_constant ? satdump::loader_constant_slogan : _("General Purpose Satellite Data Processor");
-        if (loader_constant)
-            image::load_png(image, (uint8_t *)satdump::loader_constant_icon, sizeof(satdump::loader_constant_icon));
-        else
-            image::load_png(image, resources::getResourcePath("icon.png"));
+        loader_constant = false;
+        title = "SatTool";
+        slogan = _("General Purpose Satellite Data Processor");
+        image::load_png(image, resources::getResourcePath("icon.png"));
 
         if (image.depth() != 8)
             image = image.to8bits();

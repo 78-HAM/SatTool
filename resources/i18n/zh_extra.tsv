@@ -1,7 +1,7 @@
 # Additional Simplified Chinese translations for current (2.x) UI strings.
 # Same TSV format as zh_dict.tsv (backslash-escaped \n / \t / \\ supported).
 # Merged on top of zh_dict.tsv by tools/gen_zh_i18n.py (last wins).
-Welcome to SatDump!	欢迎使用 SatDump！
+Welcome to SatTool!	欢迎使用 SatTool！
 Add	添加
 Add...	添加...
 Add Item	添加项目
@@ -38,8 +38,8 @@ DSP Flowgraph	DSP 流程图
 WIP Tracking	WIP 跟踪
 Satellite finder	卫星查找器
 Instrument Config Editor	仪器配置编辑器
-SatDump Log	SatDump 日志
-SatDump Downconverter UI	SatDump 下变频器界面
+SatTool Log	SatTool 日志
+SatTool Downconverter UI	SatTool 下变频器界面
 Reload	重新加载
 Delete	删除
 Pick	选择
@@ -130,7 +130,7 @@ Error processing image! %s	图像处理出错！%s
 Failed Geo-Correcting image!	地理校正失败！
 Can't drag parent onto child handler!	不能将父项拖到子处理程序上！
 Starting 	正在启动 
-Exiting SatDump! Bye!	正在退出 SatDump，再见！
+Exiting SatTool! Bye!	正在退出 SatTool，再见！
 Registered pipelines :	已注册流水线：
 Error	错误
 Warning	警告
@@ -152,3 +152,53 @@ Draw Color	绘制颜色
 Hue/Saturation	色相/饱和度
 Scale Rank (Cities Only)	等级缩放（仅城市）
 Advanced	高级
+ Crop	 裁剪
+ Hue	 色相
+ Lightness	 亮度
+ Saturation	 饱和度
+!!!!WARNING - LOW AMOUNT OF FREE DISK SPACE!!!!	警告：可用磁盘空间不足！
+%s : Invalid Value	%s：值无效
+ASCII	ASCII
+Abort	中止
+Add To Equ###calibaddtoexpression	添加到公式###calibaddtoexpression
+All	全部
+Auto	自动
+BitView	BitView
+Blue	蓝色
+Brightness/contrast	亮度/对比度
+Calibrate	校准
+Channel 	通道
+Color	颜色
+Could not open ephemeris data! NOVAS will not work!	无法打开星历数据，NOVAS 将不可用！
+Cyan	青色
+DSP Buffer size was changed to %d	DSP 缓冲区大小已改为 %d
+EUMETSAT User «Consumer Key»	EUMETSAT 用户 Consumer Key
+EUMETSAT User «Consumer Secret»	EUMETSAT 用户 Consumer Secret
+Error loading SatTool config! SatTool will now exit. Error:\n%s	加载 SatTool 配置失败，程序将退出。错误：\n%s
+FFT	FFT
+Fill	填充
+Green	绿色
+LUT	查找表
+Lat : %f	纬度：%f
+Lat : Invalid!	纬度无效！
+Lon : %f	经度：%f
+Lon : Invalid!	经度无效！
+Magenta	品红色
+No valid converter for : 	没有可用的转换器：
+Output image : 	输出图像：
+Overlap	重叠
+Paste & Load	粘贴并加载
+QTH	地面站位置
+Raw %d : %d F %f	原始 %d：%d F %f
+Raw : %d	原始：%d
+Red	红色
+Rotate 0	旋转 0 度
+Rotate 90	旋转 90 度
+Rotate 180	旋转 180 度
+Rotate 270	旋转 270 度
+SatTool	SatTool
+SatTool has NOT been built in Release mode.	SatTool 未以 Release 模式构建。
+Size : %d	大小：%d
+Yellow	黄色
+   Search pipelines	搜索流水线
+ﱮ Open##filepathselectionbutton	打开##filepathselectionbutton

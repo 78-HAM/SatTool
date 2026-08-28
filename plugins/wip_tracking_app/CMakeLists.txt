@@ -7,5 +7,5 @@ if(BUILD_GUI)
     target_link_libraries(wiptracking_app PUBLIC satdump_core satdump_interface)
     target_include_directories(wiptracking_app PUBLIC . ../../src-interface)
 
-    install(TARGETS wiptracking_app DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+    install(TARGETS wiptracking_app DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)
 endif()

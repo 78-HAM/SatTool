@@ -7,5 +7,5 @@ if(BUILD_GUI)
     target_link_libraries(tools_app PUBLIC satdump_core satdump_interface)
     target_include_directories(tools_app PUBLIC . ../../src-interface)
 
-    install(TARGETS tools_app DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+    install(TARGETS tools_app DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)
 endif()

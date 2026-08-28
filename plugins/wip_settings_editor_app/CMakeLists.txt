@@ -21,6 +21,6 @@ if(BUILD_GUI)
     )
 
     install(TARGETS wipsettings_app
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins
     )
 endif()

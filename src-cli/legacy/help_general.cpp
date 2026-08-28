@@ -8,10 +8,10 @@ void help_general()
 	logger->error("");
 	logger->error("Visit: www.satdump.org");
 	logger->error("");
-	logger->info("Many usecases of SatDump CLI are cover at the following link");
+	logger->info("Many use cases of SatTool CLI are covered at the following link");
 	logger->debug("www.satdump.org/posts/basic-usage/#cli-this-part-was-made-by-aang23");
 	logger->info("");
-	logger->info("This is SatDump v" + (std::string)satdump::SATDUMP_VERSION);
+	logger->info("This is SatTool V" + (std::string)satdump::SATDUMP_VERSION);
 	logger->info("Live processing");
 	logger->debug("	- Usage: satdump live + parameters");
 	logger->debug("	- info: use 'satdump live' for more information on 'live' usage and parameters");	
@@ -21,9 +21,9 @@ void help_general()
 	logger->info("autotrack feature");
 	logger->debug("	- Usage: satdump autotrack + parameters");
 	logger->debug("	- info: use 'satdump autotrack' for more information on 'autotrack' usage and parameters");	
-	logger->info("SatDump GUI version");
-	logger->debug("	- Usage: satdump-ui");
-	logger->debug("	- info: GUI version of SatDump");
+	logger->info("SatTool GUI version");
+	logger->debug("	- Usage: sattool-ui");
+	logger->debug("	- info: GUI version of SatTool");
 	logger->info("SDR probe");
 	logger->debug("	- Usage: satdump sdr_probe");
 	logger->debug("	- info: Return a list of local and remote receivers ");
@@ -32,6 +32,6 @@ void help_general()
 	logger->debug("	- info: Display the general help function");
 	logger->info("version of satdump");
 	logger->debug("	- Usage: satdump version");
-	logger->debug("	- info: Display the current version of SatDump. Also visible above");
+	logger->debug("	- info: Display the current version of SatTool. Also visible above");
 	exit(0);
 }

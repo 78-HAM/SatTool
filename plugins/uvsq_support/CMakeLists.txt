@@ -7,4 +7,4 @@ add_library(uvsq_support SHARED ${uvsq_support_CPPS})
 target_link_libraries(uvsq_support PUBLIC satdump_core)
 target_include_directories(uvsq_support PUBLIC src)
 
-install(TARGETS uvsq_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+install(TARGETS uvsq_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)

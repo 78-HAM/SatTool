@@ -26,9 +26,9 @@ if(LITEXM2SDR_LIBRARY OR MSVC) # OR ANDROID)
 
 
     if(MSVC)
-        install(TARGETS litex_m2sdr_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins RUNTIME_DEPENDENCY_SET satdump_deps)
+        install(TARGETS litex_m2sdr_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins RUNTIME_DEPENDENCY_SET satdump_deps)
     else()
-        install(TARGETS litex_m2sdr_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
+        install(TARGETS litex_m2sdr_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)
     endif()
 else()
     message("LiteX M2SDR Library could not be found! Not building.")

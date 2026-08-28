@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$BuildPath="$(Split-Path -Parent $MyInvocation.MyCommand.Path)\..\build",
     [string]$SourcePath="$(Split-Path -Parent $MyInvocation.MyCommand.Path)\..",
     [string]$platform="x64-windows" #or x86-windows, arm64-windows
@@ -31,12 +31,15 @@ function Parse-DumpBin($binary_path)
     return $return_val
 }
 
-#Copy all files into the Release folder
+# Copy all files into a self-contained portable tree.
 cd $BuildPath
+if(Test-Path Release) { Remove-Item Release -Recurse -Force }
 mkdir Release\plugins | Out-Null
 cp plugins\Release\*.dll Release\plugins
 cp -r $SourcePath\resources Release
-cp $SourcePath\satdump_cfg.json Release
+cp $SourcePath\sattool_cfg.json Release
+cp $SourcePath\icon.png Release
+cp $SourcePath\vcpkg\installed\$platform\bin\*.dll Release
 cd Release
 
 $input_dlls = Get-ChildItem -Recurse -Filter *.dll
@@ -83,6 +86,22 @@ foreach($dll_to_copy in $dlls_to_copy)
 {
     cp $dll_to_copy.FullName .
 }
+
+# Verify that the portable tree has a closed runtime dependency set.
+$system_dlls = @('KERNEL32.dll','USER32.dll','GDI32.dll','ADVAPI32.dll','SHELL32.dll','OLE32.dll','OLEAUT32.dll','WS2_32.dll','COMDLG32.dll','SHLWAPI.dll','IPHLPAPI.DLL','VERSION.dll','IMM32.dll','SETUPAPI.dll','MSVCP140.dll','VCRUNTIME140.dll','VCRUNTIME140_1.dll','ucrtbase.dll')
+$packaged_names = (Get-ChildItem -File -Filter *.dll).Name
+$missing = @()
+foreach($input_dll in $input_dlls)
+{
+    foreach($dep in (Parse-DumpBin $input_dll.FullName))
+    {
+        if($dep -match '^[A-Za-z0-9_.-]+\.dll$' -and $system_dlls -notcontains $dep -and $packaged_names -notcontains $dep -and -not (Test-Path (Join-Path $input_dll.DirectoryName $dep)))
+        {
+            $missing += "$($input_dll.Name) -> $dep"
+        }
+    }
+}
+if($missing.Count -gt 0) { $missing | Sort-Object -Unique | ForEach-Object { Write-Error "Unpackaged runtime dependency: $_" } }
 
 cd ..\..
 Write-Output "Done!"

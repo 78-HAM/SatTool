@@ -1,14 +1,32 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: SatDump\n"
+"Project-Id-Version: SatTool\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
+msgid " Crop"
+msgstr " 裁剪"
+
+msgid " Hue"
+msgstr " 色相"
+
+msgid " Lightness"
+msgstr " 亮度"
+
+msgid " Saturation"
+msgstr " 饱和度"
+
+msgid "!!!!WARNING - LOW AMOUNT OF FREE DISK SPACE!!!!"
+msgstr "警告：可用磁盘空间不足！"
+
 msgid "%s\nAOS : %s\nLOS : %s\nEl : %.2f"
 msgstr "%s\nAOS：%s\nLOS：%s\n仰角：%.2f"
+
+msgid "%s : Invalid Value"
+msgstr "%s：值无效"
 
 msgid "1 day"
 msgstr "1 天"
@@ -28,8 +46,14 @@ msgstr "7 天"
 msgid "AOS in"
 msgstr "AOS 倒计时"
 
+msgid "ASCII"
+msgstr "ASCII"
+
 msgid "AZ EL Decimal rounding"
 msgstr "方位/仰角小数取整"
+
+msgid "Abort"
+msgstr "中止"
 
 msgid "About"
 msgstr "关于"
@@ -51,6 +75,9 @@ msgstr "添加录制器"
 
 msgid "Add Selection"
 msgstr "添加"
+
+msgid "Add To Equ###calibaddtoexpression"
+msgstr "添加到公式###calibaddtoexpression"
 
 msgid "Add layer"
 msgstr "添加图层"
@@ -91,8 +118,11 @@ msgstr "反照率"
 msgid "Albedo : %.2f %%"
 msgstr "反照率：%.2f %%"
 
-msgid "Allows full editing of all SatDump options. Be warned: invalid configurations\nmay result in crashes, corruption of data, and more. Use at your own risk!"
-msgstr "允许完整编辑 SatDump 的所有选项。注意：错误配置可能导致崩溃、数据损坏等问题，请自行承担风险。"
+msgid "All"
+msgstr "全部"
+
+msgid "Allows full editing of all SatTool options. Be warned: invalid configurations\nmay result in crashes, corruption of data, and more. Use at your own risk!"
+msgstr "允许完整编辑 SatTool 的所有选项。注意：错误配置可能导致崩溃、数据损坏等问题，请自行承担风险。"
 
 msgid "Altitude (m)"
 msgstr "高度（米）"
@@ -129,6 +159,9 @@ msgstr "方向键控制"
 
 msgid "Arrow Keys Control Increment"
 msgstr "方向键控制步进"
+
+msgid "Auto"
+msgstr "自动"
 
 msgid "Auto Mode"
 msgstr "自动模式"
@@ -181,11 +214,17 @@ msgstr "基带录制目录"
 msgid "Bit Depth"
 msgstr "位深"
 
+msgid "BitView"
+msgstr "BitView"
+
 msgid "Bits"
 msgstr "比特"
 
 msgid "Blend"
 msgstr "混合"
+
+msgid "Blue"
+msgstr "蓝色"
 
 msgid "Boolean"
 msgstr "布尔值"
@@ -202,11 +241,17 @@ msgstr "亮度"
 msgid "Brightness Temperature"
 msgstr "亮温"
 
+msgid "Brightness/contrast"
+msgstr "亮度/对比度"
+
 msgid "By enabling this setting, you can allow your rotator to go beyond the default 0-360 degree azimuth range"
 msgstr "启用后可允许转子超出默认 0-360 度方位范围。"
 
 msgid "Bytes"
 msgstr "字节"
+
+msgid "Calibrate"
+msgstr "校准"
 
 msgid "Calibration Error! - Invalid Value"
 msgstr "校准错误：无效数值"
@@ -241,6 +286,9 @@ msgstr "中心坐标："
 msgid "Channel"
 msgstr "通道"
 
+msgid "Channel "
+msgstr "通道"
+
 msgid "Channel##selectechannel"
 msgstr "通道##selectechannel"
 
@@ -258,6 +306,9 @@ msgstr "清除缓存###deleteosmtiles"
 
 msgid "Clear Tile Map (OSM) Cache"
 msgstr "清除瓦片地图（OSM）缓存"
+
+msgid "Color"
+msgstr "颜色"
 
 msgid "Compact Detailed"
 msgstr "紧凑详细"
@@ -292,6 +343,9 @@ msgstr "核心设置"
 msgid "Correct"
 msgstr "校正"
 
+msgid "Could not open ephemeris data! NOVAS will not work!"
+msgstr "无法打开星历数据，NOVAS 将不可用！"
+
 msgid "Could not process image! %s"
 msgstr "图像处理失败！%s"
 
@@ -313,11 +367,17 @@ msgstr "当前图像无法投影！"
 msgid "Custom"
 msgstr "自定义"
 
+msgid "Cyan"
+msgstr "青色"
+
 msgid "DC Blocking"
 msgstr "直流抑制"
 
 msgid "DC Blocking allows removing a DC Spike / Offset present on some SDRs.\n A classic example would be the HackRF which often has this sort of issue."
 msgstr "直流抑制可去除部分 SDR 上存在的直流尖峰/偏移。\nHackRF 就是常见例子。"
+
+msgid "DSP Buffer size was changed to %d"
+msgstr "DSP 缓冲区大小已改为 %d"
 
 msgid "DSP Flowgraph"
 msgstr "DSP 流程图"
@@ -463,6 +523,12 @@ msgstr "绘制颜色"
 msgid "Draw Color##shapefilecolor"
 msgstr "绘制颜色##shapefilecolor"
 
+msgid "EUMETSAT User «Consumer Key»"
+msgstr "EUMETSAT 用户 Consumer Key"
+
+msgid "EUMETSAT User «Consumer Secret»"
+msgstr "EUMETSAT 用户 Consumer Secret"
+
 msgid "Elevation"
 msgstr "仰角"
 
@@ -490,11 +556,14 @@ msgstr "等经纬度投影"
 msgid "Error"
 msgstr "错误"
 
+msgid "Error loading SatTool config! SatTool will now exit. Error:\n%s"
+msgstr "加载 SatTool 配置失败，程序将退出。错误：\n%s"
+
 msgid "Error processing image! %s"
 msgstr "图像处理出错！%s"
 
-msgid "Exiting SatDump! Bye!"
-msgstr "正在退出 SatDump，再见！"
+msgid "Exiting SatTool! Bye!"
+msgstr "正在退出 SatTool，再见！"
 
 msgid "Experimental"
 msgstr "实验性"
@@ -510,6 +579,9 @@ msgstr "导出/导入"
 
 msgid "Expression"
 msgstr "表达式"
+
+msgid "FFT"
+msgstr "FFT"
 
 msgid "FFT Enable"
 msgstr "启用 FFT"
@@ -546,6 +618,9 @@ msgstr "文件输入/输出"
 
 msgid "File Source"
 msgstr "文件源"
+
+msgid "Fill"
+msgstr "填充"
 
 msgid "Fill Map"
 msgstr "填充地图"
@@ -613,8 +688,8 @@ msgstr "常规"
 msgid "General Purpose Satellite Data Processor"
 msgstr "通用卫星数据处理器"
 
-msgid "General SatDump"
-msgstr "SatDump 常规设置"
+msgid "General SatTool"
+msgstr "SatTool 常规设置"
 
 msgid "Generate Projection"
 msgstr "生成投影"
@@ -636,6 +711,9 @@ msgstr "转到##loadfromhttpgo"
 
 msgid "Graph"
 msgstr "图表"
+
+msgid "Green"
+msgstr "绿色"
 
 msgid "HTTP Server"
 msgstr "HTTP 服务器"
@@ -766,6 +844,9 @@ msgstr "键："
 msgid "LOS in"
 msgstr "LOS 倒计时"
 
+msgid "LUT"
+msgstr "查找表"
+
 msgid "LUT Generator"
 msgstr "LUT 生成器"
 
@@ -777,6 +858,12 @@ msgstr "上次更新：%s"
 
 msgid "Lat"
 msgstr "纬度"
+
+msgid "Lat : %f"
+msgstr "纬度：%f"
+
+msgid "Lat : Invalid!"
+msgstr "纬度无效！"
 
 msgid "Lat##br"
 msgstr "纬度##br"
@@ -835,6 +922,12 @@ msgstr "日志级别"
 msgid "Lon"
 msgstr "经度"
 
+msgid "Lon : %f"
+msgstr "经度：%f"
+
+msgid "Lon : Invalid!"
+msgstr "经度无效！"
+
 msgid "Lon##br"
 msgstr "经度##br"
 
@@ -855,6 +948,9 @@ msgstr "MHz（本振偏移）"
 
 msgid "MHz (LO offset)##downupconverter"
 msgstr "MHz（本振偏移）##downupconverter"
+
+msgid "Magenta"
+msgstr "品红色"
 
 msgid "Make module windows in the recorder float.\nThis allows dragging them around at will"
 msgstr "让录制器中的模块窗口以浮动方式显示，便于自由拖动。"
@@ -934,6 +1030,9 @@ msgstr "尚未加载图层！"
 msgid "No timestamps!"
 msgstr "没有时间戳！"
 
+msgid "No valid converter for : "
+msgstr "没有可用的转换器："
+
 msgid "None (Use CPU)"
 msgstr "无（使用 CPU）"
 
@@ -949,8 +1048,8 @@ msgstr "北向坐标（米）##utm"
 msgid "Not available until "
 msgstr "不可用，直到 "
 
-msgid "Note : Some settings will require SatDump to be restarted\nto take effect!"
-msgstr "注意：某些设置需要重启 SatDump 后才会生效！"
+msgid "Note : Some settings will require SatTool to be restarted\nto take effect!"
+msgstr "注意：某些设置需要重启 SatTool 后才会生效！"
 
 msgid "Nothing implemented there yet!"
 msgstr "这里还没有实现任何内容！"
@@ -991,8 +1090,8 @@ msgstr "解码完成后在查看器中打开数据。"
 msgid "OpenCL Device"
 msgstr "OpenCL 设备"
 
-msgid "OpenCL Device SatDump will use for accelerated computing where it can help, eg, for some image processing tasks such as projections."
-msgstr "SatDump 会在适合的场景使用此 OpenCL 设备进行加速，例如部分图像处理和投影任务。"
+msgid "OpenCL Device SatTool will use for accelerated computing where it can help, eg, for some image processing tasks such as projections."
+msgstr "SatTool 会在适合的场景使用此 OpenCL 设备进行加速，例如部分图像处理和投影任务。"
 
 msgid "Optional, Space-Track account for historical TLEs"
 msgstr "可选，用于获取历史 TLE 的 Space-Track 账号。"
@@ -1018,6 +1117,12 @@ msgstr "输出文件夹无效！"
 msgid "Output image :"
 msgstr "输出图像："
 
+msgid "Output image : "
+msgstr "输出图像："
+
+msgid "Overlap"
+msgstr "重叠"
+
 msgid "Overlay"
 msgstr "叠加"
 
@@ -1038,6 +1143,9 @@ msgstr "停泊仰角"
 
 msgid "Park while idle"
 msgstr "空闲时停泊"
+
+msgid "Paste & Load"
+msgstr "粘贴并加载"
 
 msgid "Path to a folder where I/Q recordings will be saved"
 msgstr "I/Q 录音保存目录。"
@@ -1156,6 +1264,9 @@ msgstr "投影配置文件"
 msgid "Projections"
 msgstr "投影"
 
+msgid "QTH"
+msgstr "地面站位置"
+
 msgid "QTH Altitude"
 msgstr "QTH 海拔"
 
@@ -1192,6 +1303,12 @@ msgstr "范围最大值"
 msgid "Range Min"
 msgstr "范围最小值"
 
+msgid "Raw %d : %d F %f"
+msgstr "原始 %d：%d F %f"
+
+msgid "Raw : %d"
+msgstr "原始：%d"
+
 msgid "Raw Counts"
 msgstr "原始计数"
 
@@ -1216,6 +1333,9 @@ msgstr "录制器：磁盘空间警告时间（秒）"
 msgid "Recording"
 msgstr "录制"
 
+msgid "Red"
+msgstr "红色"
+
 msgid "Reflective Radiance"
 msgstr "反射辐亮度"
 
@@ -1237,8 +1357,8 @@ msgstr "已注册流水线："
 msgid "Reload"
 msgstr "重新加载"
 
-msgid "Remeber size and position of the window when closing SatDump. It will open in the same configuration on next launch"
-msgstr "关闭 SatDump 时记住窗口大小和位置，下次启动时恢复。"
+msgid "Remeber size and position of the window when closing SatTool. It will open in the same configuration on next launch"
+msgstr "关闭 SatTool 时记住窗口大小和位置，下次启动时恢复。"
 
 msgid "Remember Window Size and Position"
 msgstr "记住窗口大小和位置"
@@ -1270,6 +1390,18 @@ msgstr "根"
 msgid "Rotate"
 msgstr "旋转"
 
+msgid "Rotate 0"
+msgstr "旋转 0 度"
+
+msgid "Rotate 180"
+msgstr "旋转 180 度"
+
+msgid "Rotate 270"
+msgstr "旋转 270 度"
+
+msgid "Rotate 90"
+msgstr "旋转 90 度"
+
 msgid "Rotator Az"
 msgstr "转子方位"
 
@@ -1285,14 +1417,20 @@ msgstr "转子仰角"
 msgid "Samplerate"
 msgstr "采样率"
 
-msgid "SatDump Downconverter UI"
-msgstr "SatDump 下变频器界面"
+msgid "SatTool"
+msgstr "SatTool"
 
-msgid "SatDump Log"
-msgstr "SatDump 日志"
+msgid "SatTool Downconverter UI"
+msgstr "SatTool 下变频器界面"
 
-msgid "SatDump UI"
-msgstr "SatDump 界面"
+msgid "SatTool Log"
+msgstr "SatTool 日志"
+
+msgid "SatTool UI"
+msgstr "SatTool 界面"
+
+msgid "SatTool has NOT been built in Release mode."
+msgstr "SatTool 未以 Release 模式构建。"
 
 msgid "Satellite (TPERS)"
 msgstr "卫星视角（TPERS）"
@@ -1309,8 +1447,8 @@ msgstr "卫星"
 msgid "Save"
 msgstr "保存"
 
-msgid "Save ALL SatDump logs to a file.\nThis is useful to send in\nbug reports and such."
-msgstr "将 SatDump 的全部日志保存到文件。\n这对提交 bug 报告很有帮助。"
+msgid "Save ALL SatTool logs to a file.\nThis is useful to send in\nbug reports and such."
+msgstr "将 SatTool 的全部日志保存到文件。\n这对提交 bug 报告很有帮助。"
 
 msgid "Save Image"
 msgstr "保存图像"
@@ -1411,8 +1549,8 @@ msgstr "请先切换到投影视图！"
 msgid "Selected Folder:"
 msgstr "已选文件夹："
 
-msgid "Set the style and color of SatDump"
-msgstr "设置 SatDump 的界面风格和颜色"
+msgid "Set the style and color of SatTool"
+msgstr "设置 SatTool 的界面风格和颜色"
 
 msgid "Settings"
 msgstr "设置"
@@ -1455,6 +1593,9 @@ msgstr "大小：%.2f GB"
 
 msgid "Size : %.2f MB"
 msgstr "大小：%.2f MB"
+
+msgid "Size : %d"
+msgstr "大小：%d"
 
 msgid "Source"
 msgstr "信号源"
@@ -1549,8 +1690,8 @@ msgstr "查看器保存图像时使用的文件名模板。可用变量：\n - $
 msgid "Temporary"
 msgstr "临时"
 
-msgid "The logger level of SatDump in the console.\nEg, if you wish to only show errors\nor every little thing that's going on"
-msgstr "SatDump 控制台日志级别。\n例如只显示错误，或显示所有详细信息。"
+msgid "The logger level of SatTool in the console.\nEg, if you wish to only show errors\nor every little thing that's going on"
+msgstr "SatTool 控制台日志级别。\n例如只显示错误，或显示所有详细信息。"
 
 msgid "The old algorithm will\ndeal with very bad (noisy) data\nbetter.\nThe new one is preferred if\npossible though, as results\nare a lot nicer! :-)\nIf you had to use this\nand the data was not that bad\nplease report as a bug!"
 msgstr "旧算法更适合处理非常差、噪声很重的数据。\n如果条件允许，仍然更推荐新算法，因为结果会好很多。\n如果你的数据并不差却必须使用旧算法，请提交 bug 反馈。"
@@ -1693,14 +1834,17 @@ msgstr "波长：%f µm"
 msgid "Wavenumber : %f cm⁻¹"
 msgstr "波数：%f cm⁻¹"
 
-msgid "Welcome to SatDump!"
-msgstr "欢迎使用 SatDump！"
+msgid "Welcome to SatTool!"
+msgstr "欢迎使用 SatTool！"
 
 msgid "White Balance"
 msgstr "白平衡"
 
 msgid "YES"
 msgstr "是"
+
+msgid "Yellow"
+msgstr "黄色"
 
 msgid "ZIQ seeking may be slow!"
 msgstr "ZIQ 定位可能较慢！"
@@ -1743,4 +1887,10 @@ msgstr "跟踪"
 
 msgid "warn"
 msgstr "警告"
+
+msgid "   Search pipelines"
+msgstr "搜索流水线"
+
+msgid "ﱮ Open##filepathselectionbutton"
+msgstr "打开##filepathselectionbutton"
 

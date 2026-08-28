@@ -24,7 +24,7 @@ msgstr ""
 #: ../../src-core/init.cpp:105
 #, c-format
 msgid ""
-"Error loading SatDump config! SatDump will now exit. Error:\n"
+"Error loading SatTool config! SatTool will now exit. Error:\n"
 "%s"
 msgstr ""
 
@@ -43,7 +43,7 @@ msgid "Could not open ephemeris data! NOVAS will not work!"
 msgstr ""
 
 #: ../../src-core/init.cpp:203
-msgid "SatDump has NOT been built in Release mode."
+msgid "SatTool has NOT been built in Release mode."
 msgstr ""
 
 #: ../../src-core/init.cpp:204
@@ -59,7 +59,7 @@ msgid "specify -DCMAKE_BUILD_TYPE=Release in CMake."
 msgstr ""
 
 #: ../../src-core/init.cpp:215
-msgid "Exiting SatDump! Bye!"
+msgid "Exiting SatTool! Bye!"
 msgstr ""
 
 #: ../../src-core/imgui/dialogs/widget.cpp:22
@@ -738,7 +738,7 @@ msgstr ""
 #.
 #.
 #: ../../src-core/explorer/explorer.cpp:362
-msgid "Welcome to SatDump!"
+msgid "Welcome to SatTool!"
 msgstr ""
 
 #: ../../src-core/explorer/explorer.cpp:412
@@ -796,7 +796,7 @@ msgid "Crop must be bigger than 0!"
 msgstr ""
 
 #: ../../plugins/experimental_devices_support/main.cpp:25
-msgid "SatDump Downconverter UI"
+msgid "SatTool Downconverter UI"
 msgstr ""
 
 #: ../../plugins/bitview_app/main.cpp:42
@@ -1262,7 +1262,7 @@ msgid "Export/Import"
 msgstr ""
 
 #: ../../src-interface/status_logger_sink.cpp:115
-msgid "SatDump Log"
+msgid "SatTool Log"
 msgstr ""
 
 #: ../../src-interface/settings.cpp:115
@@ -1278,11 +1278,11 @@ msgid "Theme"
 msgstr ""
 
 #: ../../src-interface/settings.cpp:125
-msgid "Set the style and color of SatDump"
+msgid "Set the style and color of SatTool"
 msgstr ""
 
 #: ../../src-interface/settings.cpp:137
-msgid "General SatDump"
+msgid "General SatTool"
 msgstr ""
 
 #: ../../src-interface/settings.cpp:144
@@ -1299,7 +1299,7 @@ msgstr ""
 
 #: ../../src-interface/settings.cpp:179
 msgid ""
-"OpenCL Device SatDump will use for accelerated computing where it can help, "
+"OpenCL Device SatTool will use for accelerated computing where it can help, "
 "eg, for some image processing tasks such as projections."
 msgstr ""
 
@@ -1378,12 +1378,12 @@ msgstr ""
 
 #: ../../src-interface/settings.cpp:360
 msgid ""
-"Note : Some settings will require SatDump to be restarted\n"
+"Note : Some settings will require SatTool to be restarted\n"
 "to take effect!"
 msgstr ""
 
 #: ../../src-interface/loader/loader.cpp:29
-msgid "SatDump"
+msgid "SatTool"
 msgstr ""
 
 #: ../../src-interface/loader/loader.cpp:30
