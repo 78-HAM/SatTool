@@ -22,6 +22,7 @@ require(workflow, "python3 tools/verify_windows_release_config.py")
 
 dependency_script = "windows/Configure-vcpkg.ps1"
 require(dependency_script, "hdf5[cpp,hl]")
+require(dependency_script, " zlib ")
 require(dependency_script, '"/p:PlatformToolset=v145"')
 require(dependency_script, "/p:Platform=$generator /p:Configuration=Release @libusb_toolset_args")
 require(dependency_script, "/p:Platform=$generator /p:Configuration=Debug @libusb_toolset_args")
@@ -42,6 +43,21 @@ sddc_converter = "plugins/sdr_sources/sddc_sdr_support/lib/Core/conv_r2iq.cpp"
 assert "#include <unistd.h>" not in read(sddc_converter), (
     "the Windows SDDC/RX888 plugin still includes the POSIX-only unistd.h header"
 )
+require("plugins/sdr_sources/sddc_sdr_support/CMakeLists.txt", "Setupapi.lib")
+require("plugins/inmarsat_support/CMakeLists.txt", "find_package(ZLIB REQUIRED)")
+require("plugins/inmarsat_support/CMakeLists.txt", "target_link_libraries(inmarsat_support PUBLIC ws2_32 ZLIB::ZLIB)")
+assert "zlib.dll" not in read("plugins/inmarsat_support/CMakeLists.txt"), (
+    "Inmarsat still links a DLL filename instead of the zlib import library"
+)
+require("plugins/elektro_arktika_support/elektro_arktika/ggak/ingestor.h", "sleep_for")
+assert "#include <unistd.h>" not in read("plugins/elektro_arktika_support/elektro_arktika/ggak/ingestor.h"), (
+    "Elektro Arktika still includes the POSIX-only unistd.h header"
+)
+require("plugins/elektro_arktika_support/elektro_arktika/ggak/plot.cpp", "point_count")
+assert "std::min(" not in read("plugins/elektro_arktika_support/elektro_arktika/ggak/plot.cpp"), (
+    "Elektro Arktika plot code still exposes std::min to Windows min macros"
+)
+require("plugins/proba_support/proba/module_proba_instruments.cpp", "correction_groups")
 for runtime in (
     "airspy.dll",
     "airspyhf.dll",

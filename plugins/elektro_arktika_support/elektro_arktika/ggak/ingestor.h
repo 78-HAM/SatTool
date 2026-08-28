@@ -6,6 +6,7 @@
 #include "image/io.h"
 #include "logger.h"
 #include <algorithm>
+#include <chrono>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -13,7 +14,6 @@
 #include <mutex>
 #include <string>
 #include <thread>
-#include <unistd.h>
 
 namespace elektro_arktika
 {
@@ -59,7 +59,7 @@ namespace elektro_arktika
             {
                 while (1)
                 {
-                    sleep(1);
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
 
                     time_t cur_time = time(0);
 

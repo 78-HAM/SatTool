@@ -1,3 +1,7 @@
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include "plot.h"
 #include "dsp/benchmark/render/imgui_sw.hpp"
 #include "imgui/imgui.h"
@@ -104,7 +108,8 @@ namespace elektro_arktika
                     last_time = dat;
                 }
 
-                ImPlot::PlotLine("Data", time.data(), data.data(), std::min(time.size(), data.size()));
+                const int point_count = static_cast<int>(time.size() < data.size() ? time.size() : data.size());
+                ImPlot::PlotLine("Data", time.data(), data.data(), point_count);
 
                 ImPlot::EndPlot();
 

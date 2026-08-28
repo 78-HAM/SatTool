@@ -23,6 +23,10 @@ if(UNIX)
     target_link_libraries(sddc_sdr_support PRIVATE ${LIBUSB_LIBRARIES})
 endif()
 
+if(MSVC)
+    target_link_libraries(sddc_sdr_support PRIVATE Setupapi.lib)
+endif()
+
 target_link_libraries(sddc_sdr_support PUBLIC satdump_core)
 target_include_directories(sddc_sdr_support PUBLIC src)
 
