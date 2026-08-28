@@ -19,6 +19,13 @@ require(workflow, "-DPLUGINS_ALL=ON")
 require(workflow, "-DPLUGIN_SDDC_SDR_SUPPORT=ON")
 require(workflow, "shell: pwsh")
 require(workflow, "python3 tools/verify_windows_release_config.py")
+require(workflow, '"bin\\sattool-ui.exe") --version')
+assert "Start-Process" not in read(workflow), (
+    "the Windows release still tries to open an OpenGL window on the headless Actions runner"
+)
+
+require("src-ui/main.cpp", 'argv[i] == std::string("--version")')
+require("src-ui/main.cpp", "return 0;")
 
 dependency_script = "windows/Configure-vcpkg.ps1"
 require(dependency_script, "hdf5[cpp,hl]")

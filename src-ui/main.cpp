@@ -23,6 +23,7 @@
 #include <chrono>
 #include <exception>
 #include <filesystem>
+#include <iostream>
 #include <signal.h>
 #include <string>
 #include <thread>
@@ -110,6 +111,15 @@ int main(int argc, char *argv[])
 #ifdef _WIN32
     attachOutputToConsole();
 #endif
+
+    for (int i = 1; i < argc; i++)
+    {
+        if (argv[i] == std::string("--version"))
+        {
+            std::cout << satdump::getSatDumpVersionName() << std::endl;
+            return 0;
+        }
+    }
 
     initLogger();
 

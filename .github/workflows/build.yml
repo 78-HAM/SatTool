@@ -150,15 +150,8 @@ jobs:
             Pop-Location
           }
 
-          $gui = Start-Process (Join-Path $staging "bin\sattool-ui.exe") -WorkingDirectory (Join-Path $staging "bin") -PassThru -WindowStyle Hidden
-          Start-Sleep -Seconds 8
-          if ($gui.HasExited) {
-            if ($gui.ExitCode -ne 0) {
-              throw "sattool-ui.exe exited with code $($gui.ExitCode) during release smoke test"
-            }
-          } else {
-            Stop-Process -Id $gui.Id
-          }
+          & (Join-Path $staging "bin\sattool-ui.exe") --version
+          if ($LASTEXITCODE -ne 0) { throw "Installed sattool-ui.exe smoke test failed with exit code $LASTEXITCODE" }
 
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Compress-Archive -Path "$staging\*" -DestinationPath dist\SatTool-V0.0.1-Windows-x64-portable.zip -Force
