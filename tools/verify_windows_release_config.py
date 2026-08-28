@@ -58,6 +58,11 @@ assert "std::min(" not in read("plugins/elektro_arktika_support/elektro_arktika/
     "Elektro Arktika plot code still exposes std::min to Windows min macros"
 )
 require("plugins/proba_support/proba/module_proba_instruments.cpp", "correction_groups")
+require("plugins/simd_extensions/simd_avx2/CMakeLists.txt", "if(CXX_AVX2_FOUND)")
+require("plugins/simd_extensions/simd_avx2/CMakeLists.txt", "${CXX_AVX2_FLAGS}")
+assert "CXX_HAS_AVX_2" not in read("plugins/simd_extensions/simd_avx2/CMakeLists.txt"), (
+    "AVX2 plugin still checks the non-existent CXX_HAS_AVX_2 variable"
+)
 for runtime in (
     "airspy.dll",
     "airspyhf.dll",

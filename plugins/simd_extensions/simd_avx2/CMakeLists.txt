@@ -6,18 +6,18 @@ if(NOT ANDROID)
 endif()
 
 if(ANDROID)
-    set(CXX_HAS_AVX_2 0)
+    set(CXX_AVX2_FOUND FALSE)
 
     if(ANDROID_ABI STREQUAL "x86")
-        set(CXX_HAS_AVX_2 1)
+        set(CXX_AVX2_FOUND TRUE)
     endif()
 
     if(ANDROID_ABI STREQUAL "x86_64")
-        set(CXX_HAS_AVX_2 1)
+        set(CXX_AVX2_FOUND TRUE)
     endif()
 endif()
 
-if(CXX_HAS_AVX_2)
+if(CXX_AVX2_FOUND)
     message("Found AVX2 features, enabling AVX2 plugin")
 
     file(GLOB_RECURSE simd_avx2_CPPS *.cpp)
@@ -28,7 +28,7 @@ if(CXX_HAS_AVX_2)
     if(UNIX OR ANDROID)
         set(FINAL_FLAGS_AVX2 "-mavx2")
     elseif(MSVC OR BUILD_MSVC)
-        set(FINAL_FLAGS_AVX2 "${AVX2_C_FLAGS}")
+        set(FINAL_FLAGS_AVX2 "${CXX_AVX2_FLAGS}")
     endif()
 
     # Enable on all files but main.cpp
