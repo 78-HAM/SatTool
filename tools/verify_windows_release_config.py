@@ -37,6 +37,11 @@ assert "git clone https://github.com/EttusResearch/uhd #" not in read(dependency
 assert "www.satdump.org/FX3-SDK.zip" not in read(dependency_script), (
     "windows dependency setup still uses the dead FX3 SDK archive"
 )
+
+sddc_converter = "plugins/sdr_sources/sddc_sdr_support/lib/Core/conv_r2iq.cpp"
+assert "#include <unistd.h>" not in read(sddc_converter), (
+    "the Windows SDDC/RX888 plugin still includes the POSIX-only unistd.h header"
+)
 for runtime in (
     "airspy.dll",
     "airspyhf.dll",
