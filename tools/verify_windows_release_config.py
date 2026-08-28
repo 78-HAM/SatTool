@@ -21,8 +21,9 @@ require(workflow, "python3 tools/verify_windows_release_config.py")
 
 dependency_script = "windows/Configure-vcpkg.ps1"
 require(dependency_script, "hdf5[cpp,hl]")
-require(dependency_script, "/p:Platform=$generator /p:Configuration=Release")
-require(dependency_script, "/p:Platform=$generator /p:Configuration=Debug")
+require(dependency_script, '"/p:PlatformToolset=v145"')
+require(dependency_script, "/p:Platform=$generator /p:Configuration=Release @libusb_toolset_args")
+require(dependency_script, "/p:Platform=$generator /p:Configuration=Debug @libusb_toolset_args")
 for runtime in (
     "airspy.dll",
     "airspyhf.dll",

@@ -99,8 +99,14 @@ Write-Output "Building libusb..."
 git clone https://github.com/HannesFranke-smartoptics/libusb -b raw_io_v2
 cd libusb\msvc
 (Get-Content -raw Base.props) -replace "<TreatWarningAsError>true</TreatWarningAsError>", "<TreatWarningAsError>false</TreatWarningAsError>" | Set-Content -Encoding ASCII Base.props
-msbuild -m -v:m /p:Platform=$generator /p:Configuration=Release .\libusb.sln
-msbuild -m -v:m /p:Platform=$generator /p:Configuration=Debug .\libusb.sln
+$libusb_toolset_args = @()
+if($env:VisualStudioVersion -and ([version]$env:VisualStudioVersion -ge [version]"18.0"))
+{
+    # This libusb fork predates VS 2026, whose MSVC 14.5 toolset is named v145.
+    $libusb_toolset_args = @("/p:PlatformToolset=v145")
+}
+msbuild -m -v:m /p:Platform=$generator /p:Configuration=Release @libusb_toolset_args .\libusb.sln
+msbuild -m -v:m /p:Platform=$generator /p:Configuration=Debug @libusb_toolset_args .\libusb.sln
 $toolset_used=$(get-childitem ..\build\)[0].Name
 cp -Force ..\build\$toolset_used\$generator\Release\dll\libusb-1.0.dll ..\..\..\installed\$platform\bin
 cp -Force ..\build\$toolset_used\$generator\Release\dll\libusb-1.0.pdb ..\..\..\installed\$platform\bin
