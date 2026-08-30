@@ -31,6 +31,10 @@ require("src-interface/settings.cpp", '{"zh_CN", "Chinese"}')
 require("src-interface/loader/loader.cpp", 'title = "SatTool";')
 require("android/app/build.gradle", 'applicationId "com.sattool.app"')
 require("android/app/build.gradle", 'versionName "0.0.1"')
+require("android/app/build.gradle", "FreeDroidWarn:V1.13")
+assert "FreeDroidWarn:V1.+" not in read("android/app/build.gradle"), (
+    "Android build still resolves FreeDroidWarn through a mutable JitPack version"
+)
 require("android/app/src/main/res/values/strings.xml", ">SatTool<")
 assert read_bytes("resources/icon.png") == read_bytes("icon.png"), (
     "the welcome screen still uses a different legacy icon asset"

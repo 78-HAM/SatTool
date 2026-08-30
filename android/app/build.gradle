@@ -89,7 +89,7 @@ repositories {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'com.github.woheller69:FreeDroidWarn:V1.+'
+    implementation 'com.github.woheller69:FreeDroidWarn:V1.13'
     implementation 'androidx.core:core:1.13.1'
 }
 
