@@ -448,6 +448,14 @@ namespace satdump
                     ImGui::Text("Pilots : ");
                     ImGui::SameLine();
                     ImGui::TextColored(detected_pilots ? style::theme.green : style::theme.red, detected_pilots ? "ON" : "OFF");
+                    if (d_improved_decoder)
+                    {
+                        const bool sync_locked = pl_sync_v2->synchronized.load();
+                        ImGui::Text("PL Sync : ");
+                        ImGui::SameLine();
+                        ImGui::TextColored(sync_locked ? style::theme.green : style::theme.orange, sync_locked ? "Locked" : "Searching");
+                        ImGui::Text("Frames : %llu", static_cast<unsigned long long>(pl_sync_v2->processed_frames.load()));
+                    }
                 }
                 ImGui::EndGroup();
 
