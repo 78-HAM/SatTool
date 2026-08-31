@@ -37,6 +37,7 @@ jobs:
         run: |
           python3 tools/verify_sattool_branding.py
           python3 tools/verify_windows_release_config.py
+          python3 tools/verify_dvbs2_worker.py
           g++ -std=c++17 -Isrc-core src-testing/ui_regression_tests.cpp -o /tmp/ui_regression_tests
           /tmp/ui_regression_tests
           g++ -std=c++17 -D__ANDROID__ -Isrc-core \

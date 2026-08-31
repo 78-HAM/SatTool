@@ -13,12 +13,17 @@ namespace dvbs2
     private:
         dsp::RingBuffer<complex_t> ring_buffer;
         std::thread d_thread2;
-        bool should_run2 = false;
+        std::atomic<bool> should_run2{false};
         complex_t *correlation_buffer = nullptr;
         s2_sof sof;
         s2_plscodes pls;
 
         void work();
+        void run2()
+        {
+            while (should_run2.load())
+                work2();
+        }
         void work2();
         complex_t correlate_sof_diff(complex_t *diffs);
         complex_t correlate_plscode_diff(complex_t *diffs);
@@ -39,7 +44,7 @@ namespace dvbs2
         {
             Block::start();
             should_run2 = true;
-            d_thread2 = std::thread(&S2PLSyncBlockV2::work2, this);
+            d_thread2 = std::thread(&S2PLSyncBlockV2::run2, this);
         }
         void stop()
         {
