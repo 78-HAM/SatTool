@@ -40,6 +40,8 @@ jobs:
           python3 tools/verify_dvbs2_worker.py
           g++ -std=c++17 -Isrc-core src-testing/ui_regression_tests.cpp -o /tmp/ui_regression_tests
           /tmp/ui_regression_tests
+          g++ -std=c++17 -Isrc-core src-testing/dvbs2_soft_metric_test.cpp -o /tmp/dvbs2_soft_metric_test
+          /tmp/dvbs2_soft_metric_test
           g++ -std=c++17 -D__ANDROID__ -Isrc-core \
             src-testing/i18n_switch_test.cpp src-core/libs/libintl-tiny/libintl.cpp \
             -o /tmp/i18n_switch_test

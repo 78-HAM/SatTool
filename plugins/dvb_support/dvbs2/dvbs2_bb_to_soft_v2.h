@@ -25,7 +25,7 @@ namespace dvbs2
         bool pilots = false;
         int frame_slot_count = 0;
         float noise_sigma = 0.45f;
-        float soft_scale = 32.0f;
+        float soft_scale = dsp::DEFAULT_DVBS2_LLR_SCALE;
         std::shared_ptr<dsp::constellation_t> constellation;
         std::shared_ptr<S2Deinterleaver> deinterleaver;
 

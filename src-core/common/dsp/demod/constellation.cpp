@@ -401,7 +401,7 @@ namespace dsp
             for (int bit = 0; bit < const_bits; ++bit)
             {
                 const float llr = (min_zero[bit] - min_one[bit]) * inv_noise * scale;
-                bits[const_bits - 1 - bit] = clamp(llr);
+                bits[const_bits - 1 - bit] = quantize_soft_metric(llr);
             }
         }
 
