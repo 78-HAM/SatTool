@@ -39,10 +39,8 @@ namespace dvbs2
         double best_match = -1.0;
         int best_pos = 0;
 
-        // Search the entire available frame.  The old decoder stopped at the
-        // first threshold crossing, which made a strong false peak win.
         const int search_count = raw_frame_size - sof.LENGTH - pls.LENGTH + 1;
-        for (int ss = 0; ss < search_count; ++ss)
+        const auto correlate_at = [&](int ss)
         {
             plheader_symbols[0] = 0;
             volk_32fc_conjugate_32fc((lv_32fc_t *)&plheader_symbols[1], (lv_32fc_t *)&correlation_buffer[ss], sof.LENGTH + pls.LENGTH - 1);
@@ -54,13 +52,38 @@ namespace dvbs2
             complex_t c1 = csof - cplsc;
             complex_t c = c0.norm() > c1.norm() ? c0 : c1;
             complex_t d = c * (1.0f / (26 - 1 + 64 / 2));
-            const double match = d.norm();
-            if (match > best_match)
-            {
-                best_match = match;
-                best_pos = ss;
-            }
+            return d.norm();
+        };
+
+        // Once acquired, the previous output ends exactly where the next
+        // PLHEADER begins.  Checking position zero avoids an expensive full
+        // frame search for every frame.  Fall back to acquisition when clock
+        // slips or a weak frame causes the boundary check to fail.
+        if (synchronized.load())
+        {
+            best_match = correlate_at(0);
+            if (best_match < thresold)
+                synchronized = false;
         }
+
+        if (!synchronized.load())
+        {
+            best_match = -1.0;
+            // During acquisition retain the global maximum rather than the
+            // first threshold crossing, which can be a data false-positive.
+            for (int ss = 0; ss < search_count; ++ss)
+            {
+                const double match = correlate_at(ss);
+                if (match > best_match)
+                {
+                    best_match = match;
+                    best_pos = ss;
+                }
+            }
+            synchronized = best_match >= thresold;
+        }
+
+        last_match = static_cast<float>(best_match);
 
         current_position = best_pos;
         if (best_pos > 0 && best_pos < raw_frame_size)
@@ -70,6 +93,7 @@ namespace dvbs2
         }
 
         memcpy(output_stream->writeBuf, correlation_buffer, raw_frame_size * sizeof(complex_t));
+        ++processed_frames;
         output_stream->swap(raw_frame_size);
     }
 
