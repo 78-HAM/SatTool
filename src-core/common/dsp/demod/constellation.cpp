@@ -1,5 +1,7 @@
 #include "constellation.h"
 #include <cmath>
+#include <algorithm>
+#include <limits>
 // #include <iostream>
 #include <vector>
 
@@ -354,5 +356,56 @@ namespace dsp
         {
             demod_soft_calc(sample, bits, phase_error);
         }
+    }
+
+    void constellation_t::demod_soft_improved(complex_t sample, int8_t *bits, float sigma, float scale, float *phase_error)
+    {
+        if (const_amp != 1)
+            sample = sample * const_amp;
+        if (const_prescale != 1)
+            sample = sample * const_prescale;
+
+        sigma = std::max(0.05f, sigma);
+        const float inv_noise = 1.0f / (2.0f * sigma * sigma);
+        float min_zero[5];
+        float min_one[5];
+        for (int bit = 0; bit < 5; ++bit)
+        {
+            min_zero[bit] = std::numeric_limits<float>::max();
+            min_one[bit] = std::numeric_limits<float>::max();
+        }
+        float closest_dist = std::numeric_limits<float>::max();
+        complex_t closest = 0;
+
+        for (int state = 0; state < const_states; ++state)
+        {
+            const float dr = sample.real - constellation[state].real;
+            const float di = sample.imag - constellation[state].imag;
+            const float d2 = dr * dr + di * di;
+            if (d2 < closest_dist)
+            {
+                closest_dist = d2;
+                closest = constellation[state];
+            }
+
+            for (int bit = 0; bit < const_bits; ++bit)
+            {
+                float *target = ((state >> bit) & 1) ? min_one : min_zero;
+                if (d2 < target[bit])
+                    target[bit] = d2;
+            }
+        }
+
+        if (bits != nullptr)
+        {
+            for (int bit = 0; bit < const_bits; ++bit)
+            {
+                const float llr = (min_zero[bit] - min_one[bit]) * inv_noise * scale;
+                bits[const_bits - 1 - bit] = clamp(llr);
+            }
+        }
+
+        if (phase_error != nullptr)
+            *phase_error = (sample * closest.conj()).arg();
     }
 }

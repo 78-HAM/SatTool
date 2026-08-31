@@ -9,6 +9,9 @@
 #include "dvbs2_bb_to_soft.h"
 #include "dvbs2_pl_sync.h"
 #include "dvbs2_pll.h"
+#include "dvbs2_pl_sync_v2.h"
+#include "dvbs2_pll_v2.h"
+#include "dvbs2_bb_to_soft_v2.h"
 
 #include "codings/dvb-s2/bbframe_bch.h"
 #include "codings/dvb-s2/bbframe_descramble.h"
@@ -36,6 +39,11 @@ namespace satdump
                 std::shared_ptr<dvbs2::S2PLSyncBlock> pl_sync;
                 std::shared_ptr<dvbs2::S2PLLBlock> s2_pll;
                 std::shared_ptr<dvbs2::S2BBToSoft> s2_bb_to_soft;
+                std::shared_ptr<dvbs2::S2PLSyncBlockV2> pl_sync_v2;
+                std::shared_ptr<dvbs2::S2PLLBlockV2> s2_pll_v2;
+                std::shared_ptr<dvbs2::S2BBToSoftV2> s2_bb_to_soft_v2;
+                std::shared_ptr<dsp::stream<complex_t>> pll_output_stream;
+                std::shared_ptr<dsp::stream<int8_t>> bb_output_stream;
 
                 std::unique_ptr<dsp::RingBuffer<int8_t>> ring_buffer;
                 std::unique_ptr<dsp::RingBuffer<uint8_t>> ring_buffer2;
@@ -58,6 +66,8 @@ namespace satdump
                 float d_sof_thresold = 0.6;
                 int d_max_ldpc_trials = 10;
                 bool d_multithread_bch = false;
+                bool d_improved_decoder = false;
+                float d_decoder_noise_sigma = 0.45f;
 
                 // Running stuff
                 bool should_stop = false;

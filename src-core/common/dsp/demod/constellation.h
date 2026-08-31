@@ -56,6 +56,9 @@ namespace dsp
     public:
         void make_lut(int resolution);
         void demod_soft_lut(complex_t sample, int8_t *bits, float *phase_error = nullptr);
+        // Noise-aware max-log soft demodulation for DVB-S2's improved receiver.
+        // The legacy LUT path remains unchanged for compatibility.
+        void demod_soft_improved(complex_t sample, int8_t *bits, float sigma = 0.45f, float scale = 32.0f, float *phase_error = nullptr);
 
     public:
         constellation_t(constellation_type_t type, float g1 = 0, float g2 = 0);

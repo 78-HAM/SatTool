@@ -71,6 +71,13 @@ namespace satdump
                 if (parameters.count("mt_bch") > 0)
                     d_multithread_bch = parameters["mt_bch"].get<bool>();
 
+                if (parameters.count("decoder") > 0)
+                    d_improved_decoder = parameters["decoder"].get<std::string>() == "improved";
+                if (parameters.count("improved_decoder") > 0)
+                    d_improved_decoder = parameters["improved_decoder"].get<bool>();
+                if (parameters.count("decoder_noise_sigma") > 0)
+                    d_decoder_noise_sigma = parameters["decoder_noise_sigma"].get<float>();
+
                 // Window Name in the UI
                 name = "DVB-S2 Demodulator";
 
@@ -104,26 +111,51 @@ namespace satdump
                 // Freq correction
                 freq_sh = std::make_shared<dsp::FreqShiftBlock>(rec->output_stream, 1, 0);
 
-                // PL (SOF) Synchronization
-                pl_sync = std::make_shared<dvbs2::S2PLSyncBlock>(freq_sh->output_stream, frame_slot_count, d_pilots);
-                pl_sync->thresold = d_sof_thresold;
-
-                // PLL
-                s2_pll = std::make_shared<dvbs2::S2PLLBlock>(pl_sync->output_stream, d_loop_bw);
-                s2_pll->pilots = d_pilots;
-                s2_pll->constellation = std::make_shared<dsp::constellation_t>(s2_constel_obj_type, g1, g2);
-                s2_pll->constellation->make_lut(256);
-                s2_pll->frame_slot_count = frame_slot_count;
-                s2_pll->pls_code = d_modcod << 2 | d_shortframes << 1 | d_pilots;
-                s2_pll->update();
-
-                // BB to soft syms
-                s2_bb_to_soft = std::make_shared<dvbs2::S2BBToSoft>(s2_pll->output_stream);
-                s2_bb_to_soft->pilots = d_pilots;
-                s2_bb_to_soft->constellation = std::make_shared<dsp::constellation_t>(s2_constel_obj_type, g1, g2);
-                s2_bb_to_soft->constellation->make_lut(256);
-                s2_bb_to_soft->frame_slot_count = frame_slot_count;
-                s2_bb_to_soft->deinterleaver = std::make_shared<dvbs2::S2Deinterleaver>(s2_constellation, s2_framesize, s2_coderate);
+                const int pls_code = d_modcod << 2 | d_shortframes << 1 | d_pilots;
+                if (!d_improved_decoder)
+                {
+                    // Legacy chain, retained for compatibility.
+                    pl_sync = std::make_shared<dvbs2::S2PLSyncBlock>(freq_sh->output_stream, frame_slot_count, d_pilots);
+                    pl_sync->thresold = d_sof_thresold;
+                    s2_pll = std::make_shared<dvbs2::S2PLLBlock>(pl_sync->output_stream, d_loop_bw);
+                    s2_pll->pilots = d_pilots;
+                    s2_pll->constellation = std::make_shared<dsp::constellation_t>(s2_constel_obj_type, g1, g2);
+                    s2_pll->constellation->make_lut(256);
+                    s2_pll->frame_slot_count = frame_slot_count;
+                    s2_pll->pls_code = pls_code;
+                    s2_pll->update();
+                    s2_bb_to_soft = std::make_shared<dvbs2::S2BBToSoft>(s2_pll->output_stream);
+                    s2_bb_to_soft->pilots = d_pilots;
+                    s2_bb_to_soft->constellation = std::make_shared<dsp::constellation_t>(s2_constel_obj_type, g1, g2);
+                    s2_bb_to_soft->constellation->make_lut(256);
+                    s2_bb_to_soft->frame_slot_count = frame_slot_count;
+                    s2_bb_to_soft->deinterleaver = std::make_shared<dvbs2::S2Deinterleaver>(s2_constellation, s2_framesize, s2_coderate);
+                    pll_output_stream = s2_pll->output_stream;
+                    bb_output_stream = s2_bb_to_soft->output_stream;
+                }
+                else
+                {
+                    // Improved chain: correct pilot geometry, pilot-aided PLL,
+                    // and noise-aware soft decisions.
+                    pl_sync_v2 = std::make_shared<dvbs2::S2PLSyncBlockV2>(freq_sh->output_stream, frame_slot_count, d_pilots);
+                    pl_sync_v2->thresold = d_sof_thresold;
+                    s2_pll_v2 = std::make_shared<dvbs2::S2PLLBlockV2>(pl_sync_v2->output_stream, d_loop_bw);
+                    s2_pll_v2->pilots = d_pilots;
+                    s2_pll_v2->constellation = std::make_shared<dsp::constellation_t>(s2_constel_obj_type, g1, g2);
+                    s2_pll_v2->constellation->make_lut(256);
+                    s2_pll_v2->frame_slot_count = frame_slot_count;
+                    s2_pll_v2->pls_code = pls_code;
+                    s2_pll_v2->update();
+                    s2_bb_to_soft_v2 = std::make_shared<dvbs2::S2BBToSoftV2>(s2_pll_v2->output_stream);
+                    s2_bb_to_soft_v2->pilots = d_pilots;
+                    s2_bb_to_soft_v2->noise_sigma = d_decoder_noise_sigma;
+                    s2_bb_to_soft_v2->constellation = std::make_shared<dsp::constellation_t>(s2_constel_obj_type, g1, g2);
+                    s2_bb_to_soft_v2->constellation->make_lut(256);
+                    s2_bb_to_soft_v2->frame_slot_count = frame_slot_count;
+                    s2_bb_to_soft_v2->deinterleaver = std::make_shared<dvbs2::S2Deinterleaver>(s2_constellation, s2_framesize, s2_coderate);
+                    pll_output_stream = s2_pll_v2->output_stream;
+                    bb_output_stream = s2_bb_to_soft_v2->output_stream;
+                }
 
                 // Init the rest
                 ldpc_decoder = std::make_unique<dvbs2::BBFrameLDPC>(s2_framesize, s2_coderate);
@@ -161,9 +193,18 @@ namespace satdump
                 rrc->start();
                 rec->start();
                 freq_sh->start();
-                pl_sync->start();
-                s2_pll->start();
-                s2_bb_to_soft->start();
+                if (!d_improved_decoder)
+                {
+                    pl_sync->start();
+                    s2_pll->start();
+                    s2_bb_to_soft->start();
+                }
+                else
+                {
+                    pl_sync_v2->start();
+                    s2_pll_v2->start();
+                    s2_bb_to_soft_v2->start();
+                }
 
                 ring_buffer->init(1000000);
                 if (d_multithread_bch)
@@ -176,20 +217,20 @@ namespace satdump
                 int dat_size = 0;
                 while (demod_should_run())
                 {
-                    dat_size = s2_bb_to_soft->output_stream->read();
+                    dat_size = bb_output_stream->read();
 
                     if (dat_size <= 0)
                     {
-                        s2_bb_to_soft->output_stream->flush();
+                        bb_output_stream->flush();
                         continue;
                     }
 
                     // Push into constellation
-                    constellation_s2.pushComplexPL(&s2_pll->output_stream->readBuf[0], 90);
-                    constellation_s2.pushComplexSlots(&s2_pll->output_stream->readBuf[90], frame_slot_count * 90);
+                    constellation_s2.pushComplexPL(&pll_output_stream->readBuf[0], 90);
+                    constellation_s2.pushComplexSlots(&pll_output_stream->readBuf[90], frame_slot_count * 90);
 
                     // Estimate SNR over slots
-                    snr_estimator.update(&s2_pll->output_stream->readBuf[90], frame_slot_count * 90);
+                    snr_estimator.update(&pll_output_stream->readBuf[90], frame_slot_count * 90);
                     snr = snr_estimator.snr();
 
                     if (snr > peak_snr)
@@ -198,16 +239,25 @@ namespace satdump
                     // Get freq
                     display_freq = dsp::rad_to_hz(current_freq / final_sps, final_samplerate);
 
-                    detected_modcod = s2_bb_to_soft->detect_modcod;
-                    detected_shortframes = s2_bb_to_soft->detect_shortframes;
-                    detected_pilots = s2_bb_to_soft->detect_pilots;
+                    if (!d_improved_decoder)
+                    {
+                        detected_modcod = s2_bb_to_soft->detect_modcod;
+                        detected_shortframes = s2_bb_to_soft->detect_shortframes;
+                        detected_pilots = s2_bb_to_soft->detect_pilots;
+                    }
+                    else
+                    {
+                        detected_modcod = s2_bb_to_soft_v2->detect_modcod;
+                        detected_shortframes = s2_bb_to_soft_v2->detect_shortframes;
+                        detected_pilots = s2_bb_to_soft_v2->detect_pilots;
+                    }
 
-                    ring_buffer->write(s2_bb_to_soft->output_stream->readBuf, d_shortframes ? 16200 : 64800);
+                    ring_buffer->write(bb_output_stream->readBuf, d_shortframes ? 16200 : 64800);
 
-                    s2_bb_to_soft->output_stream->flush();
+                    bb_output_stream->flush();
 
                     // Propagate frequency to an earlier rotator, slowly
-                    current_freq -= s2_pll->getFreq() * freq_propagation_factor;
+                    current_freq -= (d_improved_decoder ? s2_pll_v2->getFreq() : s2_pll->getFreq()) * freq_propagation_factor;
                     freq_sh->set_freq_raw(current_freq);
                     // logger->info("Freq %f, PLFreq %f", current_freq, s2_pll->getFreq());
 
@@ -333,10 +383,20 @@ namespace satdump
                 rrc->stop();
                 rec->stop();
                 freq_sh->stop();
-                pl_sync->stop();
-                s2_pll->stop();
-                s2_bb_to_soft->stop();
-                s2_bb_to_soft->output_stream->stopReader();
+                if (!d_improved_decoder)
+                {
+                    pl_sync->stop();
+                    s2_pll->stop();
+                    s2_bb_to_soft->stop();
+                    s2_bb_to_soft->output_stream->stopReader();
+                }
+                else
+                {
+                    pl_sync_v2->stop();
+                    s2_pll_v2->stop();
+                    s2_bb_to_soft_v2->stop();
+                    s2_bb_to_soft_v2->output_stream->stopReader();
+                }
                 ring_buffer->stopWriter();
                 ring_buffer->stopReader();
                 if (d_multithread_bch)
