@@ -49,12 +49,12 @@ namespace dvbs2
             volk_32fc_conjugate_32fc((lv_32fc_t *)&plheader_symbols[1], (lv_32fc_t *)&correlation_buffer[ss], sof.LENGTH + pls.LENGTH - 1);
             volk_32fc_x2_multiply_32fc((lv_32fc_t *)plheader_symbols, (lv_32fc_t *)plheader_symbols, (lv_32fc_t *)&correlation_buffer[ss], sof.LENGTH + pls.LENGTH);
 
-            const complex_t csof = correlate_sof_diff(plheader_symbols);
-            const complex_t cplsc = correlate_plscode_diff(&plheader_symbols[sof.LENGTH]);
-            const complex_t c0 = csof + cplsc;
-            const complex_t c1 = csof - cplsc;
-            const complex_t c = c0.norm() > c1.norm() ? c0 : c1;
-            const complex_t d = c * (1.0f / (26 - 1 + 64 / 2));
+            complex_t csof = correlate_sof_diff(plheader_symbols);
+            complex_t cplsc = correlate_plscode_diff(&plheader_symbols[sof.LENGTH]);
+            complex_t c0 = csof + cplsc;
+            complex_t c1 = csof - cplsc;
+            complex_t c = c0.norm() > c1.norm() ? c0 : c1;
+            complex_t d = c * (1.0f / (26 - 1 + 64 / 2));
             const double match = d.norm();
             if (match > best_match)
             {
@@ -75,12 +75,12 @@ namespace dvbs2
                 plheader_symbols[0] = 0;
                 volk_32fc_conjugate_32fc((lv_32fc_t *)&plheader_symbols[1], (lv_32fc_t *)&correlation_buffer[ss], sof.LENGTH + pls.LENGTH - 1);
                 volk_32fc_x2_multiply_32fc((lv_32fc_t *)plheader_symbols, (lv_32fc_t *)plheader_symbols, (lv_32fc_t *)&correlation_buffer[ss], sof.LENGTH + pls.LENGTH);
-                const complex_t csof = correlate_sof_diff(plheader_symbols);
-                const complex_t cplsc = correlate_plscode_diff(&plheader_symbols[sof.LENGTH]);
-                const complex_t c0 = csof + cplsc;
-                const complex_t c1 = csof - cplsc;
-                const complex_t c = c0.norm() > c1.norm() ? c0 : c1;
-                const complex_t d = c * (1.0f / (26 - 1 + 64 / 2));
+                complex_t csof = correlate_sof_diff(plheader_symbols);
+                complex_t cplsc = correlate_plscode_diff(&plheader_symbols[sof.LENGTH]);
+                complex_t c0 = csof + cplsc;
+                complex_t c1 = csof - cplsc;
+                complex_t c = c0.norm() > c1.norm() ? c0 : c1;
+                complex_t d = c * (1.0f / (26 - 1 + 64 / 2));
                 if (d.imag > 0 && d.norm() >= best_match)
                     best_pos = ss;
             }

@@ -37,7 +37,7 @@ namespace dvbs2
 
         for (int i = 0; i < count; ++i)
         {
-            const complex_t rotated = input_stream->readBuf[i] * complex_t(cosf(-phase), sinf(-phase));
+            complex_t rotated = input_stream->readBuf[i] * complex_t(cosf(-phase), sinf(-phase));
             complex_t phase_sample = rotated;
             float error = 0.0f;
 
@@ -60,9 +60,9 @@ namespace dvbs2
                     // are not part of the soft-symbol output.
                     for (int p = 0; p < 36 && i + p < count; ++p)
                     {
-                        const complex_t pilot_rotated = input_stream->readBuf[i + p] * complex_t(cosf(-phase), sinf(-phase));
+                        complex_t pilot_rotated = input_stream->readBuf[i + p] * complex_t(cosf(-phase), sinf(-phase));
                         complex_t pilot_sample = pilot_rotated;
-                        const complex_t pilot_descrambled = scrambling.descramble(pilot_sample);
+                        complex_t pilot_descrambled = scrambling.descramble(pilot_sample);
                         error = (pilot_descrambled * complex_t(0.70710678f, 0.70710678f).conj()).arg();
                         output_stream->writeBuf[i + p] = pilot_rotated;
                         update_loop(error);
@@ -72,7 +72,7 @@ namespace dvbs2
                     continue;
                 }
 
-                const complex_t descrambled = scrambling.descramble(phase_sample);
+                complex_t descrambled = scrambling.descramble(phase_sample);
                 if (constellation)
                     constellation->demod_soft_improved(descrambled, nullptr, 0.45f, 1.0f, &error);
                 output_stream->writeBuf[i] = rotated;
