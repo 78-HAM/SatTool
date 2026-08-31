@@ -10,7 +10,7 @@ namespace satdump
         class ValuePlotViewer
         {
         private:
-            float history[200];
+            float history[200] = {};
 
         public:
             void draw(float value, float max, float min, std::string name);

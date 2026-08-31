@@ -37,7 +37,6 @@ namespace dvbs2
 
         complex_t plheader_symbols[sof.LENGTH + pls.LENGTH];
         double best_match = -1.0;
-        double best_positive_match = -1.0;
         int best_pos = 0;
 
         // Search the entire available frame.  The old decoder stopped at the
@@ -60,29 +59,6 @@ namespace dvbs2
             {
                 best_match = match;
                 best_pos = ss;
-            }
-            if (d.imag > 0 && match > best_positive_match)
-                best_positive_match = match;
-        }
-
-        // Prefer the normal positive-frequency solution, but never fail to
-        // produce a frame when the residual frequency is outside that range.
-        if (best_positive_match >= 0)
-        {
-            best_match = best_positive_match;
-            for (int ss = 0; ss < search_count; ++ss)
-            {
-                plheader_symbols[0] = 0;
-                volk_32fc_conjugate_32fc((lv_32fc_t *)&plheader_symbols[1], (lv_32fc_t *)&correlation_buffer[ss], sof.LENGTH + pls.LENGTH - 1);
-                volk_32fc_x2_multiply_32fc((lv_32fc_t *)plheader_symbols, (lv_32fc_t *)plheader_symbols, (lv_32fc_t *)&correlation_buffer[ss], sof.LENGTH + pls.LENGTH);
-                complex_t csof = correlate_sof_diff(plheader_symbols);
-                complex_t cplsc = correlate_plscode_diff(&plheader_symbols[sof.LENGTH]);
-                complex_t c0 = csof + cplsc;
-                complex_t c1 = csof - cplsc;
-                complex_t c = c0.norm() > c1.norm() ? c0 : c1;
-                complex_t d = c * (1.0f / (26 - 1 + 64 / 2));
-                if (d.imag > 0 && d.norm() >= best_match)
-                    best_pos = ss;
             }
         }
 

@@ -20,6 +20,47 @@ namespace dvbs2
         pilot_cnt = pilots ? (frame_slot_count - 1) / 16 : 0;
     }
 
+    void S2PLLBlockV2::coarse_lock_header(const complex_t *samples)
+    {
+        complex_t expected[90];
+        for (int i = 0; i < 26; ++i)
+            expected[i] = sof.symbols[i];
+        for (int i = 0; i < 64; ++i)
+            expected[26 + i] = pls.symbols[pls_code][i];
+
+        // Differential correlation removes the unknown initial phase and
+        // estimates the carrier rotation per symbol over the known header.
+        complex_t freq_corr = 0;
+        for (int i = 0; i < 89; ++i)
+        {
+            complex_t e0 = expected[i];
+            complex_t e1 = expected[i + 1];
+            complex_t r0 = samples[i];
+            complex_t r1 = samples[i + 1];
+            complex_t expected_step = e0.conj() * e1;
+            complex_t received_step = r0.conj() * r1;
+            freq_corr += expected_step.conj() * received_step;
+        }
+
+        const float coarse_freq = freq_corr.arg();
+        if (std::isfinite(coarse_freq))
+            freq = std::max(-0.5f, std::min(0.5f, coarse_freq));
+
+        // Remove the estimated ramp and correlate once more for the phase at
+        // the first header symbol.  This gives the narrow tracking loop a
+        // stable starting point instead of asking it to acquire from zero.
+        complex_t phase_corr = 0;
+        for (int i = 0; i < 90; ++i)
+        {
+            complex_t raw = samples[i];
+            complex_t received = raw * complex_t(cosf(-freq * i), sinf(-freq * i));
+            phase_corr += received * expected[i].conj();
+        }
+        const float coarse_phase = phase_corr.arg();
+        if (std::isfinite(coarse_phase))
+            phase = coarse_phase;
+    }
+
     void S2PLLBlockV2::work()
     {
         const int nsamples = input_stream->read();
@@ -31,6 +72,8 @@ namespace dvbs2
 
         const int expected = (frame_slot_count + 1) * 90 + pilot_cnt * 36;
         const int count = std::min(nsamples, expected);
+        if (count >= 90)
+            coarse_lock_header(input_stream->readBuf);
         scrambling.reset();
         int data_seen = 0;
         int next_pilot_data = pilots ? 16 * 90 : std::numeric_limits<int>::max();

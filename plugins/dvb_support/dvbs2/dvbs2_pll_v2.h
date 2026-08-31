@@ -21,6 +21,7 @@ namespace dvbs2
         s2_plscodes pls;
         S2Scrambling scrambling;
         void work();
+        void coarse_lock_header(const complex_t *samples);
         int pilot_cnt = 0;
 
         void update_loop(float error)
