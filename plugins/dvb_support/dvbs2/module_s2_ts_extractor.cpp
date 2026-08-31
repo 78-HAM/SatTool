@@ -54,7 +54,9 @@ namespace dvbs2
 
     std::vector<satdump::pipeline::ModuleDataType> S2TStoTCPModule::getInputTypes() { return {satdump::pipeline::DATA_FILE, satdump::pipeline::DATA_STREAM}; }
 
-    std::vector<satdump::pipeline::ModuleDataType> S2TStoTCPModule::getOutputTypes() { return {satdump::pipeline::DATA_FILE}; }
+    // The extractor can be used as a live middle-stage before a network
+    // sink, where it writes transport stream packets to output_fifo.
+    std::vector<satdump::pipeline::ModuleDataType> S2TStoTCPModule::getOutputTypes() { return {satdump::pipeline::DATA_FILE, satdump::pipeline::DATA_STREAM}; }
 
     S2TStoTCPModule::~S2TStoTCPModule() {}
 
@@ -66,6 +68,11 @@ namespace dvbs2
             filesize = 0;
         if (input_data_type == satdump::pipeline::DATA_FILE)
             data_in = std::ifstream(d_input_file, std::ios::binary);
+        if (output_data_type == satdump::pipeline::DATA_FILE)
+        {
+            d_output_file = d_output_file_hint + ".ts";
+            data_out = std::ofstream(d_output_file, std::ios::binary);
+        }
 
         logger->info("Using input bbframes " + d_input_file);
 
