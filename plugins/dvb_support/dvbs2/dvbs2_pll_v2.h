@@ -17,6 +17,7 @@ namespace dvbs2
         float alpha;
         float beta;
         float loop_bw;
+        bool coarse_acquired = false;
         s2_sof sof;
         s2_plscodes pls;
         S2Scrambling scrambling;

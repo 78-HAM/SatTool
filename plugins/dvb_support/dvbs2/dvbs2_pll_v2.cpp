@@ -72,8 +72,15 @@ namespace dvbs2
 
         const int expected = (frame_slot_count + 1) * 90 + pilot_cnt * 36;
         const int count = std::min(nsamples, expected);
-        if (count >= 90)
+        // A noisy 90-symbol header is useful for initial acquisition, but its
+        // per-frame frequency estimate is less stable than the tracking loop.
+        // Preserve the loop state after acquisition and use the known header
+        // symbols below only for continuous fine correction.
+        if (!coarse_acquired && count >= 90)
+        {
             coarse_lock_header(input_stream->readBuf);
+            coarse_acquired = true;
+        }
         scrambling.reset();
         int data_seen = 0;
         int next_pilot_data = pilots ? 16 * 90 : std::numeric_limits<int>::max();
