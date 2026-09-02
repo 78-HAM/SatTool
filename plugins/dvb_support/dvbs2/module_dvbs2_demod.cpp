@@ -237,7 +237,9 @@ namespace satdump
                         peak_snr = snr;
 
                     // Get freq
-                    display_freq = dsp::rad_to_hz(current_freq / final_sps, final_samplerate);
+                    // PLL frequency is measured per recovered symbol while
+                    // FreqShiftBlock expects radians per input sample.
+                    display_freq = dsp::rad_to_hz(current_freq, final_samplerate);
 
                     if (!d_improved_decoder)
                     {
@@ -257,7 +259,8 @@ namespace satdump
                     bb_output_stream->flush();
 
                     // Propagate frequency to an earlier rotator, slowly
-                    current_freq -= (d_improved_decoder ? s2_pll_v2->getFreq() : s2_pll->getFreq()) * freq_propagation_factor;
+                    const float pll_freq = d_improved_decoder ? s2_pll_v2->getFreq() : s2_pll->getFreq();
+                    current_freq -= (pll_freq / final_sps) * freq_propagation_factor;
                     freq_sh->set_freq_raw(current_freq);
                     // logger->info("Freq %f, PLFreq %f", current_freq, s2_pll->getFreq());
 

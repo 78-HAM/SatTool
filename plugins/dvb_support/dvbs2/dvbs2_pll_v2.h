@@ -6,6 +6,7 @@
 #include "codings/dvb-s2/s2_scrambling.h"
 #include <algorithm>
 #include <limits>
+#include <vector>
 
 namespace dvbs2
 {
@@ -23,6 +24,7 @@ namespace dvbs2
         S2Scrambling scrambling;
         void work();
         void coarse_lock_header(const complex_t *samples);
+        void estimate_frame_carrier(const complex_t *samples, int count);
         int pilot_cnt = 0;
 
         void update_loop(float error)
