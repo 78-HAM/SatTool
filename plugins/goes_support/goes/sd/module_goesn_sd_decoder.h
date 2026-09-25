@@ -1,15 +1,17 @@
 #pragma once
 
-#include "common/widgets/constellation.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
-#include "sd_deframer.h"
+#include "core/module.h"
+#include <complex>
+#include <thread>
 #include <fstream>
+#include "sd_deframer.h"
+#include "common/widgets/constellation.h"
 
 namespace goes
 {
     namespace sd
     {
-        class GOESNSDDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+        class GOESNSDDecoderModule : public ProcessingModule
         {
         protected:
             std::shared_ptr<GOESN_SD_Deframer> def;
@@ -18,23 +20,29 @@ namespace goes
             uint8_t *soft_bits;
             uint8_t *output_frames;
 
+            std::ifstream data_in;
+            std::ofstream data_out;
+
             //  int frame_count = 0;
+            std::atomic<uint64_t> filesize;
+            std::atomic<uint64_t> progress;
 
             // UI Stuff
-            satdump::widgets::ConstellationViewer constellation;
+            widgets::ConstellationViewer constellation;
 
         public:
             GOESNSDDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
             ~GOESNSDDecoderModule();
             void process();
             void drawUI(bool window);
-            nlohmann::json getModuleStats();
+            std::vector<ModuleDataType> getInputTypes();
+            std::vector<ModuleDataType> getOutputTypes();
 
         public:
             static std::string getID();
             virtual std::string getIDM() { return getID(); };
-            static nlohmann::json getParams() { return {}; } // TODOREWORK
+            static std::vector<std::string> getParameters();
             static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         };
-    } // namespace sd
-} // namespace goes
+    }
+}

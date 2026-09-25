@@ -7,8 +7,7 @@ target_link_libraries(inmarsat_support PUBLIC satdump_core)
 target_include_directories(inmarsat_support PUBLIC src .)
 
 if(MSVC)
-    find_package(ZLIB REQUIRED)
-    target_link_libraries(inmarsat_support PUBLIC ws2_32 ZLIB::ZLIB)
+    target_link_libraries(inmarsat_support PUBLIC ws2_32 zlib.dll)
 endif()
 
-install(TARGETS inmarsat_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/sattool/plugins)
+install(TARGETS inmarsat_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)

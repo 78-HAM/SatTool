@@ -10,12 +10,12 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
 # Build in release mod so it isn't unusably slow
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wno-format-security")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -Wno-format-security")
-set(CMAKE_CXX_FLAGS_DEBUG "-O3 -Wno-format-security")
-set(CMAKE_C_FLAGS_RELEASE "-O3 -Wno-format-security")
-set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -Wno-format-security")
-set(CMAKE_C_FLAGS_DEBUG "-O3 -Wno-format-security")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3")
+set(CMAKE_CXX_FLAGS_DEBUG "-O3")
+set(CMAKE_C_FLAGS_RELEASE "-O3")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3")
+set(CMAKE_C_FLAGS_DEBUG "-O3")
 
 # ##########################################################################################################################################
 include_directories(deps/output/${ANDROID_ABI}/include)
@@ -61,11 +61,6 @@ add_library(nng STATIC IMPORTED)
 set_target_properties(nng PROPERTIES IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/deps/output/${ANDROID_ABI}/lib/libnng.a)
 # include_directories(deps/nng/jni/)
 
-# SQLite
-add_library(sqlite3 STATIC IMPORTED)
-set_target_properties(sqlite3 PROPERTIES IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/deps/output/${ANDROID_ABI}/lib/libsqlite3.a)
-# include_directories(deps/nng/jni/)
-
 # cURL
 add_library(curl STATIC IMPORTED)
 set_target_properties(curl PROPERTIES IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/deps/output/${ANDROID_ABI}/lib/libcurl.a)
@@ -80,10 +75,6 @@ set_target_properties(zstd PROPERTIES IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/de
 add_library(tiff STATIC IMPORTED)
 set_target_properties(tiff PROPERTIES IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/deps/output/${ANDROID_ABI}/lib/libtiff.a)
 # include_directories(deps/tiff/jni/)
-
-# HDF5
-link_directories(${PROJECT_SOURCE_DIR}/deps/output/${ANDROID_ABI}/lib/)
-set(HDF5_FOUND true)
 
 include_directories(android_imgui PRIVATE
   ${ANDROID_NDK}/sources/android/native_app_glue
@@ -100,11 +91,6 @@ target_include_directories(usb PRIVATE deps/libusb/)
 add_library(airspy STATIC deps/libairspy/airspy.c deps/libairspy/iqconverter_float.c deps/libairspy/iqconverter_int16.c)
 target_include_directories(airspy PRIVATE deps/libairspy/ deps/libusb)
 target_link_libraries(airspy PRIVATE usb)
-
-# LibHydraSDR
-add_library(hydrasdr STATIC deps/libhydrasdr/hydrasdr.c deps/libairspy/iqconverter_float.c deps/libairspy/iqconverter_int16.c)
-target_include_directories(hydrasdr PRIVATE deps/libhydrasdr/ deps/libusb)
-target_link_libraries(hydrasdr PRIVATE usb)
 
 # LibAirspyHF
 add_library(airspyhf STATIC deps/libairspyhf/airspyhf.c deps/libairspyhf/iqbalancer.c)
@@ -148,7 +134,6 @@ add_subdirectory(.. ${CMAKE_BINARY_DIR}/all_libs)
 add_library(android_imgui SHARED
   ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/backend.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/android_dialogs.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/imgui_image.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/imgui_backends/imgui_impl_android.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/imgui_backends/imgui_impl_opengl3.cpp

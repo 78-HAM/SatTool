@@ -1,19 +1,16 @@
 #pragma once
 
-#include "complex"
 #include "imgui/imgui.h"
+#include "complex"
 
-namespace satdump
+namespace widgets
 {
-    namespace widgets
+    class ValuePlotViewer
     {
-        class ValuePlotViewer
-        {
-        private:
-            float history[200] = {};
+    private:
+        float history[200];
 
-        public:
-            void draw(float value, float max, float min, std::string name);
-        };
-    } // namespace widgets
-} // namespace satdump
+    public:
+        void draw(float value, float max, float min, std::string name);
+    };
+}

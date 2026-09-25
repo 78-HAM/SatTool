@@ -2,7 +2,7 @@
 
 #include "common/ccsds/ccsds.h"
 
-#include "image/image.h"
+#include "common/image/image.h"
 #include <string>
 #include <map>
 #include <memory>

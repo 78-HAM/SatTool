@@ -24,7 +24,7 @@ elseif($platform -eq "arm64-windows")
 {
     $generator = "ARM64"
     $arch = "ARM64"
-    $additional_args = @("-DPLUGIN_LIMESDR_SDR_SUPPORT=OFF")
+    $additional_args = "-DPLUGIN_USRP_SDR_SUPPORT=OFF", "-DPLUGIN_LIMESDR_SDR_SUPPORT=OFF"
 }
 else
 {
@@ -51,13 +51,13 @@ if($env:PROCESSOR_ARCHITECTURE -ne $arch)
         Write-Error "Unsupported host platform: $($env:PROCESSOR_ARCHITECTURE)"
         exit 1
     }
-    $additional_args += "-DCMAKE_SYSTEM_NAME=Windows", "-DCMAKE_SYSTEM_PROCESSOR=$arch", "-DCMAKE_CROSSCOMPILING=ON", "-DVCPKG_USE_HOST_TOOLS=ON", "-DVCPKG_HOST_TRIPLET=$host_triplet"
+    $additional_args += "-DVCPKG_USE_HOST_TOOLS=ON", "-DVCPKG_HOST_TRIPLET=$host_triplet"
 }
 
 #Build SatDump
 cd "$(Split-Path -Parent $MyInvocation.MyCommand.Path)\.."
 mkdir build | Out-Null
 cd build
-cmake .. -DBUILD_MSVC=ON -DCMAKE_TOOLCHAIN_FILE="$($(Get-Item ..\vcpkg\scripts\buildsystems\vcpkg.cmake).FullName)" -DVCPKG_TARGET_TRIPLET="$platform" -A $generator $additional_args
+cmake .. -DVCPKG_TARGET_TRIPLET=$platform -DBUILD_MSVC=ON -DCMAKE_TOOLCHAIN_FILE="$($(Get-Item ..\vcpkg\scripts\buildsystems\vcpkg.cmake).FullName)" -DVCPKG_TARGET_TRIPLET="$platform" -A $generator $additional_args
 cmake --build . --config Release
 cd ..

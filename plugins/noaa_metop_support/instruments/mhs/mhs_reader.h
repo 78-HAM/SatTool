@@ -4,7 +4,7 @@
 #include <cmath>
 #include <array>
 #include <vector>
-#include "image/image.h"
+#include "common/image/image.h"
 #include "common/calibration.h"
 #include "nlohmann/json.hpp"
 

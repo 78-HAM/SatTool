@@ -1,13 +1,15 @@
 #pragma once
 
+#include "core/module.h"
+#include <complex>
+#include <thread>
+#include <fstream>
 #include "common/codings/deframing/bpsk_ccsds_deframer.h"
 #include "common/widgets/constellation.h"
-#include "pipeline/module.h"
-#include <fstream>
 
 namespace noaa
 {
-    class NOAAGACDecoderModule : public satdump::pipeline::ProcessingModule
+    class NOAAGACDecoderModule : public ProcessingModule
     {
     protected:
         const bool backward;
@@ -25,22 +27,20 @@ namespace noaa
         int frame_count = 0;
 
         // UI Stuff
-        satdump::widgets::ConstellationViewer constellation;
+        widgets::ConstellationViewer constellation;
 
     public:
         NOAAGACDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         ~NOAAGACDecoderModule();
         void process();
         void drawUI(bool window);
-        std::vector<satdump::pipeline::ModuleDataType> getInputTypes();
-        std::vector<satdump::pipeline::ModuleDataType> getOutputTypes();
-
-        nlohmann::json getModuleStats();
+        std::vector<ModuleDataType> getInputTypes();
+        std::vector<ModuleDataType> getOutputTypes();
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
 } // namespace noaa

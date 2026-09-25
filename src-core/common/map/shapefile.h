@@ -1,12 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include "common/utils.h"
 #include <fstream>
-#include <vector>
 
 /*
 Basic Shapefile parser, based on https://support.esri.com/en/white-paper/279.
-This does not implement the full specification, only NullShape, Point, MultiPoint,
+This does not implement the full specification, only NullShape, Point, MultiPoint, 
 PolyLine and Polygon are currently implemented.
 */
 
@@ -35,10 +35,10 @@ namespace shapefile
 #endif
     struct box_t
     {
-        double box1 = 0;
-        double box2 = 0;
-        double box3 = 0;
-        double box4 = 0;
+        double box1;
+        double box2;
+        double box3;
+        double box4;
     }
 #ifdef _WIN32
     ;
@@ -54,8 +54,8 @@ namespace shapefile
 #endif
     struct point_t
     {
-        double x = 0;
-        double y = 0;
+        double x;
+        double y;
     }
 #ifdef _WIN32
     ;
@@ -68,37 +68,35 @@ namespace shapefile
 
     struct ShapefileHeader
     {
-        int32_t file_code = 0;
-        int32_t unused1 = 0;
-        int32_t unused2 = 0;
-        int32_t unused3 = 0;
-        int32_t unused4 = 0;
-        int32_t unused5 = 0;
-        int32_t file_length = 0;
+        int32_t file_code;
+        int32_t unused1;
+        int32_t unused2;
+        int32_t unused3;
+        int32_t unused4;
+        int32_t unused5;
+        int32_t file_length;
 
-        int32_t version = 0;
-        int32_t shape_type = 0;
+        int32_t version;
+        int32_t shape_type;
 
-        double bounding_box_xmin = 0;
-        double bounding_box_ymin = 0;
-        double bounding_box_xmax = 0;
-        double bounding_box_ymax = 0;
-        double bounding_box_zmin = 0;
-        double bounding_box_zmax = 0;
-        double bounding_box_mmin = 0;
-        double bounding_box_mmax = 0;
+        double bounding_box_xmin;
+        double bounding_box_ymin;
+        double bounding_box_xmax;
+        double bounding_box_ymax;
+        double bounding_box_zmin;
+        double bounding_box_zmax;
+        double bounding_box_mmin;
+        double bounding_box_mmax;
 
-        ShapefileHeader() {}
         ShapefileHeader(std::istream &stream);
     };
 
     struct RecordHeader
     {
-        int32_t record_number = 0;
-        int32_t content_length = 0;
-        int32_t shape_type = 0;
+        int32_t record_number;
+        int32_t content_length;
+        int32_t shape_type;
 
-        RecordHeader() {}
         RecordHeader(std::istream &stream);
     };
 
@@ -111,14 +109,13 @@ namespace shapefile
     {
         point_t point;
 
-        PointRecord() {}
         PointRecord(std::istream &stream, RecordHeader &header);
     };
 
     struct MultiPointRecord : RecordHeader
     {
         box_t box;
-        int32_t point_number = 0;
+        int32_t point_number;
         std::vector<point_t> points;
 
         MultiPointRecord(std::istream &stream, RecordHeader &header);
@@ -127,11 +124,10 @@ namespace shapefile
     struct PolyLineRecord : RecordHeader
     {
         box_t box;
-        int32_t part_number = 0;
-        int32_t point_number = 0;
+        int32_t part_number;
+        int32_t point_number;
         std::vector<std::vector<point_t>> parts_points;
 
-        PolyLineRecord() {}
         PolyLineRecord(std::istream &stream, RecordHeader &header);
     };
 
@@ -149,7 +145,6 @@ namespace shapefile
         std::vector<PolyLineRecord> polyline_records;
         std::vector<PolygonRecord> polygon_records;
 
-        Shapefile() {}
         Shapefile(std::istream &stream);
     };
-}; // namespace shapefile
+};

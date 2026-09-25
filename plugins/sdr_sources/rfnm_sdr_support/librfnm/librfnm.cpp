@@ -3,7 +3,6 @@
 #include <libusb-1.0/libusb.h>
 #include <cstring>
 #include <algorithm>
-#include <chrono>
 
 struct _librfnm_usb_handle {
     libusb_device_handle* primary{};

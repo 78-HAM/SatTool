@@ -1,36 +1,61 @@
 #include "module_geonetcast_decoder.h"
-#include "common/codings/dvb-s2/bbframe_ts_parser.h"
-#include "common/mpeg_ts/fazzt_processor.h"
-#include "common/mpeg_ts/ts_demux.h"
-#include "common/mpeg_ts/ts_header.h"
-#include "common/utils.h"
-#include "image/io.h"
+#include <fstream>
+#include "logger.h"
+#include <filesystem>
 #include "imgui/imgui.h"
 #include "imgui/imgui_image.h"
+#include "common/utils.h"
+#include "common/mpeg_ts/ts_header.h"
+#include "common/mpeg_ts/ts_demux.h"
+#include "common/mpeg_ts/fazzt_processor.h"
+#include "common/codings/dvb-s2/bbframe_ts_parser.h"
 #include "libs/ctpl/ctpl_stl.h"
-#include "logger.h"
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
+#include "common/image/io.h"
 
-#include "utils/thread_priority.h"
+#include "goes_abi.h"
+
+#include "common/thread_priority.h"
 
 namespace geonetcast
 {
-    GeoNetCastDecoderModule::GeoNetCastDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-        : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+    GeoNetCastDecoderModule::GeoNetCastDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters)
     {
-        fsfsm_enable_output = false;
     }
 
-    GeoNetCastDecoderModule::~GeoNetCastDecoderModule() {}
+    std::vector<ModuleDataType> GeoNetCastDecoderModule::getInputTypes()
+    {
+        return {DATA_FILE, DATA_STREAM};
+    }
+
+    std::vector<ModuleDataType> GeoNetCastDecoderModule::getOutputTypes()
+    {
+        return {DATA_FILE};
+    }
+
+    GeoNetCastDecoderModule::~GeoNetCastDecoderModule()
+    {
+    }
 
     void GeoNetCastDecoderModule::process()
     {
+        std::ifstream data_in;
+
+        if (input_data_type == DATA_FILE)
+            filesize = getFilesize(d_input_file);
+        else
+            filesize = 0;
+        if (input_data_type == DATA_FILE)
+            data_in = std::ifstream(d_input_file, std::ios::binary);
+
         directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/'));
 
         if (!std::filesystem::exists(directory))
             std::filesystem::create_directory(directory);
+
+        logger->info("Using input frames " + d_input_file);
+        logger->info("Decoding to " + directory);
+
+        time_t lastTime = 0;
 
         bool ts_input = d_parameters["ts_input"].get<bool>();
 
@@ -46,19 +71,24 @@ namespace geonetcast
 
         ctpl::thread_pool saving_pool(16);
 
-        while (should_run())
+        while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
         {
             if (ts_input)
             {
                 // Read buffer
-                read_data((uint8_t *)mpeg_ts_all, 188);
+                if (input_data_type == DATA_FILE)
+                    data_in.read((char *)mpeg_ts_all, 188);
+                else
+                    input_fifo->read((uint8_t *)mpeg_ts_all, 188);
                 ts_cnt = 1;
             }
             else
             {
                 // Read buffer
-                read_data((uint8_t *)bb_frame, 38688 / 8);
-
+                if (input_data_type == DATA_FILE)
+                    data_in.read((char *)bb_frame, 38688 / 8);
+                else
+                    input_fifo->read((uint8_t *)bb_frame, 38688 / 8);
                 ts_cnt = ts_extractor.work(bb_frame, 1, mpeg_ts_all, 188 * 1000);
             }
 
@@ -100,6 +130,38 @@ namespace geonetcast
                                 if (!std::filesystem::exists(directory + "/PROCESSED"))
                                     std::filesystem::create_directories(directory + "/PROCESSED");
 
+                                // Try to process as GOES ABI
+                                if (this->d_parameters["process_goes_abi"].get<bool>())
+                                {
+#ifdef ENABLE_HDF5_PARSING
+                                    int mode = 0;
+                                    int channel = 0;
+                                    int satellite = 0;
+                                    uint64_t tstart = 0;
+                                    uint64_t tend = 0;
+                                    uint64_t tfile = 0;
+                                    uint64_t tidk = 0;
+
+                                    if (sscanf(file.name.c_str(),
+                                               "OR_ABI-L2-CMIPF-M%1dC%2d_G%2d_s%lu_e%lu_c%lu-%lu_0.nc",
+                                               &mode, &channel, &satellite,
+                                               &tstart, &tend, &tfile, &tidk) == 7)
+                                    {
+                                        logger->info("Mode %d Channel %d Satellite %d", mode, channel, satellite);
+
+                                        int bit_depth = 12;
+
+                                        if (channel == 7)
+                                            bit_depth = 14;
+
+                                        image::Image final_image = parse_goesr_abi_netcdf_fulldisk_CMI(file.data, bit_depth);
+
+                                        image::save_img(final_image, directory + "/PROCESSED/" + file.name);
+                                        // return;
+                                    }
+#endif
+                                }
+
                                 logger->debug("Saving complete " + file.name + " size " + filesize_str);
 
                                 std::ofstream output_geonetcast_file(directory + "/COMPLETE/" + file.name);
@@ -123,24 +185,42 @@ namespace geonetcast
                     }
                 }
             }
+
+            if (input_data_type == DATA_FILE)
+                progress = data_in.tellg();
+
+            if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+            {
+                lastTime = time(NULL);
+                logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
+            }
         }
 
-        cleanup();
+        data_in.close();
     }
 
     void GeoNetCastDecoderModule::drawUI(bool window)
     {
         ImGui::Begin("GeoNetCast Data Decoder", NULL, window ? 0 : NOWINDOW_FLAGS);
 
-        drawProgressBar();
+        if (!streamingInput)
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
     }
 
-    std::string GeoNetCastDecoderModule::getID() { return "geonetcast_decoder"; }
+    std::string GeoNetCastDecoderModule::getID()
+    {
+        return "geonetcast_decoder";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> GeoNetCastDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> GeoNetCastDecoderModule::getParameters()
+    {
+        return {};
+    }
+
+    std::shared_ptr<ProcessingModule> GeoNetCastDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<GeoNetCastDecoderModule>(input_file, output_file_hint, parameters);
     }
-} // namespace geonetcast
+}

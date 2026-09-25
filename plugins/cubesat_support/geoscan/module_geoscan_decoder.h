@@ -1,18 +1,27 @@
 #pragma once
 
-#include "common/codings/crc/crc_generic.h"
+#include "core/module.h"
+#include <complex>
+#include <thread>
+#include <fstream>
 #include "common/simple_deframer.h"
 #include "common/widgets/constellation.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
+#include "common/codings/crc/crc_generic.h"
 
 namespace geoscan
 {
-    class GEOSCANDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+    class GEOSCANDecoderModule : public ProcessingModule
     {
     protected:
         int8_t *input_buffer;
         int d_frame_length;
         int d_thresold;
+
+        std::ifstream data_in;
+        std::ofstream data_out;
+
+        std::atomic<uint64_t> filesize;
+        std::atomic<uint64_t> progress;
 
         std::unique_ptr<def::SimpleDeframer> deframer;
 
@@ -24,14 +33,15 @@ namespace geoscan
         GEOSCANDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         ~GEOSCANDecoderModule();
         void process();
-        const uint8_t *PN9_MASK_Generator();
+        const uint8_t* PN9_MASK_Generator();
         void drawUI(bool window);
-        nlohmann::json getModuleStats();
+        std::vector<ModuleDataType> getInputTypes();
+        std::vector<ModuleDataType> getOutputTypes();
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
-} // namespace geoscan
+} // namespace noaa

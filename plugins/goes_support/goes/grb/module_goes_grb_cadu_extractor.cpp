@@ -1,8 +1,8 @@
 #include "module_goes_grb_cadu_extractor.h"
-#include "common/codings/differential/nrzm.h"
-#include "common/codings/reedsolomon/reedsolomon.h"
-#include "common/widgets/themed_widgets.h"
 #include "logger.h"
+#include "common/codings/reedsolomon/reedsolomon.h"
+#include "common/codings/differential/nrzm.h"
+#include "common/widgets/themed_widgets.h"
 
 #define BBFRAME_SIZE (58192 / 8) // BBFrame size
 #define CADU_SIZE 2048           // CADU Size
@@ -16,13 +16,20 @@ namespace goes
     {
         const uint8_t CADU_HEADER[] = {0x1a, 0xcf, 0xfc, 0x1d};
 
-        GOESGRBCADUextractor::GOESGRBCADUextractor(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+        GOESGRBCADUextractor::GOESGRBCADUextractor(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters)
         {
             bb_buffer = new uint8_t[BBFRAME_SIZE];
             cadu_buffer = new uint8_t[CADU_SIZE];
+        }
 
-            fsfsm_file_ext = ".cadu";
+        std::vector<ModuleDataType> GOESGRBCADUextractor::getInputTypes()
+        {
+            return {DATA_FILE, DATA_STREAM};
+        }
+
+        std::vector<ModuleDataType> GOESGRBCADUextractor::getOutputTypes()
+        {
+            return {DATA_FILE, DATA_STREAM};
         }
 
         GOESGRBCADUextractor::~GOESGRBCADUextractor()
@@ -33,12 +40,32 @@ namespace goes
 
         void GOESGRBCADUextractor::process()
         {
+            if (input_data_type == DATA_FILE)
+                filesize = getFilesize(d_input_file);
+            else
+                filesize = 0;
+            if (input_data_type == DATA_FILE)
+                data_in = std::ifstream(d_input_file, std::ios::binary);
+            if (output_data_type == DATA_FILE)
+            {
+                data_out = std::ofstream(d_output_file_hint + ".cadu", std::ios::binary);
+                d_output_files.push_back(d_output_file_hint + ".cadu");
+            }
+
+            logger->info("Using input bbframes " + d_input_file);
+            logger->info("Decoding to " + d_output_file_hint + ".cadu");
+
+            time_t lastTime = 0;
+
             std::vector<uint8_t> caduVector;
 
-            while (should_run())
+            while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
                 // Read buffer
-                read_data((uint8_t *)bb_buffer, BBFRAME_SIZE);
+                if (input_data_type == DATA_FILE)
+                    data_in.read((char *)bb_buffer, BBFRAME_SIZE);
+                else
+                    input_fifo->read((uint8_t *)bb_buffer, BBFRAME_SIZE);
 
                 // data_out.write((char *)&bb_buffer[10], BBFRAME_SIZE - 10);
 
@@ -53,7 +80,7 @@ namespace goes
 
                     // Correlate over the entire frame
                     int best_pos = 0;
-                    best_cor = 0;
+                    int best_cor = 0;
                     for (int i = 0; i < CADU_SIZE - (int)sizeof(CADU_HEADER); i++)
                     {
                         int correlation = 0;
@@ -82,21 +109,30 @@ namespace goes
                         caduVector.erase(caduVector.begin(), caduVector.begin() + best_pos);
                     }
 
-                    write_data((uint8_t *)cadu_buffer, CADU_SIZE);
+                    module_stats["correlation"] = best_cor;
+                    module_stats["synced"] = cadu_sync;
+
+                    if (output_data_type == DATA_FILE)
+                        data_out.write((char *)cadu_buffer, CADU_SIZE);
+                    else
+                        output_fifo->write((uint8_t *)cadu_buffer, CADU_SIZE);
+                }
+
+                if (input_data_type == DATA_FILE)
+                    progress = data_in.tellg();
+
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    std::string lock_state_ca = cadu_sync ? "SYNCED" : "NOSYNC";
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%, CADU : " + lock_state_ca);
                 }
             }
 
-            cleanup();
-        }
-
-        nlohmann::json GOESGRBCADUextractor::getModuleStats()
-        {
-            auto v = satdump::pipeline::base::FileStreamToFileStreamModule::getModuleStats();
-            v["correlation"] = best_cor;
-            v["synced"] = cadu_sync;
-            std::string lock_state_ca = cadu_sync ? "SYNCED" : "NOSYNC";
-            v["lock_state_cadu"] = lock_state_ca;
-            return v;
+            if (output_data_type == DATA_FILE)
+                data_out.close();
+            if (input_data_type == DATA_FILE)
+                data_in.close();
         }
 
         void GOESGRBCADUextractor::drawUI(bool window)
@@ -113,21 +149,31 @@ namespace goes
                     std::memmove(&cor_history_ca[0], &cor_history_ca[1], (200 - 1) * sizeof(float));
                     cor_history_ca[200 - 1] = cadu_cor;
 
-                    satdump::widgets::ThemedPlotLines(style::theme.plot_bg.Value, "##caducor", cor_history_ca, IM_ARRAYSIZE(cor_history_ca), 0, "", 40.0f, 4.0f, ImVec2(200 * ui_scale, 50 * ui_scale));
+                    widgets::ThemedPlotLines(style::theme.plot_bg.Value, "##caducor", cor_history_ca, IM_ARRAYSIZE(cor_history_ca), 0, "", 40.0f, 4.0f,
+                        ImVec2(200 * ui_scale, 50 * ui_scale));
                 }
             }
             ImGui::EndGroup();
 
-            drawProgressBar();
+            if (!streamingInput)
+                ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string GOESGRBCADUextractor::getID() { return "goes_grb_cadu_extractor"; }
+        std::string GOESGRBCADUextractor::getID()
+        {
+            return "goes_grb_cadu_extractor";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> GOESGRBCADUextractor::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> GOESGRBCADUextractor::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> GOESGRBCADUextractor::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<GOESGRBCADUextractor>(input_file, output_file_hint, parameters);
         }
-    } // namespace grb
-} // namespace goes
+    } // namespace aqua
+}

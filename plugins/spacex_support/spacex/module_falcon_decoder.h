@@ -1,12 +1,14 @@
 #pragma once
 
+#include "core/module.h"
+#include <complex>
+#include <fstream>
 #include "common/dsp/utils/random.h"
 #include "falcon_video_encoder.hpp"
-#include "pipeline/modules/base/filestream_to_filestream.h"
 
 namespace spacex
 {
-    class FalconDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+    class FalconDecoderModule : public ProcessingModule
     {
     public:
         FalconDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
@@ -15,12 +17,15 @@ namespace spacex
         void drawUI(bool window);
 
     protected:
-        // std::ofstream data_out;
+        std::ifstream data_in;
+        std::ofstream data_out;
+        std::atomic<uint64_t> filesize;
+        std::atomic<uint64_t> progress;
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
 
     private:
@@ -28,4 +33,4 @@ namespace spacex
         std::unique_ptr<FalconVideoEncoder> videoStreamEnc;
 #endif
     };
-} // namespace spacex
+} // namespace falcon

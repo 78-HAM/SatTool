@@ -1,35 +1,32 @@
 #include "module_eos_instruments.h"
-#include "../../noaa_metop_support/instruments/amsu/amsu_pols.h"
+#include <fstream>
 #include "common/ccsds/ccsds_aos/demuxer.h"
 #include "common/ccsds/ccsds_aos/vcdu.h"
-#include "common/utils.h"
-#include "core/resources.h"
-#include "image/bowtie.h"
-#include "imgui/imgui.h"
-#include "init.h"
-#include "instruments/modis/modis_histmatch.h"
 #include "logger.h"
-#include "nlohmann/json_utils.h"
-#include "products/dataset.h"
-#include "products/image_product.h"
-#include <cstdint>
 #include <filesystem>
-#include <fstream>
+#include "imgui/imgui.h"
+#include "common/image/bowtie.h"
+#include "common/utils.h"
+#include "products/image_products.h"
+#include "products/dataset.h"
+#include "resources.h"
+#include "instruments/modis/modis_histmatch.h"
+#include "nlohmann/json_utils.h"
 
 #include "common/calibration.h"
-#include "core/exception.h"
 #include "instruments/modis/calibrator/modis_calibrator.h"
+#include "core/exception.h"
 
-#include "common/tracking/tle.h"
-#include "image/image_utils.h"
-#include "image/io.h"
+#include "common/image/io.h"
+#include "common/image/image_utils.h"
 
 namespace eos
 {
     namespace instruments
     {
         EOSInstrumentsDecoderModule::EOSInstrumentsDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters), d_modis_bowtie(d_parameters["modis_bowtie"].get<bool>())
+            : ProcessingModule(input_file, output_file_hint, parameters),
+              d_modis_bowtie(d_parameters["modis_bowtie"].get<bool>())
         {
             if (parameters["satellite"] == "terra")
                 d_satellite = TERRA;
@@ -39,13 +36,18 @@ namespace eos
                 d_satellite = AURA;
             else
                 throw satdump_exception("EOS Instruments Decoder : EOS satellite \"" + parameters["satellite"].get<std::string>() + "\" is not valid!");
-            fsfsm_enable_output = false;
         }
 
         void EOSInstrumentsDecoderModule::process()
         {
+            filesize = getFilesize(d_input_file);
+            std::ifstream data_in(d_input_file, std::ios::binary);
+
             std::string directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/MODIS";
 
+            logger->info("Using input frames " + d_input_file);
+
+            time_t lastTime = 0;
             uint8_t cadu[1024];
 
             // Demuxers
@@ -59,10 +61,10 @@ namespace eos
             ccsds::ccsds_aos::Demuxer demuxer_vcid35;
             ccsds::ccsds_aos::Demuxer demuxer_vcid42;
 
-            while (should_run())
+            while (!data_in.eof())
             {
                 // Read buffer
-                read_data((uint8_t *)&cadu, 1024);
+                data_in.read((char *)&cadu, 1024);
 
                 // Parse this transport frame
                 ccsds::ccsds_aos::VCDU vcdu = ccsds::ccsds_aos::parseVCDU(cadu);
@@ -123,10 +125,10 @@ namespace eos
                     }
                     else if (vcdu.vcid == 15) // CERES FM-4
                     {
-                        // std::vector<ccsds::CCSDSPacket> ccsdsFrames = demuxer_vcid15.work(cadu);
-                        // for (ccsds::CCSDSPacket &pkt : ccsdsFrames)
-                        // if (pkt.header.apid == 157)
-                        //    ceres_fm4_reader.work(pkt);
+                       // std::vector<ccsds::CCSDSPacket> ccsdsFrames = demuxer_vcid15.work(cadu);
+                       // for (ccsds::CCSDSPacket &pkt : ccsdsFrames)
+                           // if (pkt.header.apid == 157)
+                            //    ceres_fm4_reader.work(pkt);
                     }
                 }
                 else if (d_satellite == AURA)
@@ -143,12 +145,20 @@ namespace eos
                         }
                     }
                 }
+
+                progress = data_in.tellg();
+
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
+                }
             }
 
-            cleanup();
+            data_in.close();
 
             // Products dataset
-            satdump::products::DataSet dataset;
+            satdump::ProductDataSet dataset;
             if (d_satellite == AQUA)
                 dataset.satellite_name = "Aqua";
             else if (d_satellite == TERRA)
@@ -157,17 +167,17 @@ namespace eos
                 dataset.satellite_name = "Aura";
 
             if (d_satellite == AQUA || d_satellite == TERRA) // MODIS
-                dataset.timestamp = satdump::get_median(modis_reader.timestamps_1000);
+                dataset.timestamp = get_median(modis_reader.timestamps_1000);
             else
                 dataset.timestamp = time(0);
 
             std::optional<satdump::TLE> satellite_tle;
             if (d_satellite == AQUA)
-                satellite_tle = satdump::db_keplers->get_from_norad_time(27424, dataset.timestamp);
+                satellite_tle = satdump::general_tle_registry.get_from_norad_time(27424, dataset.timestamp);
             else if (d_satellite == TERRA)
-                satellite_tle = satdump::db_keplers->get_from_norad_time(25994, dataset.timestamp);
+                satellite_tle = satdump::general_tle_registry.get_from_norad_time(25994, dataset.timestamp);
             else if (d_satellite == AURA)
-                satellite_tle = satdump::db_keplers->get_from_norad_time(28376, dataset.timestamp);
+                satellite_tle = satdump::general_tle_registry.get_from_norad_time(28376, dataset.timestamp);
 
             if (d_satellite == AQUA || d_satellite == TERRA) // MODIS
             {
@@ -187,8 +197,13 @@ namespace eos
                 const long scanHeight_500 = 20;
                 const long scanHeight_1000 = 10;
 
-                satdump::products::ImageProduct modis_products;
+                satdump::ImageProducts modis_products;
                 modis_products.instrument_name = "modis";
+                modis_products.has_timestamps = true;
+                modis_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_IFOV;
+                modis_products.bit_depth = 12;
+                modis_products.set_tle(satellite_tle);
+                modis_products.set_timestamps(modis_reader.timestamps_250);
                 nlohmann::json proj_cfg;
                 if (d_satellite == AQUA)
                     proj_cfg = loadJsonFile(resources::getResourcePath("projections_settings/aqua_modis.json"));
@@ -196,7 +211,7 @@ namespace eos
                     proj_cfg = loadJsonFile(resources::getResourcePath("projections_settings/terra_modis.json"));
                 // if (d_satellite == AQUA)
                 //     proj_cfg["ephemeris"] = gbad_reader.getEphem();
-                modis_products.set_proj_cfg_tle_timestamps(proj_cfg, satellite_tle, modis_reader.timestamps_250);
+                modis_products.set_proj_cfg(proj_cfg);
 
                 for (int i = 0; i < 2; i++)
                 {
@@ -204,7 +219,7 @@ namespace eos
                     // modis::modis_match_detector_histograms(image, 1 /*4*/, 40 * 2);
                     if (d_modis_bowtie)
                         image = image::bowtie::correctGenericBowTie(image, 1, scanHeight_250, alpha, beta);
-                    modis_products.images.push_back({i, "MODIS-" + std::to_string(i + 1), std::to_string(i + 1), image, 12});
+                    modis_products.images.push_back({"MODIS-" + std::to_string(i + 1), std::to_string(i + 1), image});
                 }
 
                 for (int i = 0; i < 5; i++)
@@ -213,7 +228,7 @@ namespace eos
                     // modis::modis_match_detector_histograms(image, 1 /*2*/, 20 * 2);
                     if (d_modis_bowtie)
                         image = image::bowtie::correctGenericBowTie(image, 1, scanHeight_500, alpha, beta);
-                    modis_products.images.push_back({i + 2, "MODIS-" + std::to_string(i + 3), std::to_string(i + 3), image, 12, satdump::ChannelTransform().init_affine(2, 2, 0, 0)});
+                    modis_products.images.push_back({"MODIS-" + std::to_string(i + 3), std::to_string(i + 3), image});
                 }
 
                 std::vector<std::vector<int>> bowtie_lut_1km;
@@ -226,38 +241,38 @@ namespace eos
                     if (d_modis_bowtie)
                         image = image::bowtie::correctGenericBowTie(image, 1, scanHeight_1000, alpha, beta, &bowtie_lut_1km);
 
-                    auto cht = satdump::ChannelTransform().init_affine(4, 4, 0, 0);
-
                     if (i < 5)
-                        modis_products.images.push_back({i + 7, "MODIS-" + std::to_string(i + 8), std::to_string(i + 8), image, 12, cht});
+                        modis_products.images.push_back({"MODIS-" + std::to_string(i + 8), std::to_string(i + 8), image});
                     else if (i == 5)
-                        modis_products.images.push_back({i + 7, "MODIS-13L", "13L", image, 12, cht});
+                        modis_products.images.push_back({"MODIS-13L", "13L", image});
                     else if (i == 6)
-                        modis_products.images.push_back({i + 7, "MODIS-13H", "13H", image, 12, cht});
+                        modis_products.images.push_back({"MODIS-13H", "13H", image});
                     else if (i == 7)
-                        modis_products.images.push_back({i + 7, "MODIS-14L", "14L", image, 12, cht});
+                        modis_products.images.push_back({"MODIS-14L", "14L", image});
                     else if (i == 8)
-                        modis_products.images.push_back({i + 7, "MODIS-14H", "14H", image, 12, cht});
+                        modis_products.images.push_back({"MODIS-14H", "14H", image});
                     else
-                        modis_products.images.push_back({i + 7, "MODIS-" + std::to_string(i + 6), std::to_string(i + 6), image, 12, cht});
+                        modis_products.images.push_back({"MODIS-" + std::to_string(i + 6), std::to_string(i + 6), image});
                 }
 
                 // Calibration
                 nlohmann::json calib_cfg;
+                calib_cfg["calibrator"] = "eos_modis";
                 calib_cfg["vars"] = modis::precompute::precomputeVars(&modis_products, modis_reader.getCalib(), d_satellite == AQUA);
                 calib_cfg["is_aqua"] = d_satellite == AQUA;
                 calib_cfg["bowtie_lut_1km"] = bowtie_lut_1km;
-                modis_products.set_calibration("eos_modis", calib_cfg);
+                modis_products.set_calibration(calib_cfg);
                 for (int i = 0; i < 21; i++)
-                    modis_products.set_channel_unit(i, CALIBRATION_ID_REFLECTIVE_RADIANCE);
+                    modis_products.set_calibration_type(i, satdump::ImageProducts::CALIB_REFLECTANCE);
                 for (int i = 21; i < 38; i++)
-                    modis_products.set_channel_unit(i, CALIBRATION_ID_EMISSIVE_RADIANCE);
-                modis_products.set_channel_unit(27, CALIBRATION_ID_REFLECTIVE_RADIANCE);
+                    modis_products.set_calibration_type(i, satdump::ImageProducts::CALIB_RADIANCE);
+                modis_products.set_calibration_type(27, satdump::ImageProducts::CALIB_REFLECTANCE);
 
-                // for (int i = 0; i < 38; i++)
-                // { // Set to 0 for now
-                //     modis_products.set_channel_wavenumber(i, -1);
-                // }
+                for (int i = 0; i < 38; i++)
+                { // Set to 0 for now
+                    modis_products.set_wavenumber(i, -1);
+                    modis_products.set_calibration_default_radiance_range(i, 0, 0);
+                }
 
                 auto modis_table = loadJsonFile(resources::getResourcePath("calibration/modis_table.json"));
 
@@ -266,7 +281,8 @@ namespace eos
                     int ch = i;
                     if (ch >= 6)
                         ch++;
-                    modis_products.set_channel_wavenumber(21 + ch, freq_to_wavenumber(SPEED_OF_LIGHT_M_S / modis_table["wavelengths"][i].get<double>()));
+                    modis_products.set_wavenumber(21 + ch, freq_to_wavenumber(299792458.0 / modis_table["wavelengths"][i].get<double>()));
+                    modis_products.set_calibration_default_radiance_range(21 + ch, modis_table["default_ranges"][i][0].get<double>(), modis_table["default_ranges"][i][1].get<double>());
                 }
 
                 modis_products.save(directory);
@@ -289,23 +305,33 @@ namespace eos
                 logger->info("----------- AIRS");
                 logger->info("Lines : " + std::to_string(airs_reader.lines));
 
-                satdump::products::ImageProduct airs_hd_products;
+                satdump::ImageProducts airs_hd_products;
                 airs_hd_products.instrument_name = "airs_hd";
-                airs_hd_products.set_proj_cfg_tle_timestamps(loadJsonFile(resources::getResourcePath("projections_settings/aqua_airs.json")), satellite_tle, airs_reader.timestamps_ifov);
+                airs_hd_products.has_timestamps = true;
+                airs_hd_products.bit_depth = 16;
+                airs_hd_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_IFOV;
+                airs_hd_products.set_tle(satellite_tle);
+                airs_hd_products.set_timestamps(airs_reader.timestamps_ifov);
+                airs_hd_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/aqua_airs.json")));
 
                 for (int i = 0; i < 4; i++)
-                    airs_hd_products.images.push_back({i, "AIRS-HD-" + std::to_string(i + 1), std::to_string(i + 1), airs_reader.getHDChannel(i), 16});
+                    airs_hd_products.images.push_back({"AIRS-HD-" + std::to_string(i + 1), std::to_string(i + 1), airs_reader.getHDChannel(i)});
 
                 airs_hd_products.save(directory_hd);
                 dataset.products_list.push_back("AIRS/HD");
 
-                satdump::products::ImageProduct airs_products;
+                satdump::ImageProducts airs_products;
                 airs_products.instrument_name = "airs";
+                airs_products.has_timestamps = true;
+                airs_products.bit_depth = 16;
                 airs_products.save_as_matrix = true;
-                airs_products.set_proj_cfg_tle_timestamps(loadJsonFile(resources::getResourcePath("projections_settings/aqua_airs.json")), satellite_tle, airs_reader.timestamps_ifov);
+                airs_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_IFOV;
+                airs_products.set_tle(satellite_tle);
+                airs_products.set_timestamps(airs_reader.timestamps_ifov);
+                airs_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/aqua_airs.json")));
 
                 for (int i = 0; i < 2666; i++)
-                    airs_products.images.push_back({i, "AIRS-" + std::to_string(i + 1), std::to_string(i + 1), airs_reader.getChannel(i), 16});
+                    airs_products.images.push_back({"AIRS-" + std::to_string(i + 1), std::to_string(i + 1), airs_reader.getChannel(i)});
 
                 airs_products.save(directory);
                 dataset.products_list.push_back("AIRS");
@@ -325,19 +351,20 @@ namespace eos
                 logger->info("Lines (AMSU A1) : " + std::to_string(amsu_a1_reader.lines));
                 logger->info("Lines (AMSU A2) : " + std::to_string(amsu_a2_reader.lines));
 
-                satdump::products::ImageProduct amsu_products;
+                satdump::ImageProducts amsu_products;
                 amsu_products.instrument_name = "amsu_a";
-                amsu_products.set_proj_cfg_tle_timestamps(loadJsonFile(resources::getResourcePath("projections_settings/aqua_amsu.json")), satellite_tle, amsu_a1_reader.timestamps);
-                // TODOREWORK CORRELATE AMSU
-                logger->critical(" TODOREWORK CORRELATE AMSU. If you see this, PLEASE REPORT");
+                amsu_products.has_timestamps = true;
+                amsu_products.set_tle(satellite_tle);
+                amsu_products.bit_depth = 16;
+                amsu_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
+                // amsu_products.set_timestamps(amsu_reader.timestamps);
+                amsu_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/aqua_amsu.json")));
 
                 for (int i = 0; i < 2; i++)
-                    amsu_products.images.push_back({i, "AMSU-A2-" + std::to_string(i + 1), std::to_string(i + 1), amsu_a2_reader.getChannel(i), 16});
+                    amsu_products.images.push_back({"AMSU-A2-" + std::to_string(i + 1), std::to_string(i + 1), amsu_a2_reader.getChannel(i), amsu_a2_reader.timestamps});
 
                 for (int i = 0; i < 13; i++)
-                    amsu_products.images.push_back({i + 2, "AMSU-A1-" + std::to_string(i + 1), std::to_string(i + 3), amsu_a1_reader.getChannel(i), 16});
-
-                noaa_metop::amsu::add_pols(&amsu_products);
+                    amsu_products.images.push_back({"AMSU-A1-" + std::to_string(i + 1), std::to_string(i + 3), amsu_a1_reader.getChannel(i), amsu_a1_reader.timestamps});
 
                 amsu_products.save(directory);
                 dataset.products_list.push_back("AMSU");
@@ -363,13 +390,18 @@ namespace eos
                     if (!std::filesystem::exists(directory))
                         std::filesystem::create_directory(directory);
 
-                    satdump::products::ImageProduct ceres_products;
+                    satdump::ImageProducts ceres_products;
                     ceres_products.instrument_name = "ceres";
-                    ceres_products.set_proj_cfg_tle_timestamps(loadJsonFile(resources::getResourcePath("projections_settings/aqua_ceres_fm3.json")), satellite_tle, ceres_fm3_reader.timestamps);
+                    ceres_products.has_timestamps = true;
+                    ceres_products.set_tle(satellite_tle);
+                    ceres_products.bit_depth = 16;
+                    ceres_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
+                    ceres_products.set_timestamps(ceres_fm3_reader.timestamps);
+                    ceres_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/aqua_ceres_fm3.json")));
 
-                    ceres_products.images.push_back({0, "CERES-LONGWAVE", "l", ceres_fm3_reader.getImage(0), 16});
-                    ceres_products.images.push_back({1, "CERES-SHORTWAVE", "s", ceres_fm3_reader.getImage(1), 16});
-                    ceres_products.images.push_back({2, "CERES-TOTAL", "t", ceres_fm3_reader.getImage(2), 16});
+                    ceres_products.images.push_back({"CERES-LONGWAVE", "l", ceres_fm3_reader.getImage(0)});
+                    ceres_products.images.push_back({"CERES-SHORTWAVE", "s", ceres_fm3_reader.getImage(1)});
+                    ceres_products.images.push_back({"CERES-TOTAL", "t", ceres_fm3_reader.getImage(2)});
 
                     ceres_products.save(directory);
                     dataset.products_list.push_back("CERES-FM3");
@@ -382,13 +414,18 @@ namespace eos
                     if (!std::filesystem::exists(directory))
                         std::filesystem::create_directory(directory);
 
-                    satdump::products::ImageProduct ceres_products;
+                    satdump::ImageProducts ceres_products;
                     ceres_products.instrument_name = "ceres";
-                    ceres_products.set_proj_cfg_tle_timestamps(loadJsonFile(resources::getResourcePath("projections_settings/aqua_ceres_fm4.json")), satellite_tle, ceres_fm4_reader.timestamps);
+                    ceres_products.has_timestamps = true;
+                    ceres_products.set_tle(satellite_tle);
+                    ceres_products.bit_depth = 16;
+                    ceres_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
+                    ceres_products.set_timestamps(ceres_fm4_reader.timestamps);
+                    ceres_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/aqua_ceres_fm4.json")));
 
-                    ceres_products.images.push_back({0, "CERES-LONGWAVE", "l", ceres_fm4_reader.getImage(0), 16});
-                    ceres_products.images.push_back({1, "CERES-SHORTWAVE", "s", ceres_fm4_reader.getImage(1), 16});
-                    ceres_products.images.push_back({2, "CERES-TOTAL", "t", ceres_fm4_reader.getImage(2), 16});
+                    ceres_products.images.push_back({"CERES-LONGWAVE", "l", ceres_fm4_reader.getImage(0)});
+                    ceres_products.images.push_back({"CERES-SHORTWAVE", "s", ceres_fm4_reader.getImage(1)});
+                    ceres_products.images.push_back({"CERES-TOTAL", "t", ceres_fm4_reader.getImage(2)});
 
                     ceres_products.save(directory);
                     dataset.products_list.push_back("CERES-FM4");
@@ -418,8 +455,10 @@ namespace eos
                 img = omi_2_reader.getImageVisible();
                 image::save_img(img, directory + "/OMI-VIS-2");
 
-                image::Image imageAll1 = image::make_manyimg_composite(33, 24, 792, [this](int c) { return omi_1_reader.getChannel(c); });
-                image::Image imageAll2 = image::make_manyimg_composite(33, 24, 792, [this](int c) { return omi_2_reader.getChannel(c); });
+                image::Image imageAll1 = image::make_manyimg_composite(33, 24, 792, [this](int c)
+                                                                       { return omi_1_reader.getChannel(c); });
+                image::Image imageAll2 = image::make_manyimg_composite(33, 24, 792, [this](int c)
+                                                                       { return omi_2_reader.getChannel(c); });
                 image::save_img(imageAll1, directory + "/OMI-ALL-1");
                 image::save_img(imageAll2, directory + "/OMI-ALL-2");
                 omi_status = DONE;
@@ -518,16 +557,24 @@ namespace eos
                 ImGui::EndTable();
             }
 
-            drawProgressBar();
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string EOSInstrumentsDecoderModule::getID() { return "eos_instruments"; }
+        std::string EOSInstrumentsDecoderModule::getID()
+        {
+            return "eos_instruments";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> EOSInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> EOSInstrumentsDecoderModule::getParameters()
+        {
+            return {"satellite", "modis_bowtie"};
+        }
+
+        std::shared_ptr<ProcessingModule> EOSInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<EOSInstrumentsDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace instruments
+    } // namespace modis
 } // namespace eos

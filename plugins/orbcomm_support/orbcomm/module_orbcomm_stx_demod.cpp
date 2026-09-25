@@ -1,8 +1,7 @@
 #include "module_orbcomm_stx_demod.h"
 #include "common/dsp/filter/firdes.h"
-#include "imgui/imgui.h"
 #include "logger.h"
-#include "utils/binary.h"
+#include "imgui/imgui.h"
 #include <volk/volk.h>
 
 namespace orbcomm
@@ -41,19 +40,29 @@ namespace orbcomm
         rec = std::make_shared<dsp::MMClockRecoveryBlock<float>>(rrc->output_stream, final_sps, d_clock_gain_omega, d_clock_mu, d_clock_gain_mu, d_clock_omega_relative_limit);
     }
 
-    OrbcommSTXDemodModule::~OrbcommSTXDemodModule() {}
+    OrbcommSTXDemodModule::~OrbcommSTXDemodModule()
+    {
+    }
+
+    uint8_t reverseBits(uint8_t byte)
+    {
+        byte = (byte & 0xF0) >> 4 | (byte & 0x0F) << 4;
+        byte = (byte & 0xCC) >> 2 | (byte & 0x33) << 2;
+        byte = (byte & 0xAA) >> 1 | (byte & 0x55) << 1;
+        return byte;
+    }
 
     void OrbcommSTXDemodModule::process()
     {
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
             filesize = file_source->getFilesize();
         else
             filesize = 0;
 
-        if (output_data_type == satdump::pipeline::DATA_FILE)
+        if (output_data_type == DATA_FILE)
         {
             data_out = std::ofstream(d_output_file_hint + ".frm", std::ios::binary);
-            d_output_file = d_output_file_hint + ".frm";
+            d_output_files.push_back(d_output_file_hint + ".frm");
         }
 
         logger->info("Using input baseband " + d_input_file);
@@ -102,17 +111,17 @@ namespace orbcomm
 
             for (int i = 0; i < framen; i++)
                 for (int y = 0; y < (ORBCOMM_STX_FRM_SIZE / 8); y++)
-                    frames[i * (ORBCOMM_STX_FRM_SIZE / 8) + y] = satdump::reverseBits(frames[i * (ORBCOMM_STX_FRM_SIZE / 8) + y]);
+                    frames[i * (ORBCOMM_STX_FRM_SIZE / 8) + y] = reverseBits(frames[i * (ORBCOMM_STX_FRM_SIZE / 8) + y]);
 
             if (framen > 0)
             {
-                if (output_data_type == satdump::pipeline::DATA_FILE)
+                if (output_data_type == DATA_FILE)
                     data_out.write((char *)frames, framen * (ORBCOMM_STX_FRM_SIZE / 8));
                 else
                     output_fifo->write((uint8_t *)frames, framen * (ORBCOMM_STX_FRM_SIZE / 8));
             }
 
-            if (input_data_type == satdump::pipeline::DATA_FILE)
+            if (input_data_type == DATA_FILE)
                 progress = file_source->getPosition();
 
             if (time(NULL) % 10 == 0 && lastTime != time(NULL))
@@ -127,7 +136,7 @@ namespace orbcomm
 
         logger->info("Demodulation finished");
 
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
             stop();
     }
 
@@ -141,7 +150,7 @@ namespace orbcomm
         rec->stop();
         rec->output_stream->stopReader();
 
-        if (output_data_type == satdump::pipeline::DATA_FILE)
+        if (output_data_type == DATA_FILE)
             data_out.close();
     }
 
@@ -160,7 +169,7 @@ namespace orbcomm
             // Show SNR information
             ImGui::Button("Signal", {200 * ui_scale, 20 * ui_scale});
             snr_plot.draw(snr, peak_snr);
-            if (!d_is_streaming_input)
+            if (!streamingInput)
                 if (ImGui::Checkbox("Show FFT", &show_fft))
                     fft_splitter->set_enabled("fft", show_fft);
 
@@ -180,7 +189,7 @@ namespace orbcomm
         }
         ImGui::EndGroup();
 
-        if (!d_is_streaming_input)
+        if (!streamingInput)
             ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         drawStopButton();
@@ -190,10 +199,19 @@ namespace orbcomm
         drawFFT();
     }
 
-    std::string OrbcommSTXDemodModule::getID() { return "orbcomm_stx_demod"; }
+    std::string OrbcommSTXDemodModule::getID()
+    {
+        return "orbcomm_stx_demod";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> OrbcommSTXDemodModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> OrbcommSTXDemodModule::getParameters()
+    {
+        std::vector<std::string> params;
+        return params;
+    }
+
+    std::shared_ptr<ProcessingModule> OrbcommSTXDemodModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<OrbcommSTXDemodModule>(input_file, output_file_hint, parameters);
     }
-} // namespace orbcomm
+}

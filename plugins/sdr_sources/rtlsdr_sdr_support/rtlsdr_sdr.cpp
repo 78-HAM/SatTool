@@ -1,5 +1,52 @@
 #include "rtlsdr_sdr.h"
 
+#ifdef __ANDROID__
+#include "common/dsp_source_sink/android_usb_backend.h"
+
+const std::vector<DevVIDPID> RTLSDR_USB_VID_PID = {{0x0bda, 0x2832},
+                                                   {0x0bda, 0x2838},
+                                                   {0x0413, 0x6680},
+                                                   {0x0413, 0x6f0f},
+                                                   {0x0458, 0x707f},
+                                                   {0x0ccd, 0x00a9},
+                                                   {0x0ccd, 0x00b3},
+                                                   {0x0ccd, 0x00b4},
+                                                   {0x0ccd, 0x00b5},
+                                                   {0x0ccd, 0x00b7},
+                                                   {0x0ccd, 0x00b8},
+                                                   {0x0ccd, 0x00b9},
+                                                   {0x0ccd, 0x00c0},
+                                                   {0x0ccd, 0x00c6},
+                                                   {0x0ccd, 0x00d3},
+                                                   {0x0ccd, 0x00d7},
+                                                   {0x0ccd, 0x00e0},
+                                                   {0x1554, 0x5020},
+                                                   {0x15f4, 0x0131},
+                                                   {0x15f4, 0x0133},
+                                                   {0x185b, 0x0620},
+                                                   {0x185b, 0x0650},
+                                                   {0x185b, 0x0680},
+                                                   {0x1b80, 0xd393},
+                                                   {0x1b80, 0xd394},
+                                                   {0x1b80, 0xd395},
+                                                   {0x1b80, 0xd397},
+                                                   {0x1b80, 0xd398},
+                                                   {0x1b80, 0xd39d},
+                                                   {0x1b80, 0xd3a4},
+                                                   {0x1b80, 0xd3a8},
+                                                   {0x1b80, 0xd3af},
+                                                   {0x1b80, 0xd3b0},
+                                                   {0x1d19, 0x1101},
+                                                   {0x1d19, 0x1102},
+                                                   {0x1d19, 0x1103},
+                                                   {0x1d19, 0x1104},
+                                                   {0x1f4d, 0xa803},
+                                                   {0x1f4d, 0xb803},
+                                                   {0x1f4d, 0xc803},
+                                                   {0x1f4d, 0xd286},
+                                                   {0x1f4d, 0xd803}};
+#endif
+
 void RtlSdrSource::_rx_callback(unsigned char *buf, uint32_t len, void *ctx)
 {
     std::shared_ptr<dsp::stream<complex_t>> stream = *((std::shared_ptr<dsp::stream<complex_t>> *)ctx);
@@ -31,16 +78,18 @@ void RtlSdrSource::set_gains()
             logger->debug("Set RTL-SDR AGC to %d (%d attempts!)", (int)lna_agc_enabled, attempts + 1);
 
         // Tuner gain mode
-        int tuner_gain_mode = tuner_agc_enabled ? 0 : 1;
+        int tuner_gain_mode = lna_agc_enabled ? 0 : 1;
         attempts = 0;
         while (attempts < 20 && rtlsdr_set_tuner_gain_mode(rtlsdr_dev_obj, tuner_gain_mode) < 0)
             attempts++;
         if (attempts == 20)
             logger->warn("Unable to set RTL-SDR Tuner gain mode!");
+        /*
         else if (attempts == 0)
             logger->debug("Set RTL-SDR Tuner gain mode to %d", tuner_gain_mode);
         else
             logger->debug("Set RTL-SDR Tuner gain mode to %d (%d attempts!)", tuner_gain_mode, attempts + 1);
+        */
     }
 
     // Get nearest supported tuner gain
@@ -48,11 +97,11 @@ void RtlSdrSource::set_gains()
     if (gain_iterator == available_gains.end())
         gain_iterator--;
 
-    bool force_gain = changed_agc && !tuner_agc_enabled;
     if (changed_agc)
         changed_agc = false;
 
-    if (tuner_agc_enabled || (!force_gain && *gain_iterator == gain))
+    // No actual change in gain, and not setting agc settings, so return
+    else if (*gain_iterator == gain)
         return;
 
     if (gain_iterator == available_gains.begin())
@@ -111,16 +160,8 @@ void RtlSdrSource::set_settings(nlohmann::json settings)
 {
     d_settings = settings;
 
-    // Convert legacy AGC setting to new
-    if (d_settings.contains("agc"))
-    {
-        lna_agc_enabled = tuner_agc_enabled = getValueOrDefault(d_settings["agc"], false);
-        d_settings.erase("agc");
-    }
-
     display_gain = getValueOrDefault(d_settings["gain"], display_gain);
-    lna_agc_enabled = getValueOrDefault(d_settings["lna_agc"], lna_agc_enabled);
-    tuner_agc_enabled = getValueOrDefault(d_settings["tuner_agc"], tuner_agc_enabled);
+    lna_agc_enabled = getValueOrDefault(d_settings["agc"], lna_agc_enabled);
     bias_enabled = getValueOrDefault(d_settings["bias"], bias_enabled);
     ppm_widget.set(getValueOrDefault(d_settings["ppm_correction"], ppm_widget.get()));
     changed_agc = true;
@@ -136,8 +177,7 @@ void RtlSdrSource::set_settings(nlohmann::json settings)
 nlohmann::json RtlSdrSource::get_settings()
 {
     d_settings["gain"] = display_gain;
-    d_settings["lna_agc"] = lna_agc_enabled;
-    d_settings["tuner_agc"] = tuner_agc_enabled;
+    d_settings["agc"] = lna_agc_enabled;
     d_settings["bias"] = bias_enabled;
     d_settings["ppm_correction"] = ppm_widget.get();
 
@@ -168,10 +208,17 @@ void RtlSdrSource::open()
 void RtlSdrSource::start()
 {
     DSPSampleSource::start();
-
+#ifndef __ANDROID__
     int index = rtlsdr_get_index_by_serial(d_sdr_id.c_str());
     if (index != -1 && rtlsdr_open(&rtlsdr_dev_obj, index) != 0)
         throw satdump_exception("Could not open RTL-SDR device!");
+#else
+    int vid, pid;
+    std::string path;
+    int fd = getDeviceFD(vid, pid, RTLSDR_USB_VID_PID, path);
+    if (rtlsdr_open_fd(&rtlsdr_dev_obj, fd) != 0)
+        throw satdump_exception("Could not open RTL-SDR device!");
+#endif
 
     // Set available gains
     int gains[256];
@@ -222,7 +269,10 @@ void RtlSdrSource::stop()
     is_started = false;
 }
 
-void RtlSdrSource::close() { is_open = false; }
+void RtlSdrSource::close()
+{
+    is_open = false;
+}
 
 void RtlSdrSource::set_frequency(uint64_t frequency)
 {
@@ -234,19 +284,7 @@ void RtlSdrSource::set_frequency(uint64_t frequency)
         if (attempts == 20)
             logger->warn("Unable to set RTL-SDR frequency!");
         else if (attempts == 0)
-        {
             logger->debug("Set RTL-SDR frequency to %d", frequency);
-
-            // This is a dirty patch! PLL might not lock on the first attempt if the frequency
-            // is above ~1 GHz, tuning down then back up locks it! This is a librtlsdr bug,
-            // because the return code should show that it wasn't successful, but it doesn't.
-            if (frequency > 1e9)
-            {
-                rtlsdr_set_center_freq(rtlsdr_dev_obj, frequency - 1e9);
-                rtlsdr_set_center_freq(rtlsdr_dev_obj, frequency);
-                logger->debug("Frequency was above 1 GHz, retuning to lock the PLL");
-            }
-        }
         else
             logger->debug("Set RTL-SDR frequency to %d (%d attempts!)", frequency, attempts + 1);
     }
@@ -266,22 +304,13 @@ void RtlSdrSource::drawControlUI()
     if (ppm_widget.draw())
         set_ppm();
 
-    if (tuner_agc_enabled)
-        RImGui::beginDisabled();
-    if (RImGui::SteppedSliderFloat("Tuner Gain", &display_gain, (float)available_gains[0] / 10.0f, (float)available_gains.back() / 10.0f, gain_step, "%.1f"))
-        set_gains();
-    if (is_started && RImGui::IsItemDeactivatedAfterEdit())
+    if (RImGui::SteppedSliderFloat("LNA Gain", &display_gain, (float)available_gains[0] / 10.0f,
+        (float)available_gains.back() / 10.0f, gain_step, "%.1f"))
+            set_gains();
+    if(is_started && RImGui::IsItemDeactivatedAfterEdit())
         display_gain = (float)gain / 10.0f;
-    if (tuner_agc_enabled)
-        RImGui::endDisabled();
 
-    if (RImGui::Checkbox("LNA AGC", &lna_agc_enabled))
-    {
-        changed_agc = true;
-        set_gains();
-    }
-
-    if (RImGui::Checkbox("Tuner AGC", &tuner_agc_enabled))
+    if (RImGui::Checkbox("AGC", &lna_agc_enabled))
     {
         changed_agc = true;
         set_gains();
@@ -297,12 +326,16 @@ void RtlSdrSource::set_samplerate(uint64_t samplerate)
         throw satdump_exception("Unsupported samplerate : " + std::to_string(samplerate) + "!");
 }
 
-uint64_t RtlSdrSource::get_samplerate() { return samplerate_widget.get_value(); }
+uint64_t RtlSdrSource::get_samplerate()
+{
+    return samplerate_widget.get_value();
+}
 
 std::vector<dsp::SourceDescriptor> RtlSdrSource::getAvailableSources()
 {
     std::vector<dsp::SourceDescriptor> results;
 
+#ifndef __ANDROID__
     int c = rtlsdr_get_device_count();
 
     for (int i = 0; i < c; i++)
@@ -314,6 +347,12 @@ std::vector<dsp::SourceDescriptor> RtlSdrSource::getAvailableSources()
         else
             results.push_back({"rtlsdr", std::string(manufact) + " " + std::string(product) + " #" + std::string(serial), std::string(serial)});
     }
+#else
+    int vid, pid;
+    std::string path;
+    if (getDeviceFD(vid, pid, RTLSDR_USB_VID_PID, path) != -1)
+        results.push_back({"rtlsdr", "RTL-SDR USB", "0"});
+#endif
 
     return results;
 }

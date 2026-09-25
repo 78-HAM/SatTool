@@ -1,14 +1,13 @@
 #include "module_meteor_lrpt_decoder.h"
-#include "common/codings/correlator.h"
-#include "common/codings/differential/nrzm.h"
-#include "common/codings/randomization.h"
-#include "common/codings/reedsolomon/reedsolomon.h"
-#include "common/codings/rotation.h"
-#include "common/codings/viterbi/viterbi27.h"
-#include "common/widgets/themed_widgets.h"
-#include "deint.h"
 #include "logger.h"
-#include <cstdint>
+#include "common/codings/rotation.h"
+#include "common/codings/randomization.h"
+#include "common/codings/differential/nrzm.h"
+#include "common/widgets/themed_widgets.h"
+#include "common/codings/viterbi/viterbi27.h"
+#include "common/codings/correlator.h"
+#include "common/codings/reedsolomon/reedsolomon.h"
+#include "deint.h"
 
 #define BUFFER_SIZE 8192
 #define FRAME_SIZE 1024
@@ -19,8 +18,8 @@ uint64_t getFilesize(std::string filepath);
 
 namespace meteor
 {
-    METEORLRPTDecoderModule::METEORLRPTDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-        : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters), diff_decode(parameters["diff_decode"].get<bool>())
+    METEORLRPTDecoderModule::METEORLRPTDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters),
+                                                                                                                                        diff_decode(parameters["diff_decode"].get<bool>())
     {
         m2x_mode = d_parameters.contains("m2x_mode") ? d_parameters["m2x_mode"].get<bool>() : false;
         _buffer = new int8_t[ENCODED_FRAME_SIZE + INTER_MARKER_STRIDE];
@@ -45,8 +44,16 @@ namespace meteor
         {
             viterbi = std::make_shared<viterbi::Viterbi27>(ENCODED_FRAME_SIZE / 2, viterbi::CCSDS_R2_K7_POLYS);
         }
+    }
 
-        fsfsm_file_ext = ".cadu";
+    std::vector<ModuleDataType> METEORLRPTDecoderModule::getInputTypes()
+    {
+        return {DATA_FILE, DATA_STREAM};
+    }
+
+    std::vector<ModuleDataType> METEORLRPTDecoderModule::getOutputTypes()
+    {
+        return {DATA_FILE};
     }
 
     METEORLRPTDecoderModule::~METEORLRPTDecoderModule()
@@ -65,7 +72,8 @@ namespace meteor
         void read_more()
         {
             buffer1.resize(buffer1.size() + 8192);
-            iserror = iserror || !input_function(&buffer1[buffer1.size() - 8192], 8192);
+            iserror = iserror ||
+                      !input_function(&buffer1[buffer1.size() - 8192], 8192);
 
             buffer2.resize(buffer2.size() + 8192);
             memcpy(&buffer2[buffer2.size() - 8192], &buffer1[buffer1.size() - 8192], 8192);
@@ -100,6 +108,20 @@ namespace meteor
 
     void METEORLRPTDecoderModule::process()
     {
+        if (input_data_type == DATA_FILE)
+            filesize = getFilesize(d_input_file);
+        else
+            filesize = 0;
+        if (input_data_type == DATA_FILE)
+            data_in = std::ifstream(d_input_file, std::ios::binary);
+        data_out = std::ofstream(d_output_file_hint + ".cadu", std::ios::binary);
+        d_output_files.push_back(d_output_file_hint + ".cadu");
+
+        logger->info("Using input symbols " + d_input_file);
+        logger->info("Decoding to " + d_output_file_hint + ".cadu");
+
+        time_t lastTime = 0;
+
         if (m2x_mode)
         {
             bool interleaved = d_parameters.contains("interleaved") ? d_parameters["interleaved"].get<bool>() : false;
@@ -120,24 +142,33 @@ namespace meteor
             diff::NRZMDiff diff;
 
             DintSampleReader file_reader;
+            if (input_data_type == DATA_FILE)
+                file_reader.input_function =
+                    [this](int8_t *buf, size_t len) -> int
+                { return !(!data_in.read((char *)buf, len)); };
+            else
+                file_reader.input_function =
+                    [this](int8_t *buf, size_t len) -> int
+                { return !(!input_fifo->read((uint8_t *)buf, len)); };
 
-            file_reader.input_function = [this](int8_t *buf, size_t len) -> int
-            {
-                read_data((uint8_t *)buf, len);
-                return false;
-            };
-
-            while (should_run())
+            while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
                 // Read a buffer
                 if (interleaved)
                 {
-                    deint1->read_samples([&file_reader](int8_t *buf, size_t len) -> int { return (bool)file_reader.read1(buf, len); }, buffer, 8192);
-                    deint2->read_samples([&file_reader](int8_t *buf, size_t len) -> int { return (bool)file_reader.read2(buf, len); }, buffer2, 8192);
+                    deint1->read_samples([&file_reader](int8_t *buf, size_t len) -> int
+                                         { return (bool)file_reader.read1(buf, len); },
+                                         buffer, 8192);
+                    deint2->read_samples([&file_reader](int8_t *buf, size_t len) -> int
+                                         { return (bool)file_reader.read2(buf, len); },
+                                         buffer2, 8192);
                 }
                 else
                 {
-                    read_data((uint8_t *)buffer, BUFFER_SIZE);
+                    if (input_data_type == DATA_FILE)
+                        data_in.read((char *)buffer, BUFFER_SIZE);
+                    else
+                        input_fifo->read((uint8_t *)buffer, BUFFER_SIZE);
                 }
 
                 // Perform Viterbi decoding
@@ -186,8 +217,28 @@ namespace meteor
                     if (errors[0] >= 0 && errors[1] >= 0 && errors[2] >= 0 && errors[3] >= 0)
                     {
                         // Write it out
-                        write_data(cadu, 1024);
+                        if (output_data_type == DATA_STREAM)
+                            output_fifo->write((uint8_t *)cadu, 1024);
+                        else
+                            data_out.write((char *)cadu, 1024);
                     }
+                }
+
+                // Update module stats
+                module_stats["deframer_lock"] = deframer->getState() == deframer->STATE_SYNCED;
+                module_stats["viterbi_ber"] = viterbi_ber;
+                module_stats["viterbi_lock"] = viterbi_lock;
+                module_stats["rs_avg"] = (errors[0] + errors[1] + errors[2] + errors[3]) / 4;
+
+                if (input_data_type == DATA_FILE)
+                    progress = data_in.tellg();
+
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    std::string viterbi_state = viterbi_lock == 0 ? "NOSYNC" : "SYNCED";
+                    std::string deframer_state = deframer->getState() == deframer->STATE_NOSYNC ? "NOSYNC" : (deframer->getState() == deframer->STATE_SYNCING ? "SYNCING" : "SYNCED");
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%, Viterbi : " + viterbi_state + " BER : " + std::to_string(viterbi_ber) + ", Deframer : " + deframer_state);
                 }
             }
 
@@ -212,10 +263,13 @@ namespace meteor
             // Vectors are inverted
             diff::NRZMDiff diff;
 
-            while (should_run())
+            while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
                 // Read a buffer
-                read_data((uint8_t *)buffer, ENCODED_FRAME_SIZE);
+                if (input_data_type == DATA_FILE)
+                    data_in.read((char *)buffer, ENCODED_FRAME_SIZE);
+                else
+                    input_fifo->read((uint8_t *)buffer, ENCODED_FRAME_SIZE);
 
                 int pos = correlator.correlate((int8_t *)buffer, phase, swap, cor, ENCODED_FRAME_SIZE);
 
@@ -225,7 +279,10 @@ namespace meteor
                 {
                     std::memmove(buffer, &buffer[pos], ENCODED_FRAME_SIZE - pos);
 
-                    read_data((uint8_t *)&buffer[ENCODED_FRAME_SIZE - pos], pos);
+                    if (input_data_type == DATA_FILE)
+                        data_in.read((char *)&buffer[ENCODED_FRAME_SIZE - pos], pos);
+                    else
+                        input_fifo->read((uint8_t *)&buffer[ENCODED_FRAME_SIZE - pos], pos);
                 }
 
                 // Correct phase ambiguity
@@ -253,39 +310,33 @@ namespace meteor
                 // Write it out if it's not garbage
                 if (errors[0] >= 0 && errors[1] >= 0 && errors[2] >= 0 && errors[3] >= 0)
                 {
-                    uint8_t sync[4] = {0x1d, 0xcf, 0xfc, 0x1d};
-                    write_data(sync, 4);
-                    write_data((uint8_t *)&frameBuffer[4], FRAME_SIZE - 4);
+                    data_out.put(0x1a);
+                    data_out.put(0xcf);
+                    data_out.put(0xfc);
+                    data_out.put(0x1d);
+                    data_out.write((char *)&frameBuffer[4], FRAME_SIZE - 4);
+                }
+
+                // Update module stats
+                module_stats["correlator_lock"] = locked;
+                module_stats["viterbi_ber"] = viterbi->ber();
+                module_stats["rs_avg"] = (errors[0] + errors[1] + errors[2] + errors[3]) / 4;
+
+                if (input_data_type == DATA_FILE)
+                    progress = data_in.tellg();
+
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    std::string lock_state = locked ? "SYNCED" : "NOSYNC";
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%, Viterbi BER : " + std::to_string(viterbi->ber() * 100) + "%%, Lock : " + lock_state);
                 }
             }
         }
 
-        cleanup();
-    }
-
-    nlohmann::json METEORLRPTDecoderModule::getModuleStats()
-    {
-        auto v = satdump::pipeline::base::FileStreamToFileStreamModule::getModuleStats();
-        if (m2x_mode)
-        {
-            v["deframer_lock"] = deframer->getState() == deframer->STATE_SYNCED;
-            v["viterbi_ber"] = viterbi_ber;
-            v["viterbi_lock"] = viterbi_lock;
-            v["rs_avg"] = (errors[0] + errors[1] + errors[2] + errors[3]) / 4;
-            std::string viterbi_state = viterbi_lock == 0 ? "NOSYNC" : "SYNCED";
-            std::string deframer_state = deframer->getState() == deframer->STATE_NOSYNC ? "NOSYNC" : (deframer->getState() == deframer->STATE_SYNCING ? "SYNCING" : "SYNCED");
-            v["viterbi_state"] = viterbi_state;
-            v["deframer_state"] = deframer_state;
-        }
-        else
-        {
-            v["correlator_lock"] = locked;
-            v["viterbi_ber"] = viterbi->ber();
-            v["rs_avg"] = (errors[0] + errors[1] + errors[2] + errors[3]) / 4;
-            std::string lock_state = locked ? "SYNCED" : "NOSYNC";
-            v["lock_state"] = lock_state;
-        }
-        return v;
+        data_out.close();
+        if (input_data_type == DATA_FILE)
+            data_in.close();
     }
 
     void METEORLRPTDecoderModule::drawUI(bool window)
@@ -298,7 +349,7 @@ namespace meteor
             {
                 ImDrawList *draw_list = ImGui::GetWindowDrawList();
                 ImVec2 rect_min = ImGui::GetCursorScreenPos();
-                ImVec2 rect_max = {rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale};
+                ImVec2 rect_max = { rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale };
                 draw_list->AddRectFilled(rect_min, rect_max, style::theme.widget_bg);
                 draw_list->PushClipRect(rect_min, rect_max);
 
@@ -306,7 +357,8 @@ namespace meteor
                 {
                     draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (int)(100 * ui_scale + (((int8_t *)buffer)[i * 2 + 0] / 127.0) * 100 * ui_scale) % int(200 * ui_scale),
                                                       ImGui::GetCursorScreenPos().y + (int)(100 * ui_scale + (((int8_t *)buffer)[i * 2 + 1] / 127.0) * 100 * ui_scale) % int(200 * ui_scale)),
-                                               2 * ui_scale, style::theme.constellation);
+                                               2 * ui_scale,
+                                               style::theme.constellation);
                 }
 
                 draw_list->PopClipRect();
@@ -341,7 +393,8 @@ namespace meteor
                     std::memmove(&ber_history[0], &ber_history[1], (200 - 1) * sizeof(float));
                     ber_history[200 - 1] = ber;
 
-                    satdump::widgets::ThemedPlotLines(style::theme.plot_bg.Value, "##", ber_history, IM_ARRAYSIZE(ber_history), 0, "", 0.0f, 1.0f, ImVec2(200 * ui_scale, 50 * ui_scale));
+                    widgets::ThemedPlotLines(style::theme.plot_bg.Value, "", ber_history, IM_ARRAYSIZE(ber_history), 0, "", 0.0f, 1.0f,
+                        ImVec2(200 * ui_scale, 50 * ui_scale));
                 }
 
                 ImGui::Spacing();
@@ -391,7 +444,8 @@ namespace meteor
                     std::memmove(&cor_history[0], &cor_history[1], (200 - 1) * sizeof(float));
                     cor_history[200 - 1] = cor;
 
-                    satdump::widgets::ThemedPlotLines(style::theme.plot_bg.Value, "##", cor_history, IM_ARRAYSIZE(cor_history), 0, "", 40.0f, 64.0f, ImVec2(200 * ui_scale, 50 * ui_scale));
+                    widgets::ThemedPlotLines(style::theme.plot_bg.Value, "", cor_history, IM_ARRAYSIZE(cor_history), 0, "", 40.0f, 64.0f,
+                        ImVec2(200 * ui_scale, 50 * ui_scale));
                 }
 
                 ImGui::Spacing();
@@ -405,7 +459,8 @@ namespace meteor
                     std::memmove(&ber_history[0], &ber_history[1], (200 - 1) * sizeof(float));
                     ber_history[200 - 1] = ber;
 
-                    satdump::widgets::ThemedPlotLines(style::theme.plot_bg.Value, "##", ber_history, IM_ARRAYSIZE(ber_history), 0, "", 0.0f, 1.0f, ImVec2(200 * ui_scale, 50 * ui_scale));
+                    widgets::ThemedPlotLines(style::theme.plot_bg.Value, "", ber_history, IM_ARRAYSIZE(ber_history), 0, "", 0.0f, 1.0f,
+                        ImVec2(200 * ui_scale, 50 * ui_scale));
                 }
 
                 ImGui::Spacing();
@@ -429,14 +484,23 @@ namespace meteor
         }
         ImGui::EndGroup();
 
-        drawProgressBar();
+        if (!streamingInput)
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
     }
 
-    std::string METEORLRPTDecoderModule::getID() { return "meteor_lrpt_decoder"; }
+    std::string METEORLRPTDecoderModule::getID()
+    {
+        return "meteor_lrpt_decoder";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> METEORLRPTDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> METEORLRPTDecoderModule::getParameters()
+    {
+        return {"diff_decode"};
+    }
+
+    std::shared_ptr<ProcessingModule> METEORLRPTDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<METEORLRPTDecoderModule>(input_file, output_file_hint, parameters);
     }

@@ -1,15 +1,22 @@
 #pragma once
 
+#include "core/module.h"
+#include <complex>
+#include <fstream>
 #include "common/dsp/utils/random.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
 
 namespace fengyun_svissr
 {
-    class SVISSRDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+    class SVISSRDecoderModule : public ProcessingModule
     {
     protected:
         // Read buffer
         int8_t *buffer;
+
+        std::ifstream data_in;
+        std::ofstream data_out;
+        std::atomic<uint64_t> filesize;
+        std::atomic<uint64_t> progress;
 
         // UI Stuff
         dsp::Random rng;
@@ -19,11 +26,13 @@ namespace fengyun_svissr
         ~SVISSRDecoderModule();
         void process();
         void drawUI(bool window);
+        std::vector<ModuleDataType> getInputTypes();
+        std::vector<ModuleDataType> getOutputTypes();
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
-} // namespace fengyun_svissr
+} // namespace elektro_arktika

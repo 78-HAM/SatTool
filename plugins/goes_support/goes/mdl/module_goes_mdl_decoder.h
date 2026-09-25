@@ -1,15 +1,22 @@
 #pragma once
 
-#include "pipeline/modules/base/filestream_to_filestream.h"
+#include "core/module.h"
+#include <complex>
+#include <fstream>
 
 namespace goes
 {
     namespace mdl
     {
-        class GOESMDLDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+        class GOESMDLDecoderModule : public ProcessingModule
         {
         protected:
             uint8_t *buffer;
+
+            std::ifstream data_in;
+            std::ofstream data_out;
+            std::atomic<uint64_t> filesize;
+            std::atomic<uint64_t> progress;
 
             bool locked = false;
             int cor;
@@ -22,13 +29,14 @@ namespace goes
             ~GOESMDLDecoderModule();
             void process();
             void drawUI(bool window);
-            nlohmann::json getModuleStats();
+            std::vector<ModuleDataType> getInputTypes();
+            std::vector<ModuleDataType> getOutputTypes();
 
         public:
             static std::string getID();
             virtual std::string getIDM() { return getID(); };
-            static nlohmann::json getParams() { return {}; } // TODOREWORK
+            static std::vector<std::string> getParameters();
             static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         };
-    } // namespace mdl
-} // namespace goes
+    }
+}

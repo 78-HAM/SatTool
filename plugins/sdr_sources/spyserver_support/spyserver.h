@@ -32,7 +32,7 @@ protected:
     void set_bias();
     void set_agcs();
 
-    satdump::widgets::TimedMessage error;
+    widgets::TimedMessage error;
 
     uint64_t buffer_samplerate = 0;
 

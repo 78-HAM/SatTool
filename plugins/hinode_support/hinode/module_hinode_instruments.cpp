@@ -1,14 +1,15 @@
 #include "module_hinode_instruments.h"
-#include "common/ccsds/ccsds_aos/demuxer.h"
-#include "common/ccsds/ccsds_aos/vcdu.h"
-#include "common/utils.h"
-#include "image/io.h"
-#include "imgui/imgui.h"
-#include "logger.h"
-#include "nlohmann/json_utils.h"
-#include <cstdint>
-#include <filesystem>
 #include <fstream>
+#include "common/ccsds/ccsds_aos/vcdu.h"
+#include "logger.h"
+#include <filesystem>
+#include "imgui/imgui.h"
+#include "common/utils.h"
+#include "common/ccsds/ccsds_aos/demuxer.h"
+#include "products/products.h"
+#include "products/dataset.h"
+#include "nlohmann/json_utils.h"
+#include "common/image/io.h"
 
 #include "common/codings/reedsolomon/reedsolomon.h"
 
@@ -17,9 +18,8 @@ namespace hinode
     namespace instruments
     {
         HinodeInstrumentsDecoderModule::HinodeInstrumentsDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+            : ProcessingModule(input_file, output_file_hint, parameters)
         {
-            fsfsm_enable_output = false;
         }
 
         inline void handleAPID(ccsds::CCSDSPacket &pkt, HinodeDepacketizer &depack, std::string &directory, ImageRecomposer &recomp)
@@ -39,6 +39,12 @@ namespace hinode
 
         void HinodeInstrumentsDecoderModule::process()
         {
+            filesize = getFilesize(d_input_file);
+            std::ifstream data_in(d_input_file, std::ios::binary);
+
+            logger->info("Using input frames " + d_input_file);
+
+            time_t lastTime = 0;
             uint8_t cadu[1024];
 
             // Demuxers
@@ -79,10 +85,10 @@ namespace hinode
             ImageRecomposer recomp_xrt_obs1, recomp_xrt_obs2;
             ImageRecomposer recomp_eis_obs1, recomp_eis_obs2;
 
-            while (should_run())
+            while (!data_in.eof())
             {
                 // Read buffer
-                read_data((uint8_t *)cadu, 1024);
+                data_in.read((char *)cadu, 1024);
 
                 // Check RS
                 int errors[4];
@@ -127,9 +133,16 @@ namespace hinode
                             handleAPID(pkt, depack_eis_obs2, eis_obs2_directory, recomp_eis_obs2);
                     }
                 }
+
+                progress = data_in.tellg();
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
+                }
             }
 
-            cleanup();
+            data_in.close();
         }
 
         void HinodeInstrumentsDecoderModule::drawUI(bool window)
@@ -213,16 +226,24 @@ namespace hinode
                 ImGui::EndTable();
             }
 
-            drawProgressBar();
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string HinodeInstrumentsDecoderModule::getID() { return "hinode_instruments"; }
+        std::string HinodeInstrumentsDecoderModule::getID()
+        {
+            return "hinode_instruments";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> HinodeInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> HinodeInstrumentsDecoderModule::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> HinodeInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<HinodeInstrumentsDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace instruments
-} // namespace hinode
+    } // namespace amsu
+} // namespace metop

@@ -1,15 +1,22 @@
 #pragma once
 
-#include "pipeline/modules/base/filestream_to_filestream.h"
+#include "core/module.h"
+#include <complex>
+#include <fstream>
 
 namespace oceansat
 {
-    class Oceansat2DBDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+    class Oceansat2DBDecoderModule : public ProcessingModule
     {
     protected:
         int8_t *buffer;
 
         int frame_count;
+
+        std::ifstream data_in;
+        std::ofstream data_out;
+        std::atomic<uint64_t> filesize;
+        std::atomic<uint64_t> progress;
 
         uint8_t dqpsk_demod(int8_t *buffer)
         {
@@ -37,12 +44,13 @@ namespace oceansat
         ~Oceansat2DBDecoderModule();
         void process();
         void drawUI(bool window);
-        nlohmann::json getModuleStats();
+        std::vector<ModuleDataType> getInputTypes();
+        std::vector<ModuleDataType> getOutputTypes();
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
 } // namespace oceansat

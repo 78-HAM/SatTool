@@ -1,6 +1,6 @@
 #include "gome_reader.h"
-#include "common/ccsds/ccsds_time.h"
 #include <cstring>
+#include "common/ccsds/ccsds_time.h"
 
 #include <cstdio>
 

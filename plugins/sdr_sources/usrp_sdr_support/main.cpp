@@ -1,7 +1,6 @@
 #include "core/config.h"
 #include "core/params.h"
 #include "core/plugin.h"
-#include "init.h"
 #include "logger.h"
 #include "usrp_sdr.h"
 
@@ -44,8 +43,9 @@ public:
     static void save()
     {
         setenv("UHD_IMAGES_DIR", file_select->getPath().c_str(), 1);
+        satdump::config::main_cfg["plugin_settings"]["usrp_sdr_support"] = nlohmann::json::object();
         if (file_select->getPath() != "")
-            satdump::db->set_user("usrp_sdr_support/uhd_images_dir", file_select->getPath());
+            satdump::config::main_cfg["plugin_settings"]["usrp_sdr_support"]["uhd_images_dir"] = file_select->getPath();
     }
 
     std::string getID()
@@ -59,10 +59,12 @@ public:
         satdump::eventBus->register_handler<satdump::config::RegisterPluginConfigHandlersEvent>(registerConfigHandler);
 
         file_select = std::make_shared<FileSelectWidget>("UHD Images Path", "UHD Images Path", true);
-        std::string val = satdump::db->get_user("usrp_sdr_support/uhd_images_dir", "");
-        if (val != "")
+        if (satdump::config::main_cfg["plugin_settings"].contains("usrp_sdr_support") &&
+            satdump::config::main_cfg["plugin_settings"]["usrp_sdr_support"].contains("uhd_images_dir") &&
+            satdump::config::main_cfg["plugin_settings"]["usrp_sdr_support"]["uhd_images_dir"].is_string() &&
+            satdump::config::main_cfg["plugin_settings"]["usrp_sdr_support"]["uhd_images_dir"] != "")
         {
-            file_select->setPath(val);
+            file_select->setPath(satdump::config::main_cfg["plugin_settings"]["usrp_sdr_support"]["uhd_images_dir"]);
             setenv("UHD_IMAGES_DIR", file_select->getPath().c_str(), 1);
         }
     }

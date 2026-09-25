@@ -1,17 +1,21 @@
 #pragma once
 
-#include "msu_ir_reader.h"
+#include "core/module.h"
+#include <fstream>
 #include "msu_vis_reader.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
-#include "pipeline/modules/instrument_utils.h"
+#include "msu_ir_reader.h"
 
 namespace elektro_arktika
 {
     namespace msugs
     {
-        class MSUGSDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+        class MSUGSDecoderModule : public ProcessingModule
         {
         protected:
+            std::ifstream data_in;
+            std::atomic<uint64_t> filesize;
+            std::atomic<uint64_t> progress;
+
             // Readers
             MSUVISReader vis1_reader;
             MSUVISReader vis2_reader;
@@ -21,12 +25,6 @@ namespace elektro_arktika
             // Statuses
             instrument_status_t channels_statuses[10] = {DECODING, DECODING, DECODING, DECODING, DECODING, DECODING, DECODING, DECODING, DECODING, DECODING};
 
-            // For counter correction
-            bool apply_correction;
-
-            bool is_arktika = false;
-            int sat_num = 0;
-
         public:
             MSUGSDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
             void process();
@@ -35,7 +33,7 @@ namespace elektro_arktika
         public:
             static std::string getID();
             virtual std::string getIDM() { return getID(); };
-            static nlohmann::json getParams() { return {}; } // TODOREWORK
+            static std::vector<std::string> getParameters();
             static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         };
     } // namespace msugs

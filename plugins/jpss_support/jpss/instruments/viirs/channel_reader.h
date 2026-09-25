@@ -3,7 +3,7 @@
 #include "common/ccsds/ccsds.h"
 #include <vector>
 #include <array>
-#include "image/image.h"
+#include "common/image/image.h"
 #include "channels.h"
 
 extern "C"

@@ -2,7 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 34
+    compileSdkVersion 28
     buildToolsVersion "30.0.3"
     ndkVersion "25.2.9519653"
 
@@ -11,12 +11,12 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.sattool.app"
-        namespace "com.sattool.app"
+        applicationId "org.satdump.SatDump"
+        namespace "org.satdump.SatDump"
         minSdkVersion 26
-        targetSdkVersion 27
-        versionCode 1
-        versionName "0.0.1"
+        targetSdkVersion 28
+        versionCode 9
+        versionName "1.2.3"
     }
 
     buildTypes {
@@ -24,10 +24,6 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
         }
-    }
-
-    buildFeatures {
-        buildConfig true
     }
 
     compileOptions {
@@ -78,7 +74,7 @@ task copyPipelines(type: Copy) {
 
 task copyCfg(type: Copy) {
     description = 'Copy config...'
-    from '../../sattool_cfg.json'
+    from '../../satdump_cfg.json'
     into 'assets/'
     include('*')
 }
@@ -89,8 +85,7 @@ repositories {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'com.github.woheller69:FreeDroidWarn:V1.13'
-    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.0.2'
 }
 
 copyResources.dependsOn deleteTempAssets

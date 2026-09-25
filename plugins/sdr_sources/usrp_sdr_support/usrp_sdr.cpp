@@ -12,23 +12,7 @@ void USRPSource::set_gains()
 void USRPSource::open_sdr()
 {
     uhd::device_addrs_t devlist = uhd::device::find(uhd::device_addr_t());
-
-    uhd::device_addr_t addr = devlist[std::stoi(d_sdr_id)];
-
-    // USB transport parameters, optimal values from testing
-    addr["recv_frame_size"] = "8000"; // RX frame size
-
-#ifdef __APPLE__
-    // macOS appears to have a max size of 1024, iti s not happy above that
-    addr["num_recv_frames"] = "1024"; // RX buffer size
-#else
-    addr["num_recv_frames"] = "1900"; // RX buffer size
-#endif
-
-    // addr["send_frame_size"] = "8000";      // TX frame size
-    // addr["num_send_frames"] = "1900";      // TX buffer size
-
-    usrp_device = uhd::usrp::multi_usrp::make(addr);
+    usrp_device = uhd::usrp::multi_usrp::make(devlist[std::stoi(d_sdr_id)]);
 
     // uhd::meta_range_t master_clock_range = usrp_device->get_master_clock_rate_range();
     // usrp_device->set_master_clock_rate(master_clock_range.stop());
@@ -53,9 +37,6 @@ void USRPSource::open_channel()
         use_device_rates = true;
 
     std::vector<double> available_samplerates;
-
-    // Preserve current samplerate selection before updating the list
-    double current_samplerate = samplerate_widget.get_value();
 
     if (use_device_rates)
     {
@@ -101,9 +82,6 @@ void USRPSource::open_channel()
     }
 
     samplerate_widget.set_list(available_samplerates, false);
-
-    // Restore the previously selected samplerate if it's still available
-    samplerate_widget.set_value(current_samplerate, 0);
 
     // Get gain range
     gain_range = usrp_device->get_rx_gain_range(channel);
@@ -216,7 +194,10 @@ void USRPSource::stop()
     is_started = false;
 }
 
-void USRPSource::close() { is_open = false; }
+void USRPSource::close()
+{
+    is_open = false;
+}
 
 void USRPSource::set_frequency(uint64_t frequency)
 {
@@ -245,9 +226,8 @@ void USRPSource::drawControlUI()
 
     samplerate_widget.render();
 
-    if (RImGui::Combo("Bit depth", &selected_bit_depth,
-                      "8-bits\0"
-                      "16-bits\0"))
+    if (RImGui::Combo("Bit depth", &selected_bit_depth, "8-bits\0"
+                                                        "16-bits\0"))
     {
         if (selected_bit_depth == 0)
             bit_depth = 8;
@@ -274,7 +254,10 @@ void USRPSource::set_samplerate(uint64_t samplerate)
         throw satdump_exception("Unsupported samplerate : " + std::to_string(samplerate) + "!");
 }
 
-uint64_t USRPSource::get_samplerate() { return samplerate_widget.get_value(); }
+uint64_t USRPSource::get_samplerate()
+{
+    return samplerate_widget.get_value();
+}
 
 std::vector<dsp::SourceDescriptor> USRPSource::getAvailableSources()
 {

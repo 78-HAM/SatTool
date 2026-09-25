@@ -1,4 +1,4 @@
-# Preps satdump for execution within the debugger
+﻿# Preps satdump for execution within the debugger
 # MSVC 2022 seems to build in a ./out/... folder
 # Assume this is true
 param(
@@ -37,14 +37,16 @@ cd "$(Split-Path -Parent $MyInvocation.MyCommand.Path)\..\out\build\$($platform.
 
 #Remove old dirs
 if(Test-Path Debug\resources -ErrorAction SilentlyContinue) {rm -Recurse Debug\resources}
+if(Test-Path Debug\pipelines -ErrorAction SilentlyContinue) {rm -Recurse Debug\pipelines}
 if(Test-Path Debug\plugins -ErrorAction SilentlyContinue) {rm -Recurse Debug\plugins}
 
 cp -r ..\..\..\resources Debug
+cp -r ..\..\..\pipelines Debug
 
 mkdir Debug\plugins | Out-Null
 cp -force plugins\Debug\*.dll Debug\plugins
 cp -force plugins\Debug\*.pdb Debug\plugins
-cp -force ..\..\..\sattool_cfg.json Debug
+cp -force ..\..\..\satdump_cfg.json Debug
 
 if(-not $fast)
 {

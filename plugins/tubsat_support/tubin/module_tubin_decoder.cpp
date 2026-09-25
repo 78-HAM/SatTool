@@ -1,22 +1,20 @@
 #include "module_tubin_decoder.h"
-#include "../png_fix.h"
-#include "common/utils.h"
-#include "image/bayer/bayer.h"
-#include "image/io.h"
-#include "imgui/imgui.h"
-#include "logger.h"
-#include "products/dataset.h"
-#include "products/image_product.h"
-#include <cstdint>
-#include <filesystem>
 #include <fstream>
+#include "logger.h"
+#include <filesystem>
+#include "imgui/imgui.h"
+#include "common/utils.h"
+#include "products/image_products.h"
+#include "products/dataset.h"
+#include "../png_fix.h"
+#include "common/image/bayer/bayer.h"
+#include "common/image/io.h"
 
 namespace tubin
 {
-    TUBINDecoderModule::TUBINDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-        : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters), d_check_crc(parameters["check_crc"])
+    TUBINDecoderModule::TUBINDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters),
+                                                                                                                              d_check_crc(parameters["check_crc"])
     {
-        fsfsm_enable_output = false;
     }
 
     bool TUBINDecoderModule::crc_valid(uint8_t *cadu)
@@ -28,23 +26,34 @@ namespace tubin
 
     void TUBINDecoderModule::process()
     {
+        filesize = getFilesize(d_input_file);
+        std::ifstream data_in(d_input_file, std::ios::binary);
+
         std::string directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/";
+
+        logger->info("Using input frames " + d_input_file);
+        logger->info("Decoding to " + directory);
+
+        time_t lastTime = 0;
 
         uint8_t cadu[552];
 
         const int payload_size = 514 - 2; // CADU Payload area size
 
-        while (should_run())
+        while (!data_in.eof())
         {
             // Read cadu
-            read_data((uint8_t *)cadu, 552);
+            data_in.read((char *)cadu, 552);
 
             if (cadu[4] == 0x20) // Imagery Channel, VIS
             {
                 if (crc_valid(cadu) || !d_check_crc)
                 {
                     // File chunk
-                    uint32_t chunk_counter = cadu[21] << 24 | cadu[22] << 16 | cadu[23] << 8 | cadu[24];
+                    uint32_t chunk_counter = cadu[21] << 24 |
+                                             cadu[22] << 16 |
+                                             cadu[23] << 8 |
+                                             cadu[24];
                     // File ID
                     uint64_t file_id = /*(uint64_t)cadu[26] << 56 |
                                        (uint64_t)cadu[27] << 48 |
@@ -54,7 +63,8 @@ namespace tubin
                                        (uint64_t)cadu[32] << 16 |
                                        (uint64_t)cadu[33] << 8 |
                                        (uint64_t)cadu[34];*/
-                        (uint64_t)cadu[18] << 8 | (uint64_t)cadu[19];
+                        (uint64_t)cadu[18] << 8 |
+                        (uint64_t)cadu[19];
 
                     logger->info("%d %llu", chunk_counter, file_id);
 
@@ -74,9 +84,17 @@ namespace tubin
                     logger->error("Bad CRC");
                 }
             }
+
+            progress = data_in.tellg();
+
+            if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+            {
+                lastTime = time(NULL);
+                logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
+            }
         }
 
-        cleanup();
+        data_in.close();
 
         logger->info("Processing images...");
 
@@ -84,7 +102,7 @@ namespace tubin
         std::string sat_name = "TUBIN";
 
         // Products dataset
-        satdump::products::DataSet dataset;
+        satdump::ProductDataSet dataset;
         dataset.satellite_name = sat_name;
         dataset.timestamp = time(0);
 
@@ -165,20 +183,18 @@ namespace tubin
                 logger->info("Width  : " + std::to_string(image.width()));
                 logger->info("Height : " + std::to_string(image.height()));
 
-                satdump::products::ImageProduct tubin_products;
+                satdump::ImageProducts tubin_products;
                 tubin_products.instrument_name = "tubin_vis";
                 // tubin_products.has_timestamps = true;
                 // tubin_products.set_tle(satellite_tle);
-                // tubin_products.bit_depth = 16;
+                tubin_products.bit_depth = 16;
+                // tubin_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
                 // tubin_products.set_timestamps(avhrr_reader.timestamps);
                 // tubin_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/metop_abc_avhrr.json")));
 
-                tubin_products.images.push_back(
-                    {0, "TUBIN-1", "1", image::Image((uint8_t *)img_color.raw_data() + (img_color.width() * img_color.height() * img_color.typesize() * 0), 16, image.width(), image.height(), 1), 16});
-                tubin_products.images.push_back(
-                    {1, "TUBIN-2", "2", image::Image((uint8_t *)img_color.raw_data() + (img_color.width() * img_color.height() * img_color.typesize() * 1), 16, image.width(), image.height(), 1), 16});
-                tubin_products.images.push_back(
-                    {2, "TUBIN-3", "3", image::Image((uint8_t *)img_color.raw_data() + (img_color.width() * img_color.height() * img_color.typesize() * 2), 16, image.width(), image.height(), 1), 16});
+                tubin_products.images.push_back({"TUBIN-1", "1", image::Image((uint8_t *)img_color.raw_data() + (img_color.width() * img_color.height() * img_color.typesize() * 0), 16, image.width(), image.height(), 1)});
+                tubin_products.images.push_back({"TUBIN-2", "2", image::Image((uint8_t *)img_color.raw_data() + (img_color.width() * img_color.height() * img_color.typesize() * 1), 16, image.width(), image.height(), 1)});
+                tubin_products.images.push_back({"TUBIN-3", "3", image::Image((uint8_t *)img_color.raw_data() + (img_color.width() * img_color.height() * img_color.typesize() * 2), 16, image.width(), image.height(), 1)});
 
                 tubin_products.save(directory);
                 dataset.products_list.push_back(product_name);
@@ -196,15 +212,23 @@ namespace tubin
     {
         ImGui::Begin("TUBIN Decoder", NULL, window ? 0 : NOWINDOW_FLAGS);
 
-        drawProgressBar();
+        ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
     }
 
-    std::string TUBINDecoderModule::getID() { return "tubin_decoder"; }
+    std::string TUBINDecoderModule::getID()
+    {
+        return "tubin_decoder";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> TUBINDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> TUBINDecoderModule::getParameters()
+    {
+        return {};
+    }
+
+    std::shared_ptr<ProcessingModule> TUBINDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<TUBINDecoderModule>(input_file, output_file_hint, parameters);
     }
-} // namespace tubin
+}

@@ -1,31 +1,30 @@
 #pragma once
 
-#include "pipeline/modules/base/filestream_to_filestream.h"
+#include "core/module.h"
 
-#include "instruments/erm/erm_reader.h"
-#include "instruments/gas/gas_reader.h"
-#include "instruments/mersi/mersi_reader.h"
-#include "instruments/mwhs/mwhs_reader.h"
+#include "instruments/xeuvi/xeuvi_reader.h"
+#include "instruments/windrad/windrad_reader.h"
 #include "instruments/mwhs2/mwhs2_reader.h"
-#include "instruments/mwri/mwri_reader.h"
-#include "instruments/mwri2/mwri2_reader.h"
-#include "instruments/mwrirm/mwrirm_reader.h"
 #include "instruments/mwts/mwts_reader.h"
 #include "instruments/mwts2/mwts2_reader.h"
 #include "instruments/mwts3/mwts3_reader.h"
-#include "instruments/pmr/pmr_reader.h"
-#include "instruments/virr/virr_reader.h"
-#include "instruments/virr/virr_to_c10.h"
+#include "instruments/mwri/mwri_reader.h"
+#include "instruments/mwri2/mwri2_reader.h"
+#include "instruments/mwrirm/mwrirm_reader.h"
 #include "instruments/wai/wai_reader.h"
-#include "instruments/windrad/windrad_reader.h"
-#include "instruments/xeuvi/xeuvi_reader.h"
-#include "pipeline/modules/instrument_utils.h"
+#include "instruments/virr/virr_reader.h"
+#include "instruments/mwhs/mwhs_reader.h"
+#include "instruments/erm/erm_reader.h"
+#include "instruments/mersi/mersi_reader.h"
+#include "instruments/gas/gas_reader.h"
+#include "instruments/virr/virr_to_c10.h"
+#include "instruments/pmr/pmr_reader.h"
 
 namespace fengyun3
 {
     namespace instruments
     {
-        class FY3InstrumentsDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+        class FY3InstrumentsDecoderModule : public ProcessingModule
         {
         protected:
             enum fy3_sat_t
@@ -36,7 +35,6 @@ namespace fengyun3
                 FY_3E,
                 FY_3F,
                 FY_3G,
-                FY_3H,
             };
 
             enum fy3_downlink_t
@@ -54,6 +52,9 @@ namespace fengyun3
             bool d_mersi_histmatch;
             bool d_dump_mersi;
             bool d_write_c10;
+
+            std::atomic<uint64_t> filesize;
+            std::atomic<uint64_t> progress;
 
             // Readers
             erm::ERMReader erm_reader;
@@ -111,8 +112,8 @@ namespace fengyun3
         public:
             static std::string getID();
             virtual std::string getIDM() { return getID(); };
-            static nlohmann::json getParams() { return {}; } // TODOREWORK
+            static std::vector<std::string> getParameters();
             static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         };
-    } // namespace instruments
-} // namespace fengyun3
+    } // namespace modis
+} // namespace eos

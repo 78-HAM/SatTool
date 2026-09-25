@@ -1,6 +1,5 @@
 #include "gvar_deframer.h"
 
-#include <cstdint>
 #include <math.h>
 
 // Returns the asked bit!
@@ -32,7 +31,8 @@ namespace goes
             return errors;
         }
 
-        GVARDeframer::GVARDeframer()
+        template <typename SYNC_T, int SYNC_SIZE, int FRAME_SIZE, SYNC_T ASM_SYNC>
+        GVARDeframer<SYNC_T, SYNC_SIZE, FRAME_SIZE, ASM_SYNC>::GVARDeframer()
         {
             // Default values
             writeFrame = false;
@@ -41,7 +41,8 @@ namespace goes
         }
 
         // Write a single bit into the frame
-        void GVARDeframer::pushBit(uint8_t bit)
+        template <typename SYNC_T, int SYNC_SIZE, int FRAME_SIZE, SYNC_T ASM_SYNC>
+        void GVARDeframer<SYNC_T, SYNC_SIZE, FRAME_SIZE, ASM_SYNC>::pushBit(uint8_t bit)
         {
             byteBuffer = (byteBuffer << 1) | bit;
             wroteBits++;
@@ -52,7 +53,8 @@ namespace goes
             }
         }
 
-        std::vector<std::vector<uint8_t>> GVARDeframer::work(uint8_t *data, int len)
+        template <typename SYNC_T, int SYNC_SIZE, int FRAME_SIZE, SYNC_T ASM_SYNC>
+        std::vector<std::vector<uint8_t>> GVARDeframer<SYNC_T, SYNC_SIZE, FRAME_SIZE, ASM_SYNC>::work(uint8_t *data, int len)
         {
             // Output buffer
             std::vector<std::vector<uint8_t>> framesOut;
@@ -67,30 +69,11 @@ namespace goes
                 {
                     // Get a bit, push it
                     uint8_t bit = getBit<uint8_t>(byte, i);
-                    shifter = (shifter << 1) | bit;
 
-                    // Get a PN bit, push it
-                    uint8_t pn_bit = ((pn_shifter >> 14) & 1) ^ ((pn_shifter >> 7) & 1);
-                    pn_shifter = (pn_shifter << 1) | pn_bit;
-
-                    // Continuously check pn_bit vs bit
-                    if (bit == pn_bit)
-                    {
-                        if (pn_right_bit_counter < 5000)
-                            pn_right_bit_counter++;
-
-                        // if (pn_right_bit_counter == 1000)
-                        //     printf("LOCK\n");
-                    }
+                    if (sizeof(SYNC_T) * 8 != SYNC_SIZE)
+                        shifter = ((shifter << 1) % (long)pow(2, SYNC_SIZE)) | bit;
                     else
-                    {
-                        pn_right_bit_counter -= 2;
-                        if (pn_right_bit_counter <= 0)
-                        {
-                            pn_right_bit_counter = 1;
-                            pn_shifter = shifter;
-                        }
-                    }
+                        shifter = (shifter << 1) | bit;
 
                     // Writing a frame!
                     if (writeFrame)
@@ -98,17 +81,17 @@ namespace goes
                         // First run : push header
                         if (outputBits == 0)
                         {
-                            uint64_t syncAsm = ASM_SYNC;
+                            SYNC_T syncAsm = ASM_SYNC;
                             for (int y = SYNC_SIZE - 1; y >= 0; y--)
                             {
-                                pushBit(getBit<uint64_t>(syncAsm, y));
+                                pushBit(getBit<SYNC_T>(syncAsm, y));
                                 outputBits++;
                             }
                         }
 
                         // New ASM, ABORT! and process the new one
                         if (outputBits > 10000)
-                            if (checkSyncMarker(ASM_SYNC, pn_shifter) == 0 && pn_right_bit_counter > 1000)
+                            if (checkSyncMarker(ASM_SYNC, shifter) < 10)
                             {
                                 // Fill up what we're missing
                                 for (int b = 0; b < FRAME_SIZE - outputBits; b++)
@@ -121,7 +104,6 @@ namespace goes
                                 frameBuffer.clear();
 
                                 writeFrame = true;
-                                pn_right_bit_counter = 0;
 
                                 continue;
                             }
@@ -144,10 +126,9 @@ namespace goes
                     }
 
                     // Otherwise search for markers
-                    if (checkSyncMarker(ASM_SYNC, pn_shifter) == 0 && pn_right_bit_counter > 1000)
+                    if (checkSyncMarker(ASM_SYNC, shifter) < 10)
                     {
                         writeFrame = true;
-                        pn_right_bit_counter = 0;
                     }
                 }
             }
@@ -155,5 +136,8 @@ namespace goes
             // Output what we found if anything
             return framesOut;
         }
-    } // namespace gvar
-} // namespace goes
+
+        // Build this template for GVAR data
+        template class GVARDeframer<uint64_t, 64, 262288, 0b0001101111100111110100000001111110111111100000001111111111111110>;
+    }
+}

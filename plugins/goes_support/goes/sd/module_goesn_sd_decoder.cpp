@@ -1,9 +1,9 @@
 #include "module_goesn_sd_decoder.h"
-#include "common/codings/differential/nrzm.h"
-#include "common/utils.h"
-#include "imgui/imgui.h"
 #include "logger.h"
+#include "imgui/imgui.h"
 #include <volk/volk.h>
+#include "common/utils.h"
+#include "common/codings/differential/nrzm.h"
 
 #define BUFFER_SIZE 8192
 #define SD_FRAME_SIZE 60
@@ -12,14 +12,23 @@ namespace goes
 {
     namespace sd
     {
-        GOESNSDDecoderModule::GOESNSDDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters), constellation(1.0, 0.15, demod_constellation_size)
+        GOESNSDDecoderModule::GOESNSDDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters),
+                                                                                                                                      constellation(1.0, 0.15, demod_constellation_size)
         {
             def = std::make_shared<GOESN_SD_Deframer>(480);
             soft_buffer = new int8_t[BUFFER_SIZE];
             soft_bits = new uint8_t[BUFFER_SIZE];
             output_frames = new uint8_t[BUFFER_SIZE];
-            fsfsm_file_ext = ".frm";
+        }
+
+        std::vector<ModuleDataType> GOESNSDDecoderModule::getInputTypes()
+        {
+            return {DATA_FILE, DATA_STREAM};
+        }
+
+        std::vector<ModuleDataType> GOESNSDDecoderModule::getOutputTypes()
+        {
+            return {DATA_FILE};
         }
 
         GOESNSDDecoderModule::~GOESNSDDecoderModule()
@@ -40,12 +49,28 @@ namespace goes
 
         void GOESNSDDecoderModule::process()
         {
+            if (input_data_type == DATA_FILE)
+                filesize = getFilesize(d_input_file);
+            else
+                filesize = 0;
+            if (input_data_type == DATA_FILE)
+                data_in = std::ifstream(d_input_file, std::ios::binary);
+            data_out = std::ofstream(d_output_file_hint + ".frm", std::ios::binary);
+            d_output_files.push_back(d_output_file_hint + ".frm");
+
+            logger->info("Using input symbols " + d_input_file);
+            logger->info("Decoding to " + d_output_file_hint + ".frm");
+
             diff::NRZMDiff diff;
 
-            while (should_run())
+            time_t lastTime = 0;
+            while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
                 // Read a buffer
-                read_data((uint8_t *)soft_buffer, BUFFER_SIZE);
+                if (input_data_type == DATA_FILE)
+                    data_in.read((char *)soft_buffer, BUFFER_SIZE);
+                else
+                    input_fifo->read((uint8_t *)soft_buffer, BUFFER_SIZE);
 
                 for (int i = 0; i < BUFFER_SIZE; i++)
                     soft_bits[i] = soft_buffer[i] > 0;
@@ -64,21 +89,29 @@ namespace goes
                         for (int i = 0; i < 60; i++)
                             output_frames[x * 60 + i] ^= pm_sequence[i];
 
-                    write_data(output_frames, nframes * SD_FRAME_SIZE);
+                    data_out.write((char *)output_frames, nframes * SD_FRAME_SIZE);
+                    if (output_data_type == DATA_FILE)
+                        ; //
+                    else
+                        output_fifo->write(output_frames, nframes * SD_FRAME_SIZE);
+                }
+
+                if (input_data_type == DATA_FILE)
+                    progress = data_in.tellg();
+
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    std::string deframer_state = def->getState() == def->STATE_NOSYNC ? "NOSYNC" : (def->getState() == def->STATE_SYNCING ? "SYNCING" : "SYNCED");
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%, Deframer : " + deframer_state);
                 }
             }
 
             logger->info("Decoding finished");
 
-            cleanup();
-        }
-
-        nlohmann::json GOESNSDDecoderModule::getModuleStats()
-        {
-            auto v = satdump::pipeline::base::FileStreamToFileStreamModule::getModuleStats();
-            std::string deframer_state = def->getState() == def->STATE_NOSYNC ? "NOSYNC" : (def->getState() == def->STATE_SYNCING ? "SYNCING" : "SYNCED");
-            v["deframer_state"] = deframer_state;
-            return v;
+            data_out.close();
+            if (input_data_type == DATA_FILE)
+                data_in.close();
         }
 
         void GOESNSDDecoderModule::drawUI(bool window)
@@ -110,16 +143,25 @@ namespace goes
             }
             ImGui::EndGroup();
 
-            drawProgressBar();
+            if (!streamingInput)
+                ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string GOESNSDDecoderModule::getID() { return "goesn_sd_decoder"; }
+        std::string GOESNSDDecoderModule::getID()
+        {
+            return "goesn_sd_decoder";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> GOESNSDDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> GOESNSDDecoderModule::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> GOESNSDDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<GOESNSDDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace sd
-} // namespace goes
+    }
+}

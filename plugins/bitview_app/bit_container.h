@@ -1,9 +1,10 @@
 #pragma once
 
-#include "imgui/implot/implot.h"
-#include <cstdint>
 #include <string>
 #include <vector>
+#include <cstdint>
+#include <memory>
+#include "imgui/implot/implot.h"
 
 namespace satdump
 {
@@ -12,21 +13,11 @@ namespace satdump
     private:
         const std::string d_name;
         const std::string d_filepath;
-        size_t d_chunk_size = 512;
+        const size_t d_chunk_size = 512;
         size_t d_file_memory_size;
         uint8_t *d_file_memory_ptr;
         int fd;
-        char unique_id[16] = {0};
-
-    public:
-        struct HighlightDef
-        {
-            size_t ptr;
-            size_t size;
-            uint8_t r, g, b;
-        };
-
-        std::vector<HighlightDef> highlights;
+        char unique_id[16] = { 0 };
 
     private:
         struct PartImage
@@ -38,10 +29,6 @@ namespace satdump
             double pos2_y = 0;
             int i = -1;
             bool visible = false;
-
-            bool need_update = true;
-
-            std::vector<HighlightDef> highlights;
         };
 
         size_t img_parts_y = 0;
@@ -55,19 +42,8 @@ namespace satdump
         bool update = false;
 
     public:
-        struct FrameDef
-        {
-            size_t ptr;
-            size_t size;
-        };
-
-        bool d_frame_mode = false;
-        std::vector<FrameDef> frames;
-
-    public:
+        size_t d_bitperiod = 481280; // 256; // 481280
         int d_display_mode = 0;
-        size_t d_bitperiod = 256;
-        int d_display_bits = 1;
 
         uint8_t *get_ptr() { return d_file_memory_ptr; }
         size_t get_ptr_size() { return d_file_memory_size; }
@@ -75,22 +51,19 @@ namespace satdump
         bool d_is_temporary = false;
 
     public:
-        BitContainer(std::string name, std::string file, std::vector<FrameDef> frms = {});
+        BitContainer(std::string name, std::string file);
         ~BitContainer();
 
         std::string getName() { return d_name; }
-        std::string getFilePath() { return d_filepath; }
         std::string getID() { return std::string(unique_id); }
 
-        void init_display();
+        void init_bitperiod();
+        void forceUpdateAll() { force_update_all = true; }
 
         void doUpdateTextures();
         void doDrawPlotTextures(ImPlotRect c);
 
-        void renderSegment(PartImage &part, size_t &ii, size_t &iii, size_t &xoffset, size_t &offset);
-        void renderSegmentText(PartImage &part, size_t &ii, size_t &iii, size_t &xoffset, size_t &offset);
-
     public:
-        void *bitview = nullptr;
+        std::vector<std::shared_ptr<BitContainer>> all_bit_containers;
     };
-} // namespace satdump
+}

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <stdexcept>
 #include <string.h>
+#include <stdexcept>
 
 #if defined(_WIN32)
 #include <stdio.h>
@@ -110,7 +110,7 @@ namespace net
             if (bind(sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) < 0)
                 throw std::runtime_error("Couldn't connect to UDP socket!");
             int ttrue = 1;
-            setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&ttrue, sizeof(int));
+            setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&ttrue, sizeof(int));
         }
 
         ~UDPServer()
@@ -121,20 +121,6 @@ namespace net
 #else
             shutdown(sock, SHUT_RDWR);
             close(sock);
-#endif
-        }
-
-        void enableTimeout()
-        {
-#ifdef _WIN32
-            // Windows' setsockopt takes (const char*) and SO_RCVTIMEO expects a DWORD in milliseconds
-            DWORD read_timeout = 10; // ms
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char *)&read_timeout, sizeof(read_timeout));
-#else
-            struct timeval read_timeout;
-            read_timeout.tv_sec = 0;
-            read_timeout.tv_usec = 1e4;
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
 #endif
         }
 
@@ -158,11 +144,11 @@ namespace net
             if (r == -1)
             {
 #if defined(_WIN32)
-                if (WSAGetLastError() != WSAEINTR)
+                if(WSAGetLastError() != WSAEINTR)
 #endif
-                    throw std::runtime_error("Error receiving from UDP socket!");
+                throw std::runtime_error("Error receiving from UDP socket!");
             }
             return r;
         }
     };
-} // namespace net
+}

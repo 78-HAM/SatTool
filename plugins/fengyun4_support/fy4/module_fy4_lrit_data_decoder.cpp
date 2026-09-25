@@ -1,25 +1,31 @@
 #include "module_fy4_lrit_data_decoder.h"
-#include "common/utils.h"
-#include "core/resources.h"
-#include "image/io.h"
+#include <fstream>
+#include "logger.h"
+#include <filesystem>
 #include "imgui/imgui.h"
 #include "imgui/imgui_image.h"
-#include "logger.h"
-#include "xrit/fy4/fy4_headers.h"
-#include "xrit/processor/xrit_channel_processor_render.h"
-#include "xrit/transport/xrit_demux.h"
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
+#include "common/utils.h"
+#include "common/lrit/lrit_demux.h"
+#include "lrit_header.h"
+#include "resources.h"
+#include "common/image/io.h"
 
 namespace fy4
 {
     namespace lrit
     {
-        FY4LRITDataDecoderModule::FY4LRITDataDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+        FY4LRITDataDecoderModule::FY4LRITDataDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters)
         {
-            fsfsm_enable_output = false;
+        }
+
+        std::vector<ModuleDataType> FY4LRITDataDecoderModule::getInputTypes()
+        {
+            return {DATA_FILE, DATA_STREAM};
+        }
+
+        std::vector<ModuleDataType> FY4LRITDataDecoderModule::getOutputTypes()
+        {
+            return {DATA_FILE};
         }
 
         FY4LRITDataDecoderModule::~FY4LRITDataDecoderModule()
@@ -39,10 +45,24 @@ namespace fy4
 
         void FY4LRITDataDecoderModule::process()
         {
+            std::ifstream data_in;
+
+            if (input_data_type == DATA_FILE)
+                filesize = getFilesize(d_input_file);
+            else
+                filesize = 0;
+            if (input_data_type == DATA_FILE)
+                data_in = std::ifstream(d_input_file, std::ios::binary);
+
             std::string directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/'));
 
             if (!std::filesystem::exists(directory))
                 std::filesystem::create_directory(directory);
+
+            logger->info("Using input frames " + d_input_file);
+            logger->info("Decoding to " + directory);
+
+            time_t lastTime = 0;
 
             uint8_t cadu[1024];
 
@@ -84,17 +104,17 @@ namespace fy4
 
             logger->info("Demultiplexing and deframing...");
 
-            satdump::xrit::XRITDemux lrit_demux(1012, false);
+            ::lrit::LRITDemux lrit_demux(1012, false);
 
             this->directory = directory;
 
-            lrit_demux.onParseHeader = [](satdump::xrit::XRITFile &file) -> void
+            lrit_demux.onParseHeader =
+                [](::lrit::LRITFile &file) -> void
             {
                 // Check if this is image data
-                if (file.hasHeader<satdump::xrit::fy4::ImageInformationRecord>())
+                if (file.hasHeader<ImageInformationRecord>())
                 {
-                    satdump::xrit::fy4::ImageInformationRecord image_structure_record =
-                        file.getHeader<satdump::xrit::fy4::ImageInformationRecord>(); //(&lrit_data[all_headers[ImageStructureRecord::TYPE]]);
+                    ImageInformationRecord image_structure_record = file.getHeader<ImageInformationRecord>(); //(&lrit_data[all_headers[ImageStructureRecord::TYPE]]);
                     logger->debug("This is image data. Size " + std::to_string(image_structure_record.columns_count) + "x" + std::to_string(image_structure_record.lines_count));
 
 #if 0
@@ -118,9 +138,9 @@ namespace fy4
 #endif
                 }
 
-                if (file.hasHeader<satdump::xrit::fy4::KeyHeader>())
+                if (file.hasHeader<KeyHeader>())
                 {
-                    satdump::xrit::fy4::KeyHeader key_header = file.getHeader<satdump::xrit::fy4::KeyHeader>();
+                    KeyHeader key_header = file.getHeader<KeyHeader>();
                     if (key_header.key != 0)
                     {
                         logger->debug("This is encrypted!");
@@ -138,41 +158,119 @@ namespace fy4
                 }
             };
 
-            while (should_run())
+            while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
                 // Read buffer
-                read_data((uint8_t *)&cadu, 1024);
+                if (input_data_type == DATA_FILE)
+                    data_in.read((char *)&cadu, 1024);
+                else
+                    input_fifo->read((uint8_t *)&cadu, 1024);
 
-                std::vector<satdump::xrit::XRITFile> files = lrit_demux.work(cadu);
+                std::vector<::lrit::LRITFile> files = lrit_demux.work(cadu);
 
                 for (auto &file : files)
                     processLRITFile(file);
+
+                if (input_data_type == DATA_FILE)
+                    progress = data_in.tellg();
+
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
+                }
             }
 
-            cleanup();
+            data_in.close();
 
-            for (auto &p : all_processors)
-                p.second->flush();
+            for (auto &segmentedDecoder : segmentedDecoders)
+                if (segmentedDecoder.second.image_id != "")
+                    image::save_img(segmentedDecoder.second.image, std::string(directory + "/IMAGES/" + segmentedDecoder.second.image_id).c_str());
         }
 
         void FY4LRITDataDecoderModule::drawUI(bool window)
         {
             ImGui::Begin("FY-4x LRIT Data Decoder", NULL, window ? 0 : NOWINDOW_FLAGS);
 
-            all_processors_mtx.lock();
-            satdump::xrit::renderAllTabsFromProcessors(all_processors);
-            all_processors_mtx.unlock();
+            if (ImGui::BeginTabBar("Images TabBar", ImGuiTabBarFlags_None))
+            {
+                bool hasImage = false;
 
-            drawProgressBar();
+                for (auto &decMap : all_wip_images)
+                {
+                    auto &dec = decMap.second;
+
+                    if (dec->textureID == 0)
+                    {
+                        dec->textureID = makeImageTexture();
+                        dec->textureBuffer = new uint32_t[1000 * 1000];
+                        memset(dec->textureBuffer, 0, sizeof(uint32_t) * 1000 * 1000);
+                        dec->hasToUpdate = true;
+                    }
+
+                    if (dec->imageStatus != IDLE)
+                    {
+                        if (dec->hasToUpdate)
+                        {
+                            dec->hasToUpdate = false;
+                            updateImageTexture(dec->textureID, dec->textureBuffer, 1000, 1000);
+                        }
+
+                        hasImage = true;
+
+                        if (ImGui::BeginTabItem(std::string("Ch " + std::to_string(decMap.first)).c_str()))
+                        {
+                            ImGui::Image((void *)(intptr_t)dec->textureID, {200 * ui_scale, 200 * ui_scale});
+                            ImGui::SameLine();
+                            ImGui::BeginGroup();
+                            ImGui::Button("Status", {200 * ui_scale, 20 * ui_scale});
+                            if (dec->imageStatus == SAVING)
+                                ImGui::TextColored(style::theme.green, "Writing image...");
+                            else if (dec->imageStatus == RECEIVING)
+                                ImGui::TextColored(style::theme.orange, "Receiving...");
+                            else
+                                ImGui::TextColored(style::theme.red, "Idle (Image)...");
+                            ImGui::EndGroup();
+                            ImGui::EndTabItem();
+                        }
+                    }
+                }
+
+                if (!hasImage) // Add empty tab if there is no image yet
+                {
+                    if (ImGui::BeginTabItem("No image yet"))
+                    {
+                        ImGui::Dummy({200 * ui_scale, 200 * ui_scale});
+                        ImGui::SameLine();
+                        ImGui::BeginGroup();
+                        ImGui::Button("Status", {200 * ui_scale, 20 * ui_scale});
+                        ImGui::TextColored(style::theme.red, "Idle (Image)...");
+                        ImGui::EndGroup();
+                        ImGui::EndTabItem();
+                    }
+                }
+            }
+            ImGui::EndTabBar();
+
+            if (!streamingInput)
+                ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string FY4LRITDataDecoderModule::getID() { return "fy4_lrit_data_decoder"; }
+        std::string FY4LRITDataDecoderModule::getID()
+        {
+            return "fy4_lrit_data_decoder";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> FY4LRITDataDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> FY4LRITDataDecoderModule::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> FY4LRITDataDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<FY4LRITDataDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace lrit
-} // namespace fy4
+    } // namespace avhrr
+} // namespace metop

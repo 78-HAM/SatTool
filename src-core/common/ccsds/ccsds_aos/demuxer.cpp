@@ -1,7 +1,7 @@
 #include "demuxer.h"
+#include <vector>
 #include "mpdu.h"
 #include <cstring>
-#include <vector>
 
 #define HEADER_LENGTH 6
 
@@ -9,8 +9,9 @@ namespace ccsds
 {
     namespace ccsds_aos
     {
-        Demuxer::Demuxer(int mpdu_data_size, bool hasInsertZone, int insertZoneSize, bool secondaryHeaderExtendsPkt)
-            : MPDU_DATA_SIZE(mpdu_data_size), HAS_INSERT_ZONE(hasInsertZone), INSERT_ZONE_SIZE(insertZoneSize), SECONDARY_HEADER_EXTENDS_PKT(secondaryHeaderExtendsPkt)
+        Demuxer::Demuxer(int mpdu_data_size, bool hasInsertZone, int insertZoneSize) : MPDU_DATA_SIZE(mpdu_data_size),
+                                                                                       HAS_INSERT_ZONE(hasInsertZone),
+                                                                                       INSERT_ZONE_SIZE(insertZoneSize)
         {
             // Init variables
             currentCCSDSPacket.header.packet_length = 0;
@@ -27,7 +28,7 @@ namespace ccsds
         {
             workingOnPacket = true;
             currentCCSDSPacket.header = parseCCSDSHeader(h);
-            currentPacketPayloadLength = currentCCSDSPacket.header.packet_length + 1 + (SECONDARY_HEADER_EXTENDS_PKT ? (currentCCSDSPacket.header.secondary_header_flag ? 8 : 0) : 0);
+            currentPacketPayloadLength = currentCCSDSPacket.header.packet_length + 1;
             totalPacketLength = currentPacketPayloadLength + HEADER_LENGTH;
             remainingPacketLength = currentPacketPayloadLength;
         }
@@ -199,5 +200,5 @@ namespace ccsds
 
             return ccsdsBuffer;
         } // namespace libccsds
-    } // namespace ccsds_aos
-} // namespace ccsds
+    }     // namespace libccsds
+}

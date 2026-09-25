@@ -8,7 +8,6 @@ libairspyhf-dev
 libbladerf-dev
 libboost-dev
 libcurl4-openssl-dev
-libdbus-1-dev
 libfftw3-dev
 libglfw3-dev
 libhackrf-dev
@@ -20,12 +19,9 @@ libnng-dev
 libomp-dev
 libpng-dev
 librtlsdr-dev
-libsqlite3-dev
 libtiff-dev
 libuhd-dev
-libvolk-dev
-libxrandr-dev
+libvolk2-dev
 libzstd-dev
 ocl-icd-opencl-dev
 pkgconf
-portaudio19-dev

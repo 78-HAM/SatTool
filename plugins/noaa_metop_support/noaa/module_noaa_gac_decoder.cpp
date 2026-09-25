@@ -1,8 +1,8 @@
 #include "module_noaa_gac_decoder.h"
-#include "imgui/imgui.h"
 #include "logger.h"
-#include <filesystem>
+#include "imgui/imgui.h"
 #include <volk/volk.h>
+#include <filesystem>
 
 // Return filesize
 uint64_t getFilesize(std::string filepath);
@@ -13,8 +13,9 @@ namespace noaa
 {
 #include "gac_pn.h"
 
-    NOAAGACDecoderModule::NOAAGACDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-        : ProcessingModule(input_file, output_file_hint, parameters), backward(parameters["backward"].get<bool>()), constellation(1.0, 0.15, demod_constellation_size)
+    NOAAGACDecoderModule::NOAAGACDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters),
+                                                                                                                                  backward(parameters["backward"].get<bool>()),
+                                                                                                                                  constellation(1.0, 0.15, demod_constellation_size)
     {
         // Buffers
         soft_buffer = new int8_t[BUFSIZE];
@@ -22,27 +23,36 @@ namespace noaa
         deframer->CADU_PADDING = 33270 % 8;
     }
 
-    std::vector<satdump::pipeline::ModuleDataType> NOAAGACDecoderModule::getInputTypes() { return {satdump::pipeline::DATA_FILE, satdump::pipeline::DATA_STREAM}; }
+    std::vector<ModuleDataType> NOAAGACDecoderModule::getInputTypes()
+    {
+        return {DATA_FILE, DATA_STREAM};
+    }
 
-    std::vector<satdump::pipeline::ModuleDataType> NOAAGACDecoderModule::getOutputTypes() { return {satdump::pipeline::DATA_FILE}; }
+    std::vector<ModuleDataType> NOAAGACDecoderModule::getOutputTypes()
+    {
+        return {DATA_FILE};
+    }
 
-    NOAAGACDecoderModule::~NOAAGACDecoderModule() { delete[] soft_buffer; }
+    NOAAGACDecoderModule::~NOAAGACDecoderModule()
+    {
+        delete[] soft_buffer;
+    }
 
     void NOAAGACDecoderModule::process()
     {
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
             filesize = getFilesize(d_input_file);
         else
             filesize = 0;
 
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
             data_in = std::ifstream(d_input_file, std::ios::binary);
 
         if (backward)
             data_out = std::ofstream(d_output_file_hint + ".frm.tmp", std::ios::binary);
         else
             data_out = std::ofstream(d_output_file_hint + ".frm", std::ios::binary);
-        d_output_file = d_output_file_hint + ".frm";
+        d_output_files.push_back(d_output_file_hint + ".frm");
 
         logger->info("Using input symbols " + d_input_file);
         logger->info("Decoding to " + d_output_file_hint + ".frm");
@@ -62,9 +72,9 @@ namespace noaa
             gac_pn[real_bit / 8] = gac_pn[real_bit / 8] << 1 | gac_rand_bits[i % 1023];
         }
 
-        while (input_data_type == satdump::pipeline::DATA_FILE ? !data_in.eof() : input_active.load())
+        while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
         {
-            if (input_data_type == satdump::pipeline::DATA_FILE)
+            if (input_data_type == DATA_FILE)
                 data_in.read((char *)soft_buffer, BUFSIZE);
             else
                 input_fifo->read((uint8_t *)soft_buffer, BUFSIZE);
@@ -101,7 +111,10 @@ namespace noaa
                 data_out.write((char *)frm, 4159);
             }
 
-            if (input_data_type == satdump::pipeline::DATA_FILE)
+            // Update module stats
+            module_stats["frame_count"] = frame_count / 11090;
+
+            if (input_data_type == DATA_FILE)
                 progress = data_in.tellg();
             if (time(NULL) % 10 == 0 && lastTime != time(NULL))
             {
@@ -136,17 +149,9 @@ namespace noaa
 
         logger->info("Demodulation finished");
 
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
             data_in.close();
         data_out.close();
-    }
-
-    nlohmann::json NOAAGACDecoderModule::getModuleStats()
-    {
-        nlohmann::json v;
-        v["progress"] = ((double)progress / (double)filesize);
-        v["frame_count"] = frame_count / 11090;
-        return v;
     }
 
     void NOAAGACDecoderModule::drawUI(bool window)
@@ -185,15 +190,23 @@ namespace noaa
         }
         ImGui::EndGroup();
 
-        if (!d_is_streaming_input)
+        if (!streamingInput)
             ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
     }
 
-    std::string NOAAGACDecoderModule::getID() { return "noaa_gac_decoder"; }
+    std::string NOAAGACDecoderModule::getID()
+    {
+        return "noaa_gac_decoder";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> NOAAGACDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> NOAAGACDecoderModule::getParameters()
+    {
+        return {};
+    }
+
+    std::shared_ptr<ProcessingModule> NOAAGACDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<NOAAGACDecoderModule>(input_file, output_file_hint, parameters);
     }

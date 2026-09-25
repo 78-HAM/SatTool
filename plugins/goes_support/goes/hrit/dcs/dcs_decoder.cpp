@@ -3,12 +3,10 @@
 #include "dcs_decoder.h"
 #include "core/config.h"
 #include "common/utils.h"
-#include "core/plugin.h"
-#include "utils/http.h"
-#include "xrit/transport/crc_table.h"
+#include "common/lrit/crc_table.h"
 #include "nlohmann/json_utils.h"
 #include "logger.h"
-#include "core/resources.h"
+#include "resources.h"
 #include "init.h"
 
 #include "../module_goes_lrit_data_decoder.h"
@@ -34,84 +32,72 @@ namespace goes
             return std::string(return_buffer) + "." + std::to_string(ms);
         }
 
-        void GOESLRITDataDecoderModule::updateDCPs(DCPUpdateEvent)
-        {
-            bool update_success = true;
-            bool this_success = false;
-            std::string file_data;
-
-            logger->info("Updating PDTs and HADS data for DCS processing...");
-            std::vector<std::string> pdt_urls = satdump::satdump_cfg.main_cfg["plugin_settings"]["goes_support"]["pdt_urls"];
-            for (std::string& pdt_url : pdt_urls)
-            {
-                if (satdump::perform_http_request(pdt_url, file_data) == 0)
-                {
-                    std::ofstream save_pdts(satdump::user_path + "/PDTS_COMPRESSED.txt");
-                    save_pdts << file_data;
-                    save_pdts.close();
-                    this_success = true;
-                    break;
-                }
-            }
-
-            if (!this_success)
-            {
-                logger->warn("Unable to download PDTs!");
-                update_success = false;
-            }
-
-            this_success = false;
-            file_data = "";
-            std::vector<std::string> hads_urls = satdump::satdump_cfg.main_cfg["plugin_settings"]["goes_support"]["hads_urls"];
-            for (std::string& hads_url : hads_urls)
-            {
-                if (satdump::perform_http_request(hads_url, file_data) == 0)
-                {
-                    std::ofstream save_hads(satdump::user_path + "/all_dcp_defs.txt");
-                    save_hads << file_data;
-                    save_hads.close();
-                    this_success = true;
-                    break;
-                }
-            }
-
-            if (!this_success)
-            {
-                logger->warn("Unable to download HADS data!");
-                update_success = false;
-            }
-
-            if (update_success)
-            {
-                satdump::satdump_cfg.main_cfg["plugin_settings"]["goes_support"]["last_pdt_update"] = time(NULL);
-                satdump::satdump_cfg.saveUser();
-
-                dcp_mtx.lock();
-                dcp_list.clear();
-                dcp_mtx.unlock();
-                loadDCPs();
-            }
-        }
-
         void GOESLRITDataDecoderModule::initDCS()
         {
             if (!parse_dcs)
                 return;
 
-            if(shef_codes.empty())
-                shef_codes = loadJsonFile(resources::getResourcePath("dcs/shef_codes.json"));
+            // Load SHEF codes
+            shef_codes = loadJsonFile(resources::getResourcePath("dcs/shef_codes.json"));
 
-            loadDCPs();
-            if (satdump::satdump_cfg.main_cfg["plugin_settings"]["goes_support"]["update_interval"] != -1)
-                satdump::taskScheduler->add_task("goes_dcp_updater", std::make_shared<DCPUpdateEvent>(),
-                    satdump::satdump_cfg.main_cfg["plugin_settings"]["goes_support"]["last_pdt_update"].get<time_t>(),
-                    satdump::satdump_cfg.main_cfg["plugin_settings"]["goes_support"]["update_interval"].get<time_t>());
-        }
+            // Download PDT and HADS Data
+            time_t current_time = time(NULL);
+            if(!std::filesystem::exists(satdump::user_path + "/PDTS_COMPRESSED.txt") ||
+                !std::filesystem::exists(satdump::user_path + "/all_dcp_defs.txt") ||
+                satdump::config::main_cfg["plugin_settings"]["goes_support"]["update_interval"] == -1 ||
+                current_time - satdump::config::main_cfg["plugin_settings"]["goes_support"]["last_pdt_update"].get<time_t>() > satdump::config::main_cfg["plugin_settings"]["goes_support"]["update_interval"].get<time_t>())
+            {
+                bool update_success = true;
+                bool this_success = false;
+                std::string file_data;
 
-        void GOESLRITDataDecoderModule::loadDCPs()
-        {
-            if (!dcp_list.empty())
-                return;
+                logger->info("Updating PDTs and HADS data for DCS processing...");
+                std::vector<std::string> pdt_urls = satdump::config::main_cfg["plugin_settings"]["goes_support"]["pdt_urls"];
+                for (std::string &pdt_url : pdt_urls)
+                {
+                    if (perform_http_request(pdt_url, file_data) == 0)
+                    {
+                        std::ofstream save_pdts(satdump::user_path + "/PDTS_COMPRESSED.txt");
+                        save_pdts << file_data;
+                        save_pdts.close();
+                        this_success = true;
+                        break;
+                    }
+                }
+
+                if(!this_success)
+                {
+                    logger->warn("Unable to download PDTs!");
+                    update_success = false;
+                }
+
+                this_success = false;
+                file_data = "";
+                std::vector<std::string> hads_urls = satdump::config::main_cfg["plugin_settings"]["goes_support"]["hads_urls"];
+                for (std::string &hads_url : hads_urls)
+                {
+                    if (perform_http_request(hads_url, file_data) == 0)
+                    {
+                        std::ofstream save_hads(satdump::user_path + "/all_dcp_defs.txt");
+                        save_hads << file_data;
+                        save_hads.close();
+                        this_success = true;
+                        break;
+                    }
+                }
+
+                if (!this_success)
+                {
+                    logger->warn("Unable to download HADS data!");
+                    update_success = false;
+                }
+
+                if (update_success)
+                {
+                    satdump::config::main_cfg["plugin_settings"]["goes_support"]["last_pdt_update"] = current_time;
+                    satdump::config::saveUserConfig();
+                }
+            }
 
             if (std::filesystem::exists(satdump::user_path + "/PDTS_COMPRESSED.txt"))
             {
@@ -240,9 +226,7 @@ namespace goes
                         // SHEF Codes in this file are mostly wrong - ignore!
 
                         // Finish up
-                        dcp_mtx.lock();
                         dcp_list[std::stoul(pdt_line.substr(field_offsets[1], 8), nullptr, 16)] = new_dcp;
-                        dcp_mtx.unlock();
                     }
                     catch (std::exception &e)
                     {
@@ -250,6 +234,8 @@ namespace goes
                     }
                 }
             }
+            else
+                logger->warn("Unable to load PDTs! Some DCS data will not be parsed");
 
             // Load PE info
             if (std::filesystem::exists(satdump::user_path + "/all_dcp_defs.txt"))
@@ -290,7 +276,6 @@ namespace goes
                         std::shared_ptr<DCP> this_dcp;
                         uint32_t device_address = std::stoul(hads_tokens[0], nullptr, 16);
 
-                        dcp_mtx.lock();
                         if (dcp_list.count(device_address) > 0)
                             this_dcp = dcp_list[device_address];
 
@@ -305,7 +290,6 @@ namespace goes
                             // Other info
                             this_dcp->transmit_interval = std::stoi(hads_tokens[8]);
                         }
-                        dcp_mtx.unlock();
 
                         // Latitude
                         std::stringstream degree_stream;
@@ -354,6 +338,8 @@ namespace goes
                     }
                 }
             }
+            else
+                logger->warn("Unable to load HADS data! Some DCS data will not be parsed");
         }
 
         bool GOESLRITDataDecoderModule::processDCS(uint8_t* data, size_t size)
@@ -411,7 +397,7 @@ namespace goes
 
                 // Calculate Block CRC
                 for (uint16_t i = 0; i < block_length - 2; i++)
-                    block_crc = (block_crc << 8) ^ satdump::xrit::crc_table[(block_crc >> 8) ^ (uint16_t)block_ptr[i]];
+                    block_crc = (block_crc << 8) ^ lrit::crc_table[(block_crc >> 8) ^ (uint16_t)block_ptr[i]];
                 bool message_crc_pass = (uint16_t)(block_ptr[block_length - 1] << 8 | block_ptr[block_length - 2]) == block_crc;
 
                 // DCP Message Processing
@@ -470,10 +456,8 @@ namespace goes
                     }
 
                     // Pull in the DCP, if available
-                    dcp_mtx.lock();
                     if (dcp_list.count(address_int) > 0)
                         dcs_message->dcp = dcp_list[address_int];
-                    dcp_mtx.unlock();
 
                     dcs_message->header.corrected_address = hex_stream.str();
                     hex_stream.clear();
@@ -1020,10 +1004,8 @@ namespace goes
                     }
 
                     // Pull in DCP, if available
-                    dcp_mtx.lock();
                     if (dcp_list.count(address_int) > 0)
                         missed_message->dcp = dcp_list[address_int];
-                    dcp_mtx.unlock();
 
                     missed_message->header.platform_address = hex_stream.str();
                     hex_stream.clear();

@@ -1,32 +1,36 @@
 #include "secchi_reader.h"
-#include "core/resources.h"
-#include "utils/time.h"
-#include <cstdlib>
 #include <filesystem>
+#include "common/utils.h"
+#include "resources.h"
 
 #include "rice_decomp.h"
 
-#include "image/io.h"
-#include "image/processing.h"
-#include "image/text.h"
+#include "common/image/processing.h"
+#include "common/image/text.h"
+#include "common/image/io.h"
 
 namespace stereo
 {
     namespace secchi
     {
-        SECCHIReader::SECCHIReader(std::string icer_path, std::string output_directory) : icer_path(icer_path), output_directory(output_directory)
+        SECCHIReader::SECCHIReader(std::string icer_path, std::string output_directory)
+            : icer_path(icer_path), output_directory(output_directory)
         {
             decompression_status_out = std::ofstream(output_directory + "/image_status.txt", std::ios::binary);
         }
 
-        SECCHIReader::~SECCHIReader() { decompression_status_out.close(); }
+        SECCHIReader::~SECCHIReader()
+        {
+            decompression_status_out.close();
+        }
 
         std::string filename_timestamp(double timestamp)
         {
             const time_t timevalue = timestamp;
             std::tm *timeReadable = gmtime(&timevalue);
-            return std::to_string(timeReadable->tm_year + 1900) + "-" + (timeReadable->tm_mon + 1 > 9 ? std::to_string(timeReadable->tm_mon + 1) : "0" + std::to_string(timeReadable->tm_mon + 1)) +
-                   "-" + (timeReadable->tm_mday > 9 ? std::to_string(timeReadable->tm_mday) : "0" + std::to_string(timeReadable->tm_mday)) + "_" +
+            return std::to_string(timeReadable->tm_year + 1900) + "-" +
+                   (timeReadable->tm_mon + 1 > 9 ? std::to_string(timeReadable->tm_mon + 1) : "0" + std::to_string(timeReadable->tm_mon + 1)) + "-" +
+                   (timeReadable->tm_mday > 9 ? std::to_string(timeReadable->tm_mday) : "0" + std::to_string(timeReadable->tm_mday)) + "_" +
                    (timeReadable->tm_hour > 9 ? std::to_string(timeReadable->tm_hour) : "0" + std::to_string(timeReadable->tm_hour)) + "-" +
                    (timeReadable->tm_min > 9 ? std::to_string(timeReadable->tm_min) : "0" + std::to_string(timeReadable->tm_min)) + "-" +
                    (timeReadable->tm_sec > 9 ? std::to_string(timeReadable->tm_sec) : "0" + std::to_string(timeReadable->tm_sec));
@@ -75,7 +79,7 @@ namespace stereo
 
                         std::string channel_name = "COR2";
 
-                        text_drawer.draw_text(img, 150 / 2, 460 / 2, text_color, 30 / 2, satdump::timestamp_to_string(last_timestamp_0));
+                        text_drawer.draw_text(img, 150 / 2, 460 / 2, text_color, 30 / 2, timestamp_to_string(last_timestamp_0));
 
                         std::filesystem::create_directories(output_directory + "/" + channel_name);
 
@@ -87,8 +91,7 @@ namespace stereo
                             image::save_img(img, output_directory + "/" + channel_name + "/" + std::to_string(unknown_cnt++));
 
                         if (last_filename_0.size() > 0)
-                            decompression_status_out << channel_name << "     " << last_filename_0 << " " << satdump::timestamp_to_string(last_timestamp_0) << " "
-                                                     << ((img.size() > 0) ? "PASS" : "FAIL") << "\n";
+                            decompression_status_out << channel_name << "     " << last_filename_0 << " " << timestamp_to_string(last_timestamp_0) << " " << ((img.size() > 0) ? "PASS" : "FAIL") << "\n";
                         last_filename_0 = "";
                         last_timestamp_0 = 0;
                     }
@@ -121,7 +124,7 @@ namespace stereo
 
                         std::string channel_name = "HI1";
 
-                        text_drawer.draw_text(img, 150 / 2, 460 / 2, text_color, 30 / 2, satdump::timestamp_to_string(last_timestamp_1));
+                        text_drawer.draw_text(img, 150 / 2, 460 / 2, text_color, 30 / 2, timestamp_to_string(last_timestamp_1));
 
                         std::filesystem::create_directories(output_directory + "/" + channel_name);
 
@@ -133,8 +136,7 @@ namespace stereo
                         image::save_img(img, output_directory + "/" + channel_name + "/" + std::to_string(unknown_cnt++));
 
                         if (last_filename_1.size() > 0)
-                            decompression_status_out << channel_name << "      " << last_filename_1 << " " << satdump::timestamp_to_string(last_timestamp_1) << " "
-                                                     << ((img.size() > 0) ? "PASS" : "FAIL") << "\n";
+                            decompression_status_out << channel_name << "      " << last_filename_1 << " " << timestamp_to_string(last_timestamp_1) << " " << ((img.size() > 0) ? "PASS" : "FAIL") << "\n";
                         last_filename_1 = "";
                         last_timestamp_1 = 0;
                     }
@@ -164,7 +166,7 @@ namespace stereo
 
                         std::string channel_name = "HI2";
 
-                        text_drawer.draw_text(img, 150 / 2, 460 / 2, text_color, 30 / 2, satdump::timestamp_to_string(last_timestamp_2));
+                        text_drawer.draw_text(img, 150 / 2, 460 / 2, text_color, 30 / 2, timestamp_to_string(last_timestamp_2));
 
                         std::filesystem::create_directories(output_directory + "/" + channel_name);
 
@@ -176,8 +178,7 @@ namespace stereo
                         image::save_img(img, output_directory + "/" + channel_name + "/" + std::to_string(unknown_cnt++));
 
                         if (last_filename_2.size() > 0)
-                            decompression_status_out << channel_name << "      " << last_filename_2 << " " << satdump::timestamp_to_string(last_timestamp_2) << " "
-                                                     << ((img.size() > 0) ? "PASS" : "FAIL") << "\n";
+                            decompression_status_out << channel_name << "      " << last_filename_2 << " " << timestamp_to_string(last_timestamp_2) << " " << ((img.size() > 0) ? "PASS" : "FAIL") << "\n";
                         last_filename_2 = "";
                         last_timestamp_2 = 0;
                     }
@@ -221,7 +222,7 @@ namespace stereo
                         else
                             channel_name = "Corrupted";
 
-                        text_drawer.draw_text(img, 150, 460, text_color, 30, satdump::timestamp_to_string(last_timestamp_3));
+                        text_drawer.draw_text(img, 150, 460, text_color, 30, timestamp_to_string(last_timestamp_3));
 
                         std::filesystem::create_directories(output_directory + "/" + channel_name);
 
@@ -233,8 +234,7 @@ namespace stereo
                             image::save_img(img, output_directory + "/" + channel_name + "/" + std::to_string(unknown_cnt++));
 
                         if (last_filename_3.size() > 0)
-                            decompression_status_out << channel_name << " " << last_filename_3 << " " << satdump::timestamp_to_string(last_timestamp_3) << " " << ((img.size() > 0) ? "PASS" : "FAIL")
-                                                     << "\n";
+                            decompression_status_out << channel_name << " " << last_filename_3 << " " << timestamp_to_string(last_timestamp_3) << " " << ((img.size() > 0) ? "PASS" : "FAIL") << "\n";
                         last_filename_3 = "";
                         last_timestamp_3 = 0;
                         last_polarization_3 = 0;
@@ -254,20 +254,13 @@ namespace stereo
 
             if (!std::filesystem::exists(icer_path))
             {
-                logger->error("Couldn't find ICER Decompressor, can't process SECCHI data! You can download it from here: https://stereo-ssc.nascom.nasa.gov/instruments/software/secchi/utils/icer/");
+                logger->error("No ICER Decompressor provided. Can't decompress SECCHI!");
                 return image::Image();
             }
 
-            int status = system(cmd.data());
-#ifdef _WIN32
-            // Windows returns raw error code
-            int return_code = status;
-#else
-            // POSIX returns a WEXITSTATUS
-            int return_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-#endif
-            // Return code 192 appears to be successful as well?
-            if ((return_code == 0 || return_code == 192) && std::filesystem::exists("./stereo_secchi_out.tmp"))
+            int ret = system(cmd.data());
+
+            if (ret == 0 && std::filesystem::exists("./stereo_secchi_out.tmp"))
             {
                 logger->trace("SECCHI Decompression OK!");
 
@@ -284,7 +277,7 @@ namespace stereo
             }
             else
             {
-                logger->error("Failed decompressing SECCHI with return code %i!", return_code);
+                logger->error("Failed decompressing SECCHI!");
 
                 if (std::filesystem::exists("./stereo_secchi_out.tmp"))
                     std::filesystem::remove("./stereo_secchi_out.tmp");
@@ -376,5 +369,5 @@ namespace stereo
             }
 #endif
         }
-    } // namespace secchi
-} // namespace stereo
+    }
+}

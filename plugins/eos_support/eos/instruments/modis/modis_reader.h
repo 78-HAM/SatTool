@@ -3,7 +3,7 @@
 #include "common/ccsds/ccsds.h"
 #include <cmath>
 #include <vector>
-#include "image/image.h"
+#include "common/image/image.h"
 #include "nlohmann/json.hpp"
 
 namespace eos

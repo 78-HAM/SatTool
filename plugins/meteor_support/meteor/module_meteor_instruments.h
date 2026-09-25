@@ -1,17 +1,14 @@
 #pragma once
 
-#include "instruments/bism/bism_reader.h"
+#include "core/module.h"
 #include "instruments/msumr/msumr_reader.h"
 #include "instruments/mtvza/mtvza_reader.h"
-#include "pipeline/module.h"
-#include "pipeline/modules/instrument_utils.h"
+#include "instruments/bism/bism_reader.h"
 
 namespace meteor
 {
     namespace instruments
     {
-        using namespace satdump::pipeline; // TODOREWORK
-
         class MeteorInstrumentsDecoderModule : public ProcessingModule
         {
         protected:
@@ -36,7 +33,7 @@ namespace meteor
         public:
             static std::string getID();
             virtual std::string getIDM() { return getID(); };
-            static nlohmann::json getParams() { return {}; } // TODOREWORK
+            static std::vector<std::string> getParameters();
             static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         };
     } // namespace instruments

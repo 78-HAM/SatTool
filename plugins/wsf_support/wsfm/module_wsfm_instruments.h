@@ -1,14 +1,16 @@
 #pragma once
 
+#include "core/module.h"
 #include "instruments/mwi/mwi_reader.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
-#include "pipeline/modules/instrument_utils.h"
 
 namespace wsfm
 {
-    class WSFMInstrumentsDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+    class WSFMInstrumentsDecoderModule : public ProcessingModule
     {
     protected:
+        std::atomic<uint64_t> filesize;
+        std::atomic<uint64_t> progress;
+
         // Readers
         mwi::MWIReader mwi_reader;
 
@@ -23,7 +25,7 @@ namespace wsfm
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
-} // namespace wsfm
+}

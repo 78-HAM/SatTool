@@ -1,11 +1,9 @@
 #include "module_svissr_decoder.h"
+#include "logger.h"
 #include "common/codings/differential/nrzm.h"
 #include "imgui/imgui.h"
-#include "logger.h"
 #include "svissr_deframer.h"
 #include "svissr_derand.h"
-#include <cstdint>
-#include <cstdio>
 
 #define BUFFER_SIZE 8192
 
@@ -14,17 +12,45 @@ uint64_t getFilesize(std::string filepath);
 
 namespace fengyun_svissr
 {
-    SVISSRDecoderModule::SVISSRDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-        : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+    SVISSRDecoderModule::SVISSRDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters)
     {
         buffer = new int8_t[BUFFER_SIZE];
-        fsfsm_file_ext = ".svissr";
     }
 
-    SVISSRDecoderModule::~SVISSRDecoderModule() { delete[] buffer; }
+    std::vector<ModuleDataType> SVISSRDecoderModule::getInputTypes()
+    {
+        return {DATA_FILE, DATA_STREAM};
+    }
+
+    std::vector<ModuleDataType> SVISSRDecoderModule::getOutputTypes()
+    {
+        return {DATA_FILE, DATA_STREAM};
+    }
+
+    SVISSRDecoderModule::~SVISSRDecoderModule()
+    {
+        delete[] buffer;
+    }
 
     void SVISSRDecoderModule::process()
     {
+        if (input_data_type == DATA_FILE)
+            filesize = getFilesize(d_input_file);
+        else
+            filesize = 0;
+        if (input_data_type == DATA_FILE)
+            data_in = std::ifstream(d_input_file, std::ios::binary);
+        if (output_data_type == DATA_FILE)
+        {
+            data_out = std::ofstream(d_output_file_hint + ".svissr", std::ios::binary);
+            d_output_files.push_back(d_output_file_hint + ".svissr");
+        }
+
+        logger->info("Using input symbols " + d_input_file);
+        logger->info("Decoding to " + d_output_file_hint + ".svissr");
+
+        time_t lastTime = 0;
+
         diff::NRZMDiff diff;
 
         // The deframer
@@ -34,17 +60,20 @@ namespace fengyun_svissr
         PNDerandomizer derand;
 
         // Final buffer after decoding
-        uint8_t *finalBuffer = new uint8_t[BUFFER_SIZE];
+        uint8_t finalBuffer[BUFFER_SIZE];
 
         // Bits => Bytes stuff
         uint8_t byteShifter = 0;
         int inByteShifter = 0;
         int byteShifted = 0;
 
-        while (should_run())
+        while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
         {
             // Read a buffer
-            read_data((uint8_t *)buffer, BUFFER_SIZE);
+            if (input_data_type == DATA_FILE)
+                data_in.read((char *)buffer, BUFFER_SIZE);
+            else
+                input_fifo->read((uint8_t *)buffer, BUFFER_SIZE);
 
             // Group symbols into bytes now, I channel
             inByteShifter = 0;
@@ -75,15 +104,29 @@ namespace fengyun_svissr
                 {
                     derand.derandData(frame.data(), 44356);
 
-                    write_data((uint8_t *)frame.data(), 44356);
+                    if (output_data_type == DATA_FILE)
+                        data_out.write((char *)frame.data(), 44356);
+                    else
+                        output_fifo->write(frame.data(), 44356);
                 }
+            }
+
+            if (input_data_type == DATA_FILE)
+                progress = data_in.tellg();
+
+            if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+            {
+                lastTime = time(NULL);
+                logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
             }
         }
 
-        delete[] finalBuffer;
-
-        cleanup();
+        if (output_data_type == DATA_FILE)
+            data_out.close();
+        if (input_data_type == DATA_FILE)
+            data_in.close();
     }
+
 
     void SVISSRDecoderModule::drawUI(bool window)
     {
@@ -95,7 +138,7 @@ namespace fengyun_svissr
             {
                 ImDrawList *draw_list = ImGui::GetWindowDrawList();
                 ImVec2 rect_min = ImGui::GetCursorScreenPos();
-                ImVec2 rect_max = {rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale};
+                ImVec2 rect_max = { rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale };
                 draw_list->AddRectFilled(rect_min, rect_max, style::theme.widget_bg);
                 draw_list->PushClipRect(rect_min, rect_max);
 
@@ -103,7 +146,8 @@ namespace fengyun_svissr
                 {
                     draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (int)(100 * ui_scale + (buffer[i] / 127.0) * 130 * ui_scale) % int(200 * ui_scale),
                                                       ImGui::GetCursorScreenPos().y + (int)(100 * ui_scale + rng.gasdev() * 14 * ui_scale) % int(200 * ui_scale)),
-                                               2 * ui_scale, style::theme.constellation);
+                                               2 * ui_scale,
+                                               style::theme.constellation);
                 }
 
                 draw_list->PopClipRect();
@@ -112,15 +156,24 @@ namespace fengyun_svissr
         }
         ImGui::EndGroup();
 
-        drawProgressBar();
+        if (!streamingInput)
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
     }
 
-    std::string SVISSRDecoderModule::getID() { return "fengyun_svissr_decoder"; }
+    std::string SVISSRDecoderModule::getID()
+    {
+        return "fengyun_svissr_decoder";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> SVISSRDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> SVISSRDecoderModule::getParameters()
+    {
+        return {};
+    }
+
+    std::shared_ptr<ProcessingModule> SVISSRDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<SVISSRDecoderModule>(input_file, output_file_hint, parameters);
     }
-} // namespace fengyun_svissr
+} // namespace elektro

@@ -1,14 +1,9 @@
-#include "backend.h"
-#include "core/backend.h"
-#include "core/style.h"
 #include <GLFW/glfw3.h>
-#include <mutex>
-#include <vector>
+#include "core/style.h"
+#include "backend.h"
 
-extern GLFWwindow *window;
+extern GLFWwindow* window;
 extern bool fallback_gl;
-
-std::mutex glfw_frame_mtx;
 
 float funcDeviceScale()
 {
@@ -24,20 +19,28 @@ float funcDeviceScale()
 
 void funcRebuildFonts()
 {
-    // Nothing to do here : this build uses the newer ImGui backends with dynamic
-    // font atlas support (ImGuiBackendFlags_RendererHasTextures), which re-upload
-    // the font texture(s) automatically after style::setFonts() rebuilds io.Fonts.
+#ifndef IMGUI_IMPL_OPENGL_ES2
+    if (fallback_gl)
+    {
+        ImGui_ImplOpenGL2_DestroyFontsTexture();
+        ImGui_ImplOpenGL2_CreateFontsTexture();
+    }
+    else
+#endif
+    {
+        ImGui_ImplOpenGL3_DestroyFontsTexture();
+        ImGui_ImplOpenGL3_CreateFontsTexture();
+    }
 }
 
 void funcSetMousePos(int x, int y)
 {
-    glfwSetCursorPos(window, x + backend::mouse_set_offset_x, y + backend::mouse_set_offset_y);
-    ImGui_ImplGlfw_CursorPosCallback(window, x, y);
+	glfwSetCursorPos(window, x, y);
+	ImGui_ImplGlfw_CursorPosCallback(window, x, y);
 }
 
 std::pair<int, int> funcBeginFrame()
 {
-    glfw_frame_mtx.lock();
     // Start the Dear ImGui frame
 #ifndef IMGUI_IMPL_OPENGL_ES2
     if (fallback_gl)
@@ -50,13 +53,11 @@ std::pair<int, int> funcBeginFrame()
 
     int wwidth, wheight;
     glfwGetWindowSize(window, &wwidth, &wheight);
-    glfw_frame_mtx.unlock();
     return {wwidth, wheight};
 }
 
 void funcEndFrame()
 {
-    glfw_frame_mtx.lock();
     ImGui::Render();
     int display_w, display_h;
     glfwGetFramebufferSize(window, &display_w, &display_h);
@@ -73,7 +74,6 @@ void funcEndFrame()
 
     glfwSwapBuffers(window);
     glfwPollEvents();
-    glfw_frame_mtx.unlock();
 }
 
 void funcSetIcon(uint8_t *image, int w, int h)
@@ -87,140 +87,6 @@ void funcSetIcon(uint8_t *image, int w, int h)
 #endif
 }
 
-//
-
-#include "imgui/portable-file-dialogs.h"
-#include "nfd/include/nfd.hpp"
-#include "nfd/include/nfd_glfw3.h"
-
-std::string selectFolderDialog(std::string default_path)
-{
-#ifdef __APPLE__
-    auto result = pfd::select_folder("Select Folder", default_path);
-
-    while (!result.ready(1000))
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
-    if (result.result().size() > 0)
-        return result.result();
-    return "";
-#else
-    // Init file dialogs
-    NFD::Guard nfdGuard;
-
-    glfw_frame_mtx.lock();
-
-    NFD::UniquePath outPath;
-
-    // show the dialog
-    nfdwindowhandle_t h;
-    NFD_GetNativeWindowFromGLFWWindow(window, &h);
-
-    glfw_frame_mtx.unlock();
-
-    nfdresult_t result = NFD::PickFolder(outPath, default_path == "" ? nullptr : default_path.c_str(), h);
-
-    if (result == NFD_OKAY)
-        return outPath.get();
-    else if (result == NFD_CANCEL)
-        return ""; //"User pressed cancel.";
-    else
-        return ""; // "Error: " + std::string(NFD::GetError());
-#endif
-}
-
-std::string selectFileDialog(std::vector<std::pair<std::string, std::string>> filters, std::string default_path)
-{
-#ifdef __APPLE__
-    std::vector<std::string> f;
-    for (auto &ff : filters)
-    {
-        f.push_back(ff.first);
-        f.push_back(ff.second);
-    }
-
-    auto result = pfd::open_file("Select File", default_path, f);
-
-    while (!result.ready(1000))
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
-    if (result.result().size() > 0 && result.result()[0].size() > 0)
-        return result.result()[0];
-    return "";
-#else
-    // Init file dialogs
-    NFD::Guard nfdGuard;
-
-    glfw_frame_mtx.lock();
-
-    NFD::UniquePath outPath;
-    // show the dialog
-    nfdwindowhandle_t h;
-    NFD_GetNativeWindowFromGLFWWindow(window, &h);
-
-    glfw_frame_mtx.unlock();
-
-    std::vector<nfdfilteritem_t> filt;
-    for (auto &f : filters)
-        filt.push_back({f.first.c_str(), f.second.c_str()});
-
-    nfdresult_t result = NFD::OpenDialog(outPath, filt.data(), filt.size(), default_path == "" ? nullptr : default_path.c_str(), h);
-
-    if (result == NFD_OKAY)
-        return outPath.get();
-    else if (result == NFD_CANCEL)
-        return ""; //"User pressed cancel.";
-    else
-        return ""; // "Error: " + std::string(NFD::GetError());
-#endif
-}
-
-std::string saveFileDialog(std::vector<std::pair<std::string, std::string>> filters, std::string default_path, std::string default_name)
-{
-#ifdef __APPLE__
-    std::vector<std::string> f;
-    for (auto &ff : filters)
-    {
-        f.push_back(ff.first);
-        f.push_back(ff.second);
-    }
-
-    auto result = pfd::save_file("Save File", default_path, f);
-
-    while (!result.ready(1000))
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
-    if (result.result().size() > 0)
-        return result.result();
-    return "";
-#else
-    // Init file dialogs
-    NFD::Guard nfdGuard;
-
-    glfw_frame_mtx.lock();
-
-    NFD::UniquePath outPath;
-    // show the dialog
-    nfdwindowhandle_t h;
-    NFD_GetNativeWindowFromGLFWWindow(window, &h);
-
-    glfw_frame_mtx.unlock();
-
-    std::vector<nfdfilteritem_t> filt;
-    for (auto &f : filters)
-        filt.push_back({f.first.c_str(), f.second.c_str()});
-
-    nfdresult_t result = NFD::SaveDialog(outPath, filt.data(), filt.size(), default_path.c_str(), default_name.c_str(), h);
-
-    if (result == NFD_OKAY)
-        return outPath.get();
-    else if (result == NFD_CANCEL)
-        return ""; //"User pressed cancel.";
-    else
-        return ""; // "Error: " + std::string(NFD::GetError());
-#endif
-}
-
 void bindBackendFunctions()
 {
     backend::device_scale = funcDeviceScale();
@@ -230,8 +96,4 @@ void bindBackendFunctions()
     backend::beginFrame = funcBeginFrame;
     backend::endFrame = funcEndFrame;
     backend::setIcon = funcSetIcon;
-
-    backend::selectFolderDialog = selectFolderDialog;
-    backend::selectFileDialog = selectFileDialog;
-    backend::saveFileDialog = saveFileDialog;
 }

@@ -1,18 +1,20 @@
 #pragma once
 
+#include "core/module.h"
 #include "instruments/amr2/amr2_reader.h"
-#include "instruments/lpt/lpt_reader.h"
 #include "instruments/poseidon/poseidon_reader.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
-#include "pipeline/modules/instrument_utils.h"
+#include "instruments/lpt/lpt_reader.h"
 
 namespace jason3
 {
     namespace instruments
     {
-        class Jason3InstrumentsDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+        class Jason3InstrumentsDecoderModule : public ProcessingModule
         {
         protected:
+            std::atomic<uint64_t> filesize;
+            std::atomic<uint64_t> progress;
+
             // Readers
             amr2::AMR2Reader amr2_reader;
             poseidon::PoseidonReader poseidon_c_reader;
@@ -39,8 +41,8 @@ namespace jason3
         public:
             static std::string getID();
             virtual std::string getIDM() { return getID(); };
-            static nlohmann::json getParams() { return {}; } // TODOREWORK
+            static std::vector<std::string> getParameters();
             static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         };
-    } // namespace instruments
-} // namespace jason3
+    } // namespace amsu
+} // namespace metop

@@ -1,36 +1,41 @@
 #include "module_gcom1_instruments.h"
-#include "common/ccsds/ccsds_aos/demuxer.h"
-#include "common/ccsds/ccsds_aos/vcdu.h"
-#include "common/utils.h"
-#include "imgui/imgui.h"
-#include "logger.h"
-#include "products/dataset.h"
-#include "products/image_product.h"
-#include <cstdint>
-#include <filesystem>
 #include <fstream>
+#include "common/ccsds/ccsds_aos/vcdu.h"
+#include "logger.h"
+#include <filesystem>
+#include "imgui/imgui.h"
+#include "common/utils.h"
+#include "common/ccsds/ccsds_aos/demuxer.h"
+#include "products/products.h"
+#include "products/dataset.h"
+#include "products/image_products.h"
 
 namespace gcom1
 {
     namespace instruments
     {
         GCOM1InstrumentsDecoderModule::GCOM1InstrumentsDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+            : ProcessingModule(input_file, output_file_hint, parameters)
         {
-            fsfsm_enable_output = false;
         }
 
         void GCOM1InstrumentsDecoderModule::process()
         {
+            filesize = getFilesize(d_input_file);
+            std::ifstream data_in(d_input_file, std::ios::binary);
+
+            logger->info("Using input frames " + d_input_file);
+
+            time_t lastTime = 0;
             uint8_t cadu[1264];
 
             // Demuxers
             ccsds::ccsds_aos::Demuxer demuxer_vcid17(1092, false);
 
-            while (should_run())
+            while (!data_in.eof())
             {
                 // Read buffer
-                read_data((uint8_t *)&cadu, 1264);
+                data_in.read((char *)&cadu, 1264);
 
                 // Parse this transport frame
                 ccsds::ccsds_aos::VCDU vcdu = ccsds::ccsds_aos::parseVCDU(cadu);
@@ -47,15 +52,22 @@ namespace gcom1
                             amsr2_reader.work(pkt);
                     }
                 }
+
+                progress = data_in.tellg();
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
+                }
             }
 
-            cleanup();
+            data_in.close();
 
             std::string sat_name = "GCOM-W1";
             int norad = 38337;
 
             // Products dataset
-            satdump::products::DataSet dataset;
+            satdump::ProductDataSet dataset;
             dataset.satellite_name = sat_name;
             dataset.timestamp = time(0); // avg_overflowless(avhrr_reader.timestamps);
 
@@ -77,15 +89,17 @@ namespace gcom1
                 logger->info("----------- AMSR-2");
                 logger->info("Lines : " + std::to_string(amsr2_reader.lines));
 
-                satdump::products::ImageProduct amsr2_products;
+                satdump::ImageProducts amsr2_products;
                 amsr2_products.instrument_name = "amsr2";
                 // amsr2_products.has_timestamps = true;
                 // amsr2_products.set_tle(satellite_tle);
+                amsr2_products.bit_depth = 12;
+                // amsr2_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
                 // amsr2_products.set_timestamps(mhs_reader.timestamps);
                 // amsr2_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/metop_abc_mhs.json")));
 
                 for (int i = 0; i < 20; i++)
-                    amsr2_products.images.push_back({i, "AMSR2-" + std::to_string(i + 1), std::to_string(i + 1), amsr2_reader.getChannel(i), 12});
+                    amsr2_products.images.push_back({"AMSR2-" + std::to_string(i + 1), std::to_string(i + 1), amsr2_reader.getChannel(i)});
 
                 amsr2_products.save(directory);
                 dataset.products_list.push_back("AMSR-2");
@@ -121,16 +135,24 @@ namespace gcom1
                 ImGui::EndTable();
             }
 
-            drawProgressBar();
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string GCOM1InstrumentsDecoderModule::getID() { return "gcom1_instruments"; }
+        std::string GCOM1InstrumentsDecoderModule::getID()
+        {
+            return "gcom1_instruments";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> GCOM1InstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> GCOM1InstrumentsDecoderModule::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> GCOM1InstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<GCOM1InstrumentsDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace instruments
-} // namespace gcom1
+    } // namespace amsu
+} // namespace metop

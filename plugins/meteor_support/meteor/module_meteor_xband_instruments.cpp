@@ -1,19 +1,16 @@
 #include "module_meteor_xband_instruments.h"
-#include "common/repack.h"
-#include "common/tracking/tle.h"
-#include "common/utils.h"
-#include "core/resources.h"
-#include "imgui/imgui.h"
-#include "init.h"
-#include "logger.h"
-#include "meteor.h"
-#include "nlohmann/json_utils.h"
-#include "products/dataset.h"
-#include "products/image_product.h"
-#include "utils/stats.h"
-#include "utils/time.h"
-#include <filesystem>
 #include <fstream>
+#include "logger.h"
+#include <filesystem>
+#include "imgui/imgui.h"
+#include "common/utils.h"
+#include "meteor.h"
+#include "products/image_products.h"
+#include "common/tracking/tle.h"
+#include "products/dataset.h"
+#include "resources.h"
+#include "nlohmann/json_utils.h"
+#include "common/repack.h"
 
 namespace meteor
 {
@@ -23,6 +20,94 @@ namespace meteor
             : ProcessingModule(input_file, output_file_hint, parameters)
         {
             d_instrument_mode = parseDumpType(parameters);
+        }
+
+        namespace
+        {
+            struct Point
+            {
+                double x;
+                double y;
+            };
+
+            Point rotate_point(double cx, double cy, double angle, Point p)
+            {
+                double s = sin(angle);
+                double c = cos(angle);
+
+                // translate point back to origin:
+                p.x -= cx;
+                p.y -= cy;
+
+                // rotate point
+                double xnew = p.x * c - p.y * s;
+                double ynew = p.x * s + p.y * c;
+
+                // translate point back:
+                p.x = xnew + cx;
+                p.y = ynew + cy;
+                return p;
+            }
+
+            void processSingleKMSSImage(image::Image &img, int xo, int yo, double rotate = 0)
+            {
+                logger->info("Correcting KMSS image channel...");
+
+                image::Image cimg = img;
+                img.fill(0);
+                img.draw_image(0, cimg, xo, yo);
+
+                if (rotate != 0)
+                {
+                    for (double y = 0; y < cimg.height(); y++)
+                    {
+                        for (double x = 0; x < cimg.width(); x++)
+                        {
+                            auto point = rotate_point(4000, y, rotate * 0.01745329, {x, y});
+                            if (point.x < 0)
+                                point.x = 0;
+                            if (point.y < 0)
+                                point.y = 0;
+                            if (point.x > img.width() - 1)
+                                point.x = img.width() - 1;
+                            if (point.y > img.height() - 1)
+                                point.y = img.height() - 1;
+                            cimg.set(0, x, y, img.get_pixel_bilinear(0, point.x, point.y));
+                        }
+                    }
+
+                    img = cimg;
+                }
+            }
+
+            void correctKMSSImage(std::string sat_num, int kmss, int channel, image::Image &img)
+            {
+                if (sat_num == "M2-2")
+                {
+                    if (kmss == 0)
+                    {
+                        if (channel == 0)
+                            processSingleKMSSImage(img, -2, 3);
+                        else if (channel == 1)
+                            processSingleKMSSImage(img, -4, 1);
+                        else if (channel == 2)
+                            processSingleKMSSImage(img, 0, 0, -0.18);
+                    }
+                    else if (kmss == 1)
+                    {
+                        if (channel == 0)
+                            processSingleKMSSImage(img, -12, 7);
+                        else if (channel == 1)
+                            processSingleKMSSImage(img, -10, -7, 0.16);
+                        else if (channel == 2)
+                            processSingleKMSSImage(img, 0, 0);
+                    }
+                }
+                else
+                {
+                    logger->error("Can't align KMSS channels, unsupported satellite. Please report!");
+                }
+            }
         }
 
         void MeteorXBandInstrumentsDecoderModule::process()
@@ -138,7 +223,7 @@ namespace meteor
 #endif
 
                 // Products dataset
-                satdump::products::DataSet dataset;
+                satdump::ProductDataSet dataset;
                 dataset.satellite_name = sat_name;
                 dataset.timestamp = time(0); // avg_overflowless(msumr_timestamps);
 
@@ -153,13 +238,16 @@ namespace meteor
                     logger->info("----------- MTVZA");
                     logger->info("Lines : " + std::to_string(mtvza_lines));
 
-                    satdump::products::ImageProduct mtvza_products;
+                    satdump::ImageProducts mtvza_products;
                     mtvza_products.instrument_name = "mtvza";
-                    mtvza_products.set_proj_cfg_tle_timestamps(loadJsonFile(resources::getResourcePath("projections_settings/meteor_m2-3_mtvza_dump.json")),
-                                                               satdump::db_keplers->get_from_norad(norad), timestamps);
+                    mtvza_products.has_timestamps = true;
+                    mtvza_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
+                    mtvza_products.set_tle(satdump::general_tle_registry.get_from_norad(norad));
+                    mtvza_products.set_timestamps(timestamps);
+                    mtvza_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/meteor_m2-3_mtvza_dump.json")));
 
                     for (int i = 0; i < 46; i++)
-                        mtvza_products.images.push_back({i, "MTVZA-" + std::to_string(i + 1), std::to_string(i + 1), image::Image(mtvza_channels[i].data(), 16, 200, mtvza_lines, 1), 16});
+                        mtvza_products.images.push_back({"MTVZA-" + std::to_string(i + 1), std::to_string(i + 1), image::Image(mtvza_channels[i].data(), 16, 200, mtvza_lines, 1)});
 
                     mtvza_products.save(directory);
                     dataset.products_list.push_back("MTVZA");
@@ -183,7 +271,7 @@ namespace meteor
 
                 long last_subsecond_cnt = -1;
 
-                std::ofstream header_out(d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/hdr.raw", std::ios::binary);
+                std::ofstream header_out(d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/hdr.raw");
 
                 std::vector<double> timestamps;
 
@@ -212,13 +300,8 @@ namespace meteor
 
                             if (last_subsecond_cnt != -1)
                             {
-                                double offset = 0;
-                                if (norad == 44387)
-                                    offset = 1704067200 - 3600 * 24 - 3600 * 3;
-                                else if (norad == 59051)
-                                    offset = 1704067200 - 3600 * 24 - 3600 * 3 - 3600 * 24 * 3107;
-                                double timestamp = offset + double(idk_value) * 65536 + double(seconds_value) + double(last_subsecond_cnt) / 16777216.0;
-                                logger->trace("%s - %d", satdump::timestamp_to_string(timestamp).c_str(), idk_value);
+                                double timestamp = (1704067200 - 3600 * 24 - 3600 * 3) + double(idk_value) * 65536 + double(seconds_value) + double(last_subsecond_cnt) / 16777216.0;
+                                logger->trace("%s - %d", timestamp_to_string(timestamp).c_str(), idk_value);
                                 timestamps.push_back(timestamp);
                             }
                             else
@@ -283,9 +366,9 @@ namespace meteor
                 data_in.close();
 
                 // Products dataset
-                satdump::products::DataSet dataset;
+                satdump::ProductDataSet dataset;
                 dataset.satellite_name = sat_name;
-                dataset.timestamp = satdump::get_median(timestamps);
+                dataset.timestamp = time(0); // avg_overflowless(msumr_timestamps);
 
                 // KMSS1
                 {
@@ -298,26 +381,23 @@ namespace meteor
                     logger->info("----------- KMSS MSU-100 1");
                     logger->info("Lines : " + std::to_string(kmss_lines));
 
-                    satdump::products::ImageProduct kmss_product;
-                    kmss_product.instrument_name = "kmss_msu100";
-                    kmss_product.set_proj_cfg_tle_timestamps(loadJsonFile(resources::getResourcePath("projections_settings/meteor_m2-2_kmss_msu100_1.json")),
-                                                             satdump::db_keplers->get_from_norad(norad), timestamps);
-
-                    std::vector<satdump::ChannelTransform> transforms_def = {satdump::ChannelTransform().init_none(), satdump::ChannelTransform().init_none(), satdump::ChannelTransform().init_none()};
-
-                    if (sat_name == "METEOR-M2-4")
-                        transforms_def = {satdump::ChannelTransform().init_none(),                                     //
-                                          satdump::ChannelTransform().init_affine_slantx(1, 1, 4, -3.8, 4000, 0.0012), //
-                                          satdump::ChannelTransform().init_affine_slantx(1, 1, -2, -2, 4000, 0.0005)};
+                    satdump::ImageProducts kmss_products;
+                    kmss_products.instrument_name = "kmss_msu100";
+                    kmss_products.has_timestamps = true;
+                    kmss_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
+                    kmss_products.set_tle(satdump::general_tle_registry.get_from_norad(norad));
+                    kmss_products.set_timestamps(timestamps);
+                    kmss_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/meteor_m2-2_kmss_msu100_1.json")));
 
                     for (int i = 0; i < 3; i++)
                     {
                         auto img = image::Image(msu100_1_dat[i].data(), 16, 8000, kmss_lines, 1);
+                        correctKMSSImage(d_parameters["satellite_number"].get<std::string>(), 0, i, img);
                         msu100_1_dat[i].clear();
-                        kmss_product.images.push_back({i, "MSU100-" + std::to_string(i + 1), std::to_string(i + 1), img, 10, transforms_def[i]});
+                        kmss_products.images.push_back({"MSU100-" + std::to_string(i + 1), std::to_string(i + 1), img});
                     }
 
-                    kmss_product.save(directory);
+                    kmss_products.save(directory);
                     dataset.products_list.push_back("KMSS_MSU100_1");
 
                     ////////////////////////////////////////////////     mtvza_status = DONE;
@@ -334,26 +414,23 @@ namespace meteor
                     logger->info("----------- KMSS MSU-100 2");
                     logger->info("Lines : " + std::to_string(kmss_lines));
 
-                    satdump::products::ImageProduct kmss_product;
-                    kmss_product.instrument_name = "kmss_msu100";
-                    kmss_product.set_proj_cfg_tle_timestamps(loadJsonFile(resources::getResourcePath("projections_settings/meteor_m2-2_kmss_msu100_2.json")),
-                                                             satdump::db_keplers->get_from_norad(norad), timestamps);
-
-                    std::vector<satdump::ChannelTransform> transforms_def = {satdump::ChannelTransform().init_none(), satdump::ChannelTransform().init_none(), satdump::ChannelTransform().init_none()};
-
-                    if (sat_name == "METEOR-M2-4")
-                        transforms_def = {satdump::ChannelTransform().init_none(),                                                          //
-                                          satdump::ChannelTransform().init_affine_slantx(0.999800, 1.000000, -12.000000, -3.0, 0, -0.0009), //
-                                          satdump::ChannelTransform().init_affine_slantx(0.999800, 1, -22, 5.700000, 0, 0.0005)};
+                    satdump::ImageProducts kmss_products;
+                    kmss_products.instrument_name = "kmss_msu100";
+                    kmss_products.has_timestamps = true;
+                    kmss_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
+                    kmss_products.set_tle(satdump::general_tle_registry.get_from_norad(norad));
+                    kmss_products.set_timestamps(timestamps);
+                    kmss_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/meteor_m2-2_kmss_msu100_2.json")));
 
                     for (int i = 0; i < 3; i++)
                     {
                         auto img = image::Image(msu100_2_dat[i].data(), 16, 8000, kmss_lines, 1);
+                        correctKMSSImage(d_parameters["satellite_number"].get<std::string>(), 1, i, img);
                         msu100_2_dat[i].clear();
-                        kmss_product.images.push_back({i, "MSU100-" + std::to_string(i + 1), std::to_string(i + 1), img, 10, transforms_def[i]});
+                        kmss_products.images.push_back({"MSU100-" + std::to_string(i + 1), std::to_string(i + 1), img});
                     }
 
-                    kmss_product.save(directory);
+                    kmss_products.save(directory);
                     dataset.products_list.push_back("KMSS_MSU100_2");
 
                     ////////////////////////////////////////////////     mtvza_status = DONE;
@@ -396,11 +473,19 @@ namespace meteor
             ImGui::End();
         }
 
-        std::string MeteorXBandInstrumentsDecoderModule::getID() { return "meteor_xband_instruments"; }
+        std::string MeteorXBandInstrumentsDecoderModule::getID()
+        {
+            return "meteor_xband_instruments";
+        }
+
+        std::vector<std::string> MeteorXBandInstrumentsDecoderModule::getParameters()
+        {
+            return {};
+        }
 
         std::shared_ptr<ProcessingModule> MeteorXBandInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<MeteorXBandInstrumentsDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace instruments
-} // namespace meteor
+    } // namespace amsu
+} // namespace metop

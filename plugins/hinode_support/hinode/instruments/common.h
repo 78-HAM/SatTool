@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common/ccsds/ccsds.h"
-#include "image/image.h"
+#include "common/image/image.h"
 #include "nlohmann/json.hpp"
 
 /*

@@ -4,8 +4,6 @@
 #include <cstring>
 #include <vector>
 #include "common/utils.h"
-#include "utils/string.h"
-#include <map>
 
 namespace goes
 {
@@ -73,11 +71,11 @@ namespace goes
 
                 // I will admit I needed to peek in goestools to figure that one out
                 // A bit hard without having live data...
-                std::vector<std::string> fields = satdump::splitString(ancillary_text, ';');
+                std::vector<std::string> fields = splitString(ancillary_text, ';');
 
                 for (std::string &field : fields)
                 {
-                    std::vector<std::string> values = satdump::splitString(field, '=');
+                    std::vector<std::string> values = splitString(field, '=');
                     if (values.size() == 2)
                     {
                         values[0] = values[0].substr(0, values[0].find_last_not_of(' ') + 1);

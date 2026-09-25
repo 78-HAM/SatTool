@@ -1,36 +1,44 @@
 #pragma once
 
-#include "common/widgets/constellation.h"
-#include "noaa_deframer.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
+#include "core/module.h"
+#include <complex>
+#include <thread>
 #include <fstream>
+#include "noaa_deframer.h"
+#include "common/widgets/constellation.h"
 
 namespace noaa
 {
-    class NOAAHRPTDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+    class NOAAHRPTDecoderModule : public ProcessingModule
     {
     protected:
         std::shared_ptr<NOAADeframer> def;
 
         int8_t *soft_buffer;
 
+        std::ifstream data_in;
+        std::ofstream data_out;
+
+        std::atomic<uint64_t> filesize;
+        std::atomic<uint64_t> progress;
+
         int frame_count = 0;
 
         // UI Stuff
-        satdump::widgets::ConstellationViewer constellation;
+        widgets::ConstellationViewer constellation;
 
     public:
         NOAAHRPTDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         ~NOAAHRPTDecoderModule();
         void process();
         void drawUI(bool window);
-
-        nlohmann::json getModuleStats();
+        std::vector<ModuleDataType> getInputTypes();
+        std::vector<ModuleDataType> getOutputTypes();
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
 } // namespace noaa

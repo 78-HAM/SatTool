@@ -1,11 +1,10 @@
 #include "module_fengyun_mpt_decoder.h"
-#include "common/codings/randomization.h"
+#include "logger.h"
 #include "common/codings/reedsolomon/reedsolomon.h"
 #include "common/codings/rotation.h"
-#include "common/widgets/themed_widgets.h"
 #include "diff.h"
-#include "logger.h"
-#include <cstdint>
+#include "common/codings/randomization.h"
+#include "common/widgets/themed_widgets.h"
 
 #define BUFFER_SIZE 8192
 
@@ -14,10 +13,11 @@ uint64_t getFilesize(std::string filepath);
 
 namespace fengyun3
 {
-    FengyunMPTDecoderModule::FengyunMPTDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-        : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters), d_viterbi_outsync_after(parameters["viterbi_outsync_after"].get<int>()),
-          d_viterbi_ber_threasold(parameters["viterbi_ber_thresold"].get<float>()), viterbi1(d_viterbi_ber_threasold, d_viterbi_outsync_after, BUFFER_SIZE, {PHASE_0, PHASE_90}),
-          viterbi2(d_viterbi_ber_threasold, d_viterbi_outsync_after, BUFFER_SIZE, {PHASE_0, PHASE_90})
+    FengyunMPTDecoderModule::FengyunMPTDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters),
+                                                                                                                                        d_viterbi_outsync_after(parameters["viterbi_outsync_after"].get<int>()),
+                                                                                                                                        d_viterbi_ber_threasold(parameters["viterbi_ber_thresold"].get<float>()),
+                                                                                                                                        viterbi1(d_viterbi_ber_threasold, d_viterbi_outsync_after, BUFFER_SIZE, {PHASE_0, PHASE_90}),
+                                                                                                                                        viterbi2(d_viterbi_ber_threasold, d_viterbi_outsync_after, BUFFER_SIZE, {PHASE_0, PHASE_90})
     {
         soft_buffer = new int8_t[BUFFER_SIZE * 2];
         q_soft_buffer = new int8_t[BUFFER_SIZE];
@@ -25,8 +25,16 @@ namespace fengyun3
         viterbi1_out = new uint8_t[BUFFER_SIZE];
         viterbi2_out = new uint8_t[BUFFER_SIZE];
         diff_out = new uint8_t[BUFFER_SIZE * 20];
+    }
 
-        fsfsm_file_ext = ".cadu";
+    std::vector<ModuleDataType> FengyunMPTDecoderModule::getInputTypes()
+    {
+        return {DATA_FILE, DATA_STREAM};
+    }
+
+    std::vector<ModuleDataType> FengyunMPTDecoderModule::getOutputTypes()
+    {
+        return {DATA_FILE};
     }
 
     FengyunMPTDecoderModule::~FengyunMPTDecoderModule()
@@ -41,6 +49,20 @@ namespace fengyun3
 
     void FengyunMPTDecoderModule::process()
     {
+        if (input_data_type == DATA_FILE)
+            filesize = getFilesize(d_input_file);
+        else
+            filesize = 0;
+        if (input_data_type == DATA_FILE)
+            data_in = std::ifstream(d_input_file, std::ios::binary);
+        data_out = std::ofstream(d_output_file_hint + ".cadu", std::ios::binary);
+        d_output_files.push_back(d_output_file_hint + ".cadu");
+
+        logger->info("Using input symbols " + d_input_file);
+        logger->info("Decoding to " + d_output_file_hint + ".cadu");
+
+        time_t lastTime = 0;
+
         // Differential
         FengyunDiff diff;
         reedsolomon::ReedSolomon rs(reedsolomon::RS223);
@@ -53,10 +75,13 @@ namespace fengyun3
         bool invert_branches = false;
         int noSyncRuns = 0, viterbiNoSyncRun = 0;
 
-        while (should_run())
+        while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
         {
             // Read a buffer
-            read_data((uint8_t *)soft_buffer, BUFFER_SIZE * 2);
+            if (input_data_type == DATA_FILE)
+                data_in.read((char *)soft_buffer, BUFFER_SIZE * 2);
+            else
+                input_fifo->read((uint8_t *)soft_buffer, BUFFER_SIZE * 2);
 
             rotate_soft(soft_buffer, BUFFER_SIZE * 2, PHASE_0, iq_invert);
 
@@ -126,30 +151,34 @@ namespace fengyun3
                     rs.decode_interlaved(&cadu[4], true, 4, errors);
 
                     // Write it out
-                    write_data((uint8_t *)cadu, 1024);
+                    data_out.write((char *)cadu, 1024);
                 }
+            }
+
+            if (input_data_type == DATA_FILE)
+                progress = data_in.tellg();
+
+            // Update module stats
+            module_stats["deframer_lock"] = deframer.getState() == deframer.STATE_SYNCED;
+            module_stats["viterbi1_ber"] = viterbi1.ber();
+            module_stats["viterbi1_lock"] = viterbi1.getState();
+            module_stats["viterbi2_ber"] = viterbi2.ber();
+            module_stats["viterbi2_lock"] = viterbi2.getState();
+            module_stats["rs_avg"] = (errors[0] + errors[1] + errors[2] + errors[3]) / 4;
+
+            if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+            {
+                lastTime = time(NULL);
+                std::string viterbi1_state = viterbi1.getState() == 0 ? "NOSYNC" : "SYNCED";
+                std::string viterbi2_state = viterbi2.getState() == 0 ? "NOSYNC" : "SYNCED";
+                std::string deframer_state = deframer.getState() == deframer.STATE_NOSYNC ? "NOSYNC" : (deframer.getState() == deframer.STATE_SYNCING ? "SYNCING" : "SYNCED");
+                logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%, Viterbi 1 : " + viterbi1_state + " BER : " + std::to_string(viterbi1.ber()) + ", Viterbi 2 : " + viterbi2_state + " BER : " + std::to_string(viterbi2.ber()) + ", Deframer : " + deframer_state);
             }
         }
 
-        cleanup();
-    }
-
-    nlohmann::json FengyunMPTDecoderModule::getModuleStats()
-    {
-        auto v = satdump::pipeline::base::FileStreamToFileStreamModule::getModuleStats();
-        v["deframer_lock"] = deframer.getState() == deframer.STATE_SYNCED;
-        v["viterbi1_ber"] = viterbi1.ber();
-        v["viterbi1_lock"] = viterbi1.getState();
-        v["viterbi2_ber"] = viterbi2.ber();
-        v["viterbi2_lock"] = viterbi2.getState();
-        v["rs_avg"] = (errors[0] + errors[1] + errors[2] + errors[3]) / 4;
-        std::string viterbi1_state = viterbi1.getState() == 0 ? "NOSYNC" : "SYNCED";
-        std::string viterbi2_state = viterbi2.getState() == 0 ? "NOSYNC" : "SYNCED";
-        std::string deframer_state = deframer.getState() == deframer.STATE_NOSYNC ? "NOSYNC" : (deframer.getState() == deframer.STATE_SYNCING ? "SYNCING" : "SYNCED");
-        v["viterbi1_state"] = viterbi1_state;
-        v["viterbi2_state"] = viterbi2_state;
-        v["deframer_state"] = deframer_state;
-        return v;
+        data_out.close();
+        if (output_data_type == DATA_FILE)
+            data_in.close();
     }
 
     void FengyunMPTDecoderModule::drawUI(bool window)
@@ -165,7 +194,7 @@ namespace fengyun3
             {
                 ImDrawList *draw_list = ImGui::GetWindowDrawList();
                 ImVec2 rect_min = ImGui::GetCursorScreenPos();
-                ImVec2 rect_max = {rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale};
+                ImVec2 rect_max = { rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale };
                 draw_list->AddRectFilled(rect_min, rect_max, style::theme.widget_bg);
                 draw_list->PushClipRect(rect_min, rect_max);
 
@@ -173,7 +202,8 @@ namespace fengyun3
                 {
                     draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (int)(100 * ui_scale + (((int8_t *)soft_buffer)[i * 2 + 0] / 127.0) * 100 * ui_scale) % int(200 * ui_scale),
                                                       ImGui::GetCursorScreenPos().y + (int)(100 * ui_scale + (((int8_t *)soft_buffer)[i * 2 + 1] / 127.0) * 100 * ui_scale) % int(200 * ui_scale)),
-                                               2 * ui_scale, style::theme.constellation);
+                                               2 * ui_scale,
+                                               style::theme.constellation);
                 }
 
                 draw_list->PopClipRect();
@@ -228,7 +258,8 @@ namespace fengyun3
                 std::memmove(&ber_history1[0], &ber_history1[1], (200 - 1) * sizeof(float));
                 ber_history1[200 - 1] = ber1;
 
-                satdump::widgets::ThemedPlotLines(style::theme.plot_bg.Value, "##1", ber_history1, IM_ARRAYSIZE(ber_history1), 0, "", 0.0f, 1.0f, ImVec2(200 * ui_scale, 50 * ui_scale));
+                widgets::ThemedPlotLines(style::theme.plot_bg.Value, "", ber_history1, IM_ARRAYSIZE(ber_history1), 0, "", 0.0f, 1.0f,
+                                         ImVec2(200 * ui_scale, 50 * ui_scale));
             }
 
             ImGui::Button("Viterbi 2", {200 * ui_scale, 20 * ui_scale});
@@ -249,7 +280,8 @@ namespace fengyun3
                 std::memmove(&ber_history2[0], &ber_history2[1], (200 - 1) * sizeof(float));
                 ber_history2[200 - 1] = ber2;
 
-                satdump::widgets::ThemedPlotLines(style::theme.plot_bg.Value, "##2", ber_history2, IM_ARRAYSIZE(ber_history2), 0, "", 0.0f, 1.0f, ImVec2(200 * ui_scale, 50 * ui_scale));
+                widgets::ThemedPlotLines(style::theme.plot_bg.Value, "", ber_history2, IM_ARRAYSIZE(ber_history2), 0, "", 0.0f, 1.0f,
+                                         ImVec2(200 * ui_scale, 50 * ui_scale));
             }
 
             ImGui::Spacing();
@@ -277,15 +309,24 @@ namespace fengyun3
         }
         ImGui::EndGroup();
 
-        drawProgressBar();
+        if (!streamingInput)
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
     }
 
-    std::string FengyunMPTDecoderModule::getID() { return "fengyun_mpt_decoder"; }
+    std::string FengyunMPTDecoderModule::getID()
+    {
+        return "fengyun_mpt_decoder";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> FengyunMPTDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> FengyunMPTDecoderModule::getParameters()
+    {
+        return {"viterbi_outsync_after", "viterbi_ber_thresold", "soft_symbols", "invert_second_viterbi"};
+    }
+
+    std::shared_ptr<ProcessingModule> FengyunMPTDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<FengyunMPTDecoderModule>(input_file, output_file_hint, parameters);
     }
-} // namespace fengyun3
+} // namespace fengyun

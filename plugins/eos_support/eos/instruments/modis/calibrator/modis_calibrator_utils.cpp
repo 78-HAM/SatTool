@@ -2,7 +2,7 @@
 #include "modis_defs.h"
 #include "logger.h"
 #include "nlohmann/json_utils.h"
-#include "core/resources.h"
+#include "resources.h"
 
 namespace eos
 {
@@ -11,7 +11,7 @@ namespace eos
         namespace precompute
         {
 
-            nlohmann::json precomputeVars(satdump::products::ImageProduct *d_products, nlohmann::json d_vars, bool is_aqua)
+            nlohmann::json precomputeVars(satdump::ImageProducts *d_products, nlohmann::json d_vars, bool is_aqua)
             {
                 CalibrationVars cvars;
 

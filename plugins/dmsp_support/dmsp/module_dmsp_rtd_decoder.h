@@ -1,12 +1,15 @@
 #pragma once
 
-#include "common/widgets/constellation.h"
+#include "core/module.h"
+#include <complex>
+#include <thread>
+#include <fstream>
 #include "dmsp_deframer.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
+#include "common/widgets/constellation.h"
 
 namespace dmsp
 {
-    class DMSPRTDDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+    class DMSPRTDDecoderModule : public ProcessingModule
     {
     protected:
         std::shared_ptr<DMSP_Deframer> def;
@@ -15,20 +18,28 @@ namespace dmsp
         uint8_t *soft_bits;
         uint8_t *output_frames;
 
+        std::ifstream data_in;
+        std::ofstream data_out;
+
+        //  int frame_count = 0;
+        std::atomic<uint64_t> filesize;
+        std::atomic<uint64_t> progress;
+
         // UI Stuff
-        satdump::widgets::ConstellationViewer constellation;
+        widgets::ConstellationViewer constellation;
 
     public:
         DMSPRTDDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         ~DMSPRTDDecoderModule();
         void process();
         void drawUI(bool window);
-        nlohmann::json getModuleStats();
+        std::vector<ModuleDataType> getInputTypes();
+        std::vector<ModuleDataType> getOutputTypes();
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
-} // namespace dmsp
+} // namespace noaa

@@ -1,6 +1,6 @@
 name: Build All
 
-on: [workflow_dispatch]
+on: [push]
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build_windows_x64:
-    runs-on: windows-2022
+    runs-on: windows-2019
 
     steps:
       - uses: actions/checkout@v4
@@ -24,11 +24,11 @@ jobs:
           path: vcpkg
           key: win-deps-x64-${{ hashFiles('windows/Configure-vcpkg.ps1') }}
 
-      - name: Set up Python 3.13
+      - name: Set up Python 3.12
         if: steps.win-deps-x64.outputs.cache-hit != 'true'
         uses: actions/setup-python@v5
         with:
-          python-version: 3.13
+          python-version: 3.12
 
       - name: Install mako
         if: steps.win-deps-x64.outputs.cache-hit != 'true'
@@ -84,7 +84,7 @@ jobs:
           path: ${{runner.workspace}}/build/SatDump-*.exe
 
       - name: Add dumpbin to PATH
-        run: echo "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\$((Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC" | Sort-Object Name -Descending | Select-Object -First 1).Name)\bin\Hostx64\x64" >> $env:GITHUB_PATH
+        run: echo "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC\$((Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC" | Sort-Object Name -Descending | Select-Object -First 1).Name)\bin\Hostx64\x64" >> $env:GITHUB_PATH
 
       - name: Build Portable
         shell: powershell
@@ -109,11 +109,11 @@ jobs:
           path: vcpkg
           key: win-deps-arm64-${{ hashFiles('windows/Configure-vcpkg.ps1') }}
 
-      - name: Set up Python 3.13
+      - name: Set up Python 3.12
         if: steps.win-deps-arm64.outputs.cache-hit != 'true'
         uses: actions/setup-python@v5
         with:
-          python-version: 3.13
+          python-version: 3.12
 
       - name: Install mako
         if: steps.win-deps-arm64.outputs.cache-hit != 'true'
@@ -141,7 +141,7 @@ jobs:
 
       - name: Configure CMake
         working-directory: ${{runner.workspace}}/build
-        run: cmake -A ARM64 -DVCPKG_TARGET_TRIPLET="arm64-windows" -DVCPKG_HOST_TRIPLET="x64-windows" -DVCPKG_USE_HOST_TOOLS=ON -DCMAKE_SYSTEM_VERSION="10.0.22621.0" -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DCMAKE_CROSSCOMPILING=ON -DPLUGIN_LIMESDR_SDR_SUPPORT=OFF -DBUILD_MSVC=ON -DCMAKE_TOOLCHAIN_FILE="${{github.workspace}}\vcpkg\scripts\buildsystems\vcpkg.cmake" "$Env:GITHUB_WORKSPACE"
+        run: cmake -A ARM64 -DVCPKG_TARGET_TRIPLET="arm64-windows" -DVCPKG_HOST_TRIPLET="x64-windows" -DVCPKG_USE_HOST_TOOLS=ON -DCMAKE_SYSTEM_VERSION="10.0.22621.0" -DPLUGIN_LIMESDR_SDR_SUPPORT=OFF -DPLUGIN_USRP_SDR_SUPPORT=OFF -DBUILD_MSVC=ON -DCMAKE_TOOLCHAIN_FILE="${{github.workspace}}\vcpkg\scripts\buildsystems\vcpkg.cmake" "$Env:GITHUB_WORKSPACE"
 
       - name: Build
         working-directory: ${{runner.workspace}}/build
@@ -218,7 +218,7 @@ jobs:
         run: sudo apt update
 
       - name: Install dependencies
-        run: sudo apt install -y libdbus-1-dev libcurl4-openssl-dev libglfw3-dev libfftw3-dev libvolk2-dev build-essential cmake pkgconf libjpeg-dev libpng-dev libtiff-dev libairspy-dev libairspyhf-dev libhackrf-dev librtlsdr-dev libomp-dev libnng-dev libiio-dev libzstd-dev libad9361-dev libbladerf-dev libuhd-dev liblimesuite-dev ocl-icd-opencl-dev libjemalloc-dev portaudio19-dev libhdf5-dev
+        run: sudo apt install -y libcurl4-openssl-dev libglfw3-dev libfftw3-dev libvolk2-dev build-essential cmake pkgconf libjpeg-dev libpng-dev libtiff-dev libairspy-dev libairspyhf-dev libhackrf-dev librtlsdr-dev libomp-dev libnng-dev libiio-dev libzstd-dev libad9361-dev libbladerf-dev libuhd-dev liblimesuite-dev ocl-icd-opencl-dev libjemalloc-dev portaudio19-dev libhdf5-dev
 
       - name: Create Build Environment
         # Some projects don't allow in-source building, so create a separate build directory
@@ -233,7 +233,7 @@ jobs:
         # Note the current convention is to use the -S and -B options here to specify source
         # and build directories, but this is only available with CMake 3.13 and higher.
         # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
-        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX=/usr
+        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
       - name: Build
         working-directory: ${{runner.workspace}}/build
@@ -253,24 +253,6 @@ jobs:
           name: SatDump-Ubuntu-22.04
           path: ${{runner.workspace}}/build/*.deb
 
-      - name: Setup pkg2appimage
-        working-directory: ${{runner.workspace}}/build
-        shell: bash
-        # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: wget https://raw.githubusercontent.com/probonopd/AppImages/master/pkg2appimage && chmod +x pkg2appimage && sudo apt install -y imagemagick desktop-file-utils libfuse2
-
-      - name: Make AppImage
-        working-directory: ${{runner.workspace}}/build
-        shell: bash
-        # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: cp *.deb /tmp/satdump.deb && cp $GITHUB_WORKSPACE/SatDump.yml . && ./pkg2appimage SatDump.yml
-
-      - name: Upload AppImage
-        uses: actions/upload-artifact@v4
-        with:
-          name: SatDump-AppImage
-          path: ${{runner.workspace}}/build/out/*.AppImage
-
   build_ubuntu_2404:
     # The CMake configure and build commands are platform agnostic and should work equally
     # well on Windows or Mac.  You can convert this to a matrix build if you need
@@ -285,7 +267,7 @@ jobs:
         run: sudo apt update
 
       - name: Install dependencies
-        run: sudo apt install -y libdbus-1-dev libcurl4-openssl-dev libglfw3-dev libfftw3-dev libvolk-dev build-essential cmake pkgconf libjpeg-dev libpng-dev libtiff-dev libairspy-dev libairspyhf-dev libhackrf-dev librtlsdr-dev libomp-dev libnng-dev libiio-dev libzstd-dev libad9361-dev libbladerf-dev libuhd-dev liblimesuite-dev ocl-icd-opencl-dev libjemalloc-dev portaudio19-dev libhdf5-dev
+        run: sudo apt install -y libcurl4-openssl-dev libglfw3-dev libfftw3-dev libvolk-dev build-essential cmake pkgconf libjpeg-dev libpng-dev libtiff-dev libairspy-dev libairspyhf-dev libhackrf-dev librtlsdr-dev libomp-dev libnng-dev libiio-dev libzstd-dev libad9361-dev libbladerf-dev libuhd-dev liblimesuite-dev ocl-icd-opencl-dev libjemalloc-dev portaudio19-dev libhdf5-dev
 
       - name: Create Build Environment
         # Some projects don't allow in-source building, so create a separate build directory
@@ -300,7 +282,7 @@ jobs:
         # Note the current convention is to use the -S and -B options here to specify source
         # and build directories, but this is only available with CMake 3.13 and higher.
         # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
-        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX=/usr
+        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
       - name: Build
         working-directory: ${{runner.workspace}}/build
@@ -334,7 +316,7 @@ jobs:
         run: sudo apt update
 
       - name: Install dependencies
-        run: sudo apt install -y libdbus-1-dev libcurl4-openssl-dev libglfw3-dev libfftw3-dev libvolk2-dev build-essential cmake pkgconf libjpeg-dev libpng-dev libtiff-dev libairspy-dev libairspyhf-dev libhackrf-dev librtlsdr-dev libomp-dev libnng-dev libiio-dev libzstd-dev libad9361-dev libbladerf-dev libuhd-dev liblimesuite-dev ocl-icd-opencl-dev libjemalloc-dev portaudio19-dev libhdf5-dev libsqlite3-dev
+        run: sudo apt install -y libcurl4-openssl-dev libglfw3-dev libfftw3-dev libvolk2-dev build-essential cmake pkgconf libjpeg-dev libpng-dev libtiff-dev libairspy-dev libairspyhf-dev libhackrf-dev librtlsdr-dev libomp-dev libnng-dev libiio-dev libzstd-dev libad9361-dev libbladerf-dev libuhd-dev liblimesuite-dev ocl-icd-opencl-dev libjemalloc-dev portaudio19-dev libhdf5-dev
 
       - name: Delete build dir
         run: rm -rf ${{runner.workspace}}/build
@@ -373,62 +355,62 @@ jobs:
           path: ${{runner.workspace}}/build/*.deb
 
   build_macos_intel:
-    runs-on: macos-15-intel
+    runs-on: macos-13
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Select Xcode version
-        run: sudo xcode-select -s '/Applications/Xcode_16.2.app/Contents/Developer'
+        run: sudo xcode-select -s '/Applications/Xcode_15.2.app/Contents/Developer'
 
-      - name: Install brew dependencies
-        # These are preinstalled in the GitHub runners, cause needless warnings to appear
-        # Add these back if these ever become missing for some reason
-        # sqlite3 libtool autoconf libjpeg-turbo libtiff libusb libpng zstd
-        run: brew install dylibbundler automake meson orc libxml2 zlib portaudio boost nng volk libomp glfw3 fftw libxml2 portaudio jemalloc nng armadillo hdf5 
+      - name: Install build dependencies
+        run: brew install dylibbundler automake meson
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        id: macos-deps-intel
+        with:
+          path: vcpkg
+          key: macos-deps-intel-${{ hashFiles('macOS/Configure-vcpkg.sh') }}
+
+      - name: Build vcpkg
+        shell: bash
+        if: steps.macos-deps-intel.outputs.cache-hit != 'true'
+        run: $GITHUB_WORKSPACE/macOS/Configure-vcpkg.sh
+
+      - name: Clean up vcpkg
+        if: steps.macos-deps-intel.outputs.cache-hit != 'true'
+        run: rm -rf $GITHUB_WORKSPACE/vcpkg/packages $GITHUB_WORKSPACE/vcpkg/downloads $GITHUB_WORKSPACE/vcpkg/buildtrees
 
       - name: Create Build Environment
         # Some projects don't allow in-source building, so create a separate build directory
         # We'll use this as our working directory for all subsequent commands
         run: cmake -E make_directory ${{runner.workspace}}/build
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        id: macos-deps-intel
-        with:
-          path: deps
-          key: macos-deps-intel-${{ hashFiles('macOS/build_deps.sh') }}
-      
-      - name: Build dependencies
-        if: steps.macos-deps-intel.outputs.cache-hit != 'true'
-        working-directory: ${{runner.workspace}}/build
-        shell: bash
-        run: $GITHUB_WORKSPACE/macOS/build_deps.sh
-      
       - name: Configure CMake
         working-directory: ${{runner.workspace}}/build
         # Note the current convention is to use the -S and -B options here to specify source
         # and build directories, but this is only available with CMake 3.13 and higher.
         # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
-        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUNDLING_MODE=ON -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=$GITHUB_WORKSPACE/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DVCPKG_TARGET_TRIPLET=osx-satdump
 
       - name: Build
         working-directory: ${{runner.workspace}}/build
         shell: bash
         # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: make -j6
+        run: make -j8
 
       - name: Bundle
         working-directory: ${{runner.workspace}}/build
         shell: bash
-        #env:
-        #  MACOS_TEAM: ${{ secrets.MACOS_TEAM }}
-        #  MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-        #  MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
-        #  MACOS_SIGNING_SIGNATURE: ${{ secrets.MACOS_SIGNING_SIGNATURE }}
-        #  MACOS_NOTARIZATION_UN: ${{ secrets.MACOS_NOTARIZATION_UN }}
-        #  MACOS_NOTARIZATION_PWD: ${{ secrets.MACOS_NOTARIZATION_PWD }}
-        run: $GITHUB_WORKSPACE/macOS/bundle.sh
+        env:
+          MACOS_TEAM: ${{ secrets.MACOS_TEAM }}
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_SIGNING_SIGNATURE: ${{ secrets.MACOS_SIGNING_SIGNATURE }}
+          MACOS_NOTARIZATION_UN: ${{ secrets.MACOS_NOTARIZATION_UN }}
+          MACOS_NOTARIZATION_PWD: ${{ secrets.MACOS_NOTARIZATION_PWD }}
+        run: $GITHUB_WORKSPACE/macOS/bundle.sh Intel
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
@@ -437,43 +419,44 @@ jobs:
           path: ${{runner.workspace}}/build/*.dmg
 
   build_macos_silicon:
-    runs-on: macos-15
+    runs-on: macos-14
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Select Xcode version
-        run: sudo xcode-select -s '/Applications/Xcode_16.2.app/Contents/Developer'
+        run: sudo xcode-select -s '/Applications/Xcode_15.4.app/Contents/Developer'
 
-      - name: Install brew dependencies
-        # These are preinstalled in the GitHub runners, cause needless warnings to appear
-        # Add these back if these ever become missing for some reason
-        # sqlite3 zstd libpng libtiff libjpeg-turbo libusb
-        run: brew install dylibbundler libtool autoconf automake meson orc libxml2 zlib portaudio boost nng volk libomp glfw3 fftw libxml2 portaudio jemalloc nng armadillo hdf5 
+      - name: Install build dependencies
+        run: brew install dylibbundler libtool autoconf automake meson
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        id: macos-deps-silicon
+        with:
+          path: vcpkg
+          key: macos-deps-silicon-${{ hashFiles('macOS/Configure-vcpkg.sh') }}
+
+      - name: Build vcpkg
+        shell: bash
+        if: steps.macos-deps-silicon.outputs.cache-hit != 'true'
+        run: $GITHUB_WORKSPACE/macOS/Configure-vcpkg.sh
+
+      - name: Clean up vcpkg
+        if: steps.macos-deps-silicon.outputs.cache-hit != 'true'
+        run: rm -rf $GITHUB_WORKSPACE/vcpkg/packages $GITHUB_WORKSPACE/vcpkg/downloads $GITHUB_WORKSPACE/vcpkg/buildtrees
 
       - name: Create Build Environment
         # Some projects don't allow in-source building, so create a separate build directory
         # We'll use this as our working directory for all subsequent commands
         run: cmake -E make_directory ${{runner.workspace}}/build
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        id: macos-deps-silicon
-        with:
-          path: deps
-          key: macos-deps-silicon-${{ hashFiles('macOS/build_deps.sh') }}
-      
-      - name: Build dependencies
-        if: steps.macos-deps-silicon.outputs.cache-hit != 'true'
-        working-directory: ${{runner.workspace}}/build
-        shell: bash
-        run: $GITHUB_WORKSPACE/macOS/build_deps.sh
-      
       - name: Configure CMake
         working-directory: ${{runner.workspace}}/build
         # Note the current convention is to use the -S and -B options here to specify source
         # and build directories, but this is only available with CMake 3.13 and higher.
         # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
-        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUNDLING_MODE=ON -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=$GITHUB_WORKSPACE/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DVCPKG_TARGET_TRIPLET=osx-satdump
 
       - name: Build
         working-directory: ${{runner.workspace}}/build
@@ -484,14 +467,14 @@ jobs:
       - name: Bundle
         working-directory: ${{runner.workspace}}/build
         shell: bash
-        #env:
-        #  MACOS_TEAM: ${{ secrets.MACOS_TEAM }}
-        #  MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-        #  MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
-        #  MACOS_SIGNING_SIGNATURE: ${{ secrets.MACOS_SIGNING_SIGNATURE }}
-        #  MACOS_NOTARIZATION_UN: ${{ secrets.MACOS_NOTARIZATION_UN }}
-        #  MACOS_NOTARIZATION_PWD: ${{ secrets.MACOS_NOTARIZATION_PWD }}
-        run: $GITHUB_WORKSPACE/macOS/bundle.sh
+        env:
+          MACOS_TEAM: ${{ secrets.MACOS_TEAM }}
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_SIGNING_SIGNATURE: ${{ secrets.MACOS_SIGNING_SIGNATURE }}
+          MACOS_NOTARIZATION_UN: ${{ secrets.MACOS_NOTARIZATION_UN }}
+          MACOS_NOTARIZATION_PWD: ${{ secrets.MACOS_NOTARIZATION_PWD }}
+        run: $GITHUB_WORKSPACE/macOS/bundle.sh Silicon
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
@@ -521,7 +504,7 @@ jobs:
         run: sudo apt install -y unzip
 
       - name: Copy files
-        run: mkdir satdump_out && cp SatDump-Ubuntu-22.04/satdump*.deb satdump_out/satdump_ubuntu_22.04_amd64.deb && cp SatDump-Ubuntu-24.04/satdump*.deb satdump_out/satdump_ubuntu_24.04_amd64.deb && cp SatDump-macOS-Intel/SatDump-macOS-Intel.dmg satdump_out/SatDump-macOS-Intel.dmg && cp SatDump-macOS-Silicon/SatDump-macOS-Silicon.dmg satdump_out/SatDump-macOS-Silicon.dmg && (cd SatDump-Windows_x64_Portable && zip -r ../satdump_out/SatDump-Windows_x64_Portable.zip *) && cp SatDump-Windows_x64_Installer/SatDump-*.exe satdump_out/SatDump-Windows_x64_Installer.exe && cp SatDump-Pi64-Latest/satdump*.deb satdump_out/satdump_rpi64_latest_arm64.deb && cp SatDump-release.apk/app-release.apk satdump_out/SatDump-Android.apk && cp SatDump-AppImage/*.AppImage satdump_out/SatDump.AppImage && (cd SatDump-Windows_arm64_Portable && zip -r ../satdump_out/SatDump-Windows_arm64_Portable.zip *) && cp SatDump-Windows_arm64_Installer/SatDump-*.exe satdump_out/SatDump-Windows_arm64_Installer.exe
+        run: mkdir satdump_out && cp SatDump-Ubuntu-22.04/satdump*.deb satdump_out/satdump_ubuntu_22.04_amd64.deb && cp SatDump-Ubuntu-24.04/satdump*.deb satdump_out/satdump_ubuntu_24.04_amd64.deb && cp SatDump-macOS-Intel/SatDump-macOS-Intel.dmg satdump_out/SatDump-macOS-Intel.dmg && cp SatDump-macOS-Silicon/SatDump-macOS-Silicon.dmg satdump_out/SatDump-macOS-Silicon.dmg && (cd SatDump-Windows_x64_Portable && zip -r ../satdump_out/SatDump-Windows_x64_Portable.zip *) && cp SatDump-Windows_x64_Installer/SatDump-*.exe satdump_out/SatDump-Windows_x64_Installer.exe && (cd SatDump-Windows_arm64_Portable && zip -r ../satdump_out/SatDump-Windows_arm64_Portable.zip *) && cp SatDump-Windows_arm64_Installer/SatDump-*.exe satdump_out/SatDump-Windows_arm64_Installer.exe && cp SatDump-Pi64-Latest/satdump*.deb satdump_out/satdump_rpi64_latest_arm64.deb && cp SatDump-release.apk/app-release.apk satdump_out/SatDump-Android.apk
 
       - name: Update Nightly
         run: gh release upload nightly satdump_out/* -R ${{github.repository}} --clobber

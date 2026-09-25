@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "image/image.h"
+#include "common/image/image.h"
 #include "../../tip_time_parser.h"
 #include "../../contains.h"
 #include "nlohmann/json.hpp"
@@ -28,11 +28,11 @@ namespace noaa
 
             void calc_space(uint16_t *samples, uint8_t channel)
             {
-                space[channel] = calc_avg(samples, 48)>>3;
+                space[channel] = calc_avg(samples, 48);
             }
             void calc_bb(uint16_t *samples, uint8_t channel)
             {
-                blackbody[channel] = calc_avg(samples, 56)>>3;
+                blackbody[channel] = calc_avg(samples, 56);
             }
             bool is_ready()
             {

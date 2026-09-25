@@ -1,6 +1,0 @@
-{
-    "name": "AVHRR and MHS Mix TEST",
-    "processor": "lua_processor",
-    "cfg": {},
-    "lua": "linfo(\"TEST\")\n"
-}

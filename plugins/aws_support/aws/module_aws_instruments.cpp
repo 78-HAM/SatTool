@@ -1,33 +1,30 @@
 #include "module_aws_instruments.h"
+#include <fstream>
+#include "logger.h"
+#include <filesystem>
+#include "imgui/imgui.h"
+#include "common/utils.h"
+#include "products/image_products.h"
 #include "common/ccsds/ccsds_tm/demuxer.h"
 #include "common/ccsds/ccsds_tm/vcdu.h"
-#include "common/utils.h"
-#include "core/resources.h"
-#include "imgui/imgui.h"
-#include "init.h"
-#include "logger.h"
-#include "nlohmann/json_utils.h"
 #include "products/dataset.h"
-#include "products/image_product.h"
-#include "utils/stats.h"
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
-
-#include "common/tracking/tle.h"
-
-#define AWS_SCID 104
-#define AWS_NORAD 60543
+#include "resources.h"
+#include "nlohmann/json_utils.h"
 
 namespace aws
 {
-    AWSInstrumentsDecoderModule::AWSInstrumentsDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-        : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+    AWSInstrumentsDecoderModule::AWSInstrumentsDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters)
     {
     }
 
     void AWSInstrumentsDecoderModule::process()
     {
+        filesize = getFilesize(d_input_file);
+        std::ifstream data_in(d_input_file, std::ios::binary);
+
+        logger->info("Using input frames " + d_input_file);
+
+        time_t lastTime = 0;
         uint8_t cadu[1279];
 
         logger->info("Demultiplexing and deframing...");
@@ -37,41 +34,52 @@ namespace aws
 
         std::vector<uint8_t> aws_scids;
 
-        while (should_run())
+        while (!data_in.eof())
         {
             // Read buffer
-            read_data((uint8_t *)cadu, 1279);
+            data_in.read((char *)cadu, 1279);
 
             // Parse this transport frame
             ccsds::ccsds_tm::VCDU vcdu = ccsds::ccsds_tm::parseVCDU(cadu);
+            aws_scids.push_back(vcdu.spacecraft_id);
 
-            if (vcdu.spacecraft_id == AWS_SCID)
-                aws_scids.push_back(vcdu.spacecraft_id);
-
-            if (vcdu.vcid == 2) // Dump
+            if (vcdu.vcid == 2) // Stored S/C Sciente telemetry dataa
             {
                 std::vector<ccsds::CCSDSPacket> ccsdsFrames = demuxer_vcid2.work(cadu);
                 for (ccsds::CCSDSPacket &pkt : ccsdsFrames)
                     if (pkt.header.apid == 100)
-                        mwr_dump_reader.work(pkt);
+                        sterna_reader.work(pkt);
                     else if (pkt.header.apid == 51)
                         navatt_reader.work(pkt);
             }
-            else if (vcdu.vcid == 3) //  DB
+
+
+            if (vcdu.vcid == 3) // DDB service
             {
                 std::vector<ccsds::CCSDSPacket> ccsdsFrames = demuxer_vcid3.work(cadu);
                 for (ccsds::CCSDSPacket &pkt : ccsdsFrames)
                     if (pkt.header.apid == 100)
-                        mwr_reader.work(pkt);
+                        sterna_reader.work(pkt);
                     else if (pkt.header.apid == 51)
                         navatt_reader.work(pkt);
             }
+
+            progress = data_in.tellg();
+
+            if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+            {
+                lastTime = time(NULL);
+                logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
+            }
         }
 
-        cleanup();
+        data_in.close();
 
-        int scid = satdump::most_common(aws_scids.begin(), aws_scids.end(), 0);
+        int scid = most_common(aws_scids.begin(), aws_scids.end(), 0);
         aws_scids.clear();
+
+#define AWS_SCID 104
+#define AWS_NORAD 60543
 
         std::string sat_name = "Unknown AWS";
         if (scid == AWS_SCID)
@@ -82,13 +90,11 @@ namespace aws
             norad = AWS_NORAD;
 
         // Products dataset
-        satdump::products::DataSet dataset;
+        satdump::ProductDataSet dataset;
         dataset.satellite_name = sat_name;
-        dataset.timestamp = satdump::get_median(mwr_reader.timestamps);
-        if (dataset.timestamp == -1)
-            dataset.timestamp = satdump::get_median(mwr_dump_reader.timestamps);
+        dataset.timestamp = get_median(sterna_reader.timestamps);
 
-        std::optional<satdump::TLE> satellite_tle = satdump::db_keplers->get_from_norad_time(norad, dataset.timestamp);
+        std::optional<satdump::TLE> satellite_tle = satdump::general_tle_registry.get_from_norad_time(norad, dataset.timestamp);
 
         // Satellite ID
         {
@@ -97,86 +103,53 @@ namespace aws
             logger->info("Name  : " + sat_name);
         }
 
-        // TODOREWORK
-        double mwr_freqs[19] = {
-            50.3e9, 52.8e9, 53.246e9, 53.596e9, 54.4e9, 54.94e9, 55.5e9, 57.290344e9, 89e9, 165.5e9, 176.311e9, 178.811e9, 180.311e9, 181.511e9, 182.311e9, 325.15e9, 325.15e9, 325.15e9, 325.15e9,
-        };
-
-        // Channels are aligned by groups. 1 to 8 / 9 / 10 to 15 / 16 to 19
-        satdump::ChannelTransform tran[19];
-        double halfscan = 145.0 / 2.0;
-        for (auto &v : tran)
-            v.init_none();
-        tran[8].init_affine_slantx(1, 1, -6.5, 0, halfscan, 11.0 / halfscan);
-        tran[10] = tran[11] = tran[12] = tran[13] = tran[14] = tran[9].init_affine_slantx(0.92, 1, -0.5, 5, halfscan, 11.0 / halfscan);
-        tran[15] = tran[16] = tran[17] = tran[18].init_affine_slantx(0.93, 1, 2.8, 4, halfscan, 6.0 / halfscan);
-
-        // Sterna DB
+        // Sterna
         {
-            mwr_status = SAVING;
-            std::string directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/MWR";
+            sterna_status = SAVING;
+            std::string directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/STERNA";
 
             if (!std::filesystem::exists(directory))
                 std::filesystem::create_directory(directory);
 
-            logger->info("----------- MWR");
-            logger->info("Lines : " + std::to_string(mwr_reader.lines));
+            logger->info("----------- STERNA");
+            logger->info("Lines : " + std::to_string(sterna_reader.lines));
 
-            satdump::products::ImageProduct mwr_products;
-            mwr_products.instrument_name = "aws_mwr";
+            satdump::ImageProducts sterna_products;
+            sterna_products.instrument_name = "sterna";
+            sterna_products.has_timestamps = true;
+            sterna_products.set_tle(satellite_tle);
+            sterna_products.bit_depth = 16;
+            sterna_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
+            sterna_products.set_timestamps(sterna_reader.timestamps);
 
-            nlohmann::json proj_cfg = loadJsonFile(resources::getResourcePath("projections_settings/aws_mwr.json"));
-            if (d_parameters["use_ephemeris"].get<bool>())
+            nlohmann::json proj_cfg = loadJsonFile(resources::getResourcePath("projections_settings/aws_sterna.json"));
+            if (getValueOrDefault(d_parameters["use_ephemeris"], false))
                 proj_cfg["ephemeris"] = navatt_reader.getEphem();
-            mwr_products.set_proj_cfg_tle_timestamps(proj_cfg, satellite_tle, mwr_reader.timestamps);
+            sterna_products.set_proj_cfg(proj_cfg);
 
             for (int i = 0; i < 19; i++)
-            {
-                mwr_products.images.push_back({i, "MWR-" + std::to_string(i + 1), std::to_string(i + 1), mwr_reader.getChannel(i), 16, tran[i]});
-                mwr_products.set_channel_frequency(i, mwr_freqs[i]);
-                mwr_products.set_channel_unit(i, CALIBRATION_ID_EMISSIVE_RADIANCE);
-            }
+                sterna_products.images.push_back({"STERNA-" + std::to_string(i + 1), std::to_string(i + 1), sterna_reader.getChannel(i)});
 
-            // mwr_products.set_calibration("aws_mwr", mwr_reader.getCal());
+            sterna_products.save(directory);
+            dataset.products_list.push_back("STERNA");
 
-            mwr_products.save(directory);
-            dataset.products_list.push_back("MWR");
-
-            mwr_status = DONE;
+            sterna_status = DONE;
         }
 
-        // Sterna Dump
+        // NAVATT
         {
-            mwr_dump_status = SAVING;
-            std::string directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/MWR_Dump";
+            navatt_status = SAVING;
+            std::string directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/NAVATT";
 
             if (!std::filesystem::exists(directory))
                 std::filesystem::create_directory(directory);
 
-            logger->info("----------- MWR Dump");
-            logger->info("Lines : " + std::to_string(mwr_dump_reader.lines));
+            logger->info("----------- NAVATT");
+            logger->info("Lines : " + std::to_string(navatt_reader.lines));
 
-            satdump::products::ImageProduct mwr_dump_product;
-            mwr_dump_product.instrument_name = "aws_mwr";
+            saveJsonFile(directory + "/NAVATT-Telemetry.json", navatt_reader.dump_telemetry());
 
-            nlohmann::json proj_cfg = loadJsonFile(resources::getResourcePath("projections_settings/aws_mwr.json"));
-            if (d_parameters["use_ephemeris"].get<bool>())
-                proj_cfg["ephemeris"] = navatt_reader.getEphem();
-            mwr_dump_product.set_proj_cfg_tle_timestamps(proj_cfg, satellite_tle, mwr_dump_reader.timestamps);
-
-            for (int i = 0; i < 19; i++)
-            {
-                mwr_dump_product.images.push_back({i, "MWR-" + std::to_string(i + 1), std::to_string(i + 1), mwr_dump_reader.getChannel(i), 16, tran[i]});
-                mwr_dump_product.set_channel_frequency(i, mwr_freqs[i]);
-                mwr_dump_product.set_channel_unit(i, CALIBRATION_ID_EMISSIVE_RADIANCE);
-            }
-
-            //mwr_dump_product.set_calibration("aws_mwr", mwr_dump_reader.getCal());
-
-            mwr_dump_product.save(directory);
-            dataset.products_list.push_back("MWR_Dump");
-
-            mwr_dump_status = DONE;
+            navatt_status = DONE;
         }
 
         dataset.save(d_output_file_hint.substr(0, d_output_file_hint.rfind('/')));
@@ -198,32 +171,39 @@ namespace aws
 
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("MWR");
+            ImGui::Text("AWS");
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextColored(style::theme.green, "%d", mwr_reader.lines);
+            ImGui::TextColored(style::theme.green, "%d", sterna_reader.lines);
             ImGui::TableSetColumnIndex(2);
-            drawStatus(mwr_status);
+            drawStatus(sterna_status);
 
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("MWR Dump");
+            ImGui::Text("NAVATT");
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextColored(style::theme.green, "%d", mwr_dump_reader.lines);
+            ImGui::TextColored(style::theme.green, "%d", navatt_reader.lines);
             ImGui::TableSetColumnIndex(2);
-            drawStatus(mwr_dump_status);
+            drawStatus(navatt_status);
 
             ImGui::EndTable();
         }
 
-        drawProgressBar();
-
+        ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
         ImGui::End();
     }
 
-    std::string AWSInstrumentsDecoderModule::getID() { return "aws_instruments"; }
+    std::string AWSInstrumentsDecoderModule::getID()
+    {
+        return "aws_instruments";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> AWSInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> AWSInstrumentsDecoderModule::getParameters()
+    {
+        return {};
+    }
+
+    std::shared_ptr<ProcessingModule> AWSInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<AWSInstrumentsDecoderModule>(input_file, output_file_hint, parameters);
     }
-} // namespace aws
+}

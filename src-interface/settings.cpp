@@ -1,24 +1,19 @@
 #include "settings.h"
-#include "core/params.h"
-#include "core/plugin.h"
-#include "i18n.h"
 #include "imgui/imgui.h"
 #include <string>
+#include "core/params.h"
 
 #include "core/config.h"
 
-#include "core/opencl.h"
 #include "main_ui.h"
+#include "core/opencl.h"
 
-#include "common/tracking/tle.h"
-#include "common/widgets/json_editor.h"
-#include "common/widgets/timed_message.h"
 #include "init.h"
+#include "common/tracking/tle.h"
+#include "common/widgets/timed_message.h"
+#include "common/widgets/json_editor.h"
 
-#include "core/resources.h"
 #include "core/style.h"
-#include "core/ui_safety.h"
-#include <algorithm>
 
 namespace satdump
 {
@@ -39,25 +34,17 @@ namespace satdump
         std::vector<std::string> themes;
         std::string themes_str = "";
 
-        bool iers_are_update = false;
         bool tles_are_update = false;
-        char iers_last_update[80];
         char tle_last_update[80];
 
+        bool show_imgui_demo = false;
         bool advanced_mode = false;
 
         widgets::TimedMessage saved_message;
 
-        void setupParameterColumns(float available_width)
-        {
-            ImGui::TableSetupColumn("##setting_name", ImGuiTableColumnFlags_WidthFixed,
-                                    ui_safety::labelColumnWidth(available_width, ui_scale));
-            ImGui::TableSetupColumn("##setting_value", ImGuiTableColumnFlags_WidthStretch);
-        }
-
         void setup()
         {
-            nlohmann::ordered_json params = satdump::satdump_cfg.main_cfg["user_interface"];
+            nlohmann::ordered_json params = satdump::config::main_cfg["user_interface"];
 
             for (nlohmann::detail::iteration_proxy_value<nlohmann::detail::iter_impl<nlohmann::ordered_json>> cfg : params.items())
             {
@@ -66,7 +53,7 @@ namespace satdump
                     settings_user_interface.push_back({cfg.key(), params::EditableParameter(nlohmann::json(cfg.value()))});
             }
 
-            params = satdump::satdump_cfg.main_cfg["satdump_general"];
+            params = satdump::config::main_cfg["satdump_general"];
 
             for (nlohmann::detail::iteration_proxy_value<nlohmann::detail::iter_impl<nlohmann::ordered_json>> cfg : params.items())
             {
@@ -75,7 +62,7 @@ namespace satdump
                     settings_general.push_back({cfg.key(), params::EditableParameter(nlohmann::json(cfg.value()))});
             }
 
-            params = satdump::satdump_cfg.main_cfg["satdump_directories"];
+            params = satdump::config::main_cfg["satdump_directories"];
 
             for (nlohmann::detail::iteration_proxy_value<nlohmann::detail::iter_impl<nlohmann::ordered_json>> cfg : params.items())
             {
@@ -85,43 +72,27 @@ namespace satdump
             }
 
             int theme_id = 0;
-            std::string current_theme = getValueOrDefault(satdump::satdump_cfg.main_cfg["user_interface"]["theme"]["value"], std::string("Dark"));
-            try
+            std::string current_theme = satdump::config::main_cfg["user_interface"]["theme"]["value"].get<std::string>();
+            for (const auto& entry : std::filesystem::directory_iterator(resources::getResourcePath("themes")))
             {
-                for (const auto &entry : std::filesystem::directory_iterator(resources::getResourcePath("themes")))
-                {
-                    if (entry.path().filename().extension() != ".json")
-                        continue;
-                    std::string this_name = entry.path().filename().stem().string();
-                    themes.push_back(this_name);
-                    themes_str += this_name;
-                    themes_str.push_back('\0');
-                    if (this_name == current_theme)
-                        selected_theme = theme_id;
-                    theme_id++;
-                }
-            }
-            catch (std::exception &e)
-            {
-                logger->error("Failed to scan themes directory : %s", e.what());
-            }
-
-            // Defensive : if no theme files were found, fall back to a virtual "Dark"
-            if (themes.empty())
-            {
-                themes.push_back("Dark");
-                themes_str = "Dark";
+                if (entry.path().filename().extension() != ".json")
+                    continue;
+                std::string this_name = entry.path().filename().stem().string();
+                themes.push_back(this_name);
+                themes_str += this_name;
                 themes_str.push_back('\0');
-                selected_theme = 0;
+                if (this_name == current_theme)
+                    selected_theme = theme_id;
+                theme_id++;
             }
 
-            advanced_mode = getValueOrDefault(satdump::satdump_cfg.main_cfg["user_interface"]["advanced_mode"]["value"], false);
+            advanced_mode = getValueOrDefault(satdump::config::main_cfg["user_interface"]["advanced_mode"]["value"], false);
 
 #ifdef USE_OPENCL
             opencl_devices_enum = opencl::getAllDevices();
-            opencl_devices_enum.push_back({-1, -1, "None (Use CPU)"});
-            int p = satdump::satdump_cfg.main_cfg["satdump_general"]["opencl_device"]["platform"].get<int>();
-            int d = satdump::satdump_cfg.main_cfg["satdump_general"]["opencl_device"]["device"].get<int>();
+            opencl_devices_enum.push_back({ -1, -1, "None (Use CPU)" });
+            int p = satdump::config::main_cfg["satdump_general"]["opencl_device"]["platform"].get<int>();
+            int d = satdump::config::main_cfg["satdump_general"]["opencl_device"]["device"].get<int>();
             int dev_id = 0;
             opencl_devices_str = "";
             for (opencl::OCLDevice &dev : opencl_devices_enum)
@@ -137,107 +108,74 @@ namespace satdump
 
         void render()
         {
-            ImGui::SeparatorText(_("Core Settings"));
-            if (ImGui::CollapsingHeader(_("User Interface")))
+            ImGui::SeparatorText("Core Settings");
+            if (ImGui::CollapsingHeader("User Interface"))
             {
-                const float table_width = ImGui::GetContentRegionAvail().x;
                 if (ImGui::BeginTable("##satdumpuisettings", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
                 {
-                    setupParameterColumns(table_width);
                     // Theme Selection
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::Text(_("Theme"));
+                    ImGui::Text("Theme");
                     if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip(_("Set the style and color of SatTool"));
+                        ImGui::SetTooltip("Set the style and color of SatDump");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                     ImGui::Combo("##themeselection", &selected_theme, themes_str.c_str());
 
                     // Standard user interface settings
                     for (std::pair<std::string, satdump::params::EditableParameter> &p : settings_user_interface)
                         p.second.draw();
 
+                    // ImGui Demo
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Show ImGui Demo");
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("For developers only!");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Checkbox("##showimguidebugcheckbox", &show_imgui_demo);
+
                     ImGui::EndTable();
                 }
             }
 
-            if (ImGui::CollapsingHeader(_("General SatTool")))
+            if (ImGui::CollapsingHeader("General SatDump"))
             {
-                const float table_width = ImGui::GetContentRegionAvail().x;
                 if (ImGui::BeginTable("##satdumpgeneralsettings", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
                 {
-                    setupParameterColumns(table_width);
-#if ENABLE_I18N
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text(_("Language"));
-                    ImGui::TableSetColumnIndex(1);
-                    {
-                        std::vector<std::pair<std::string, std::string>> language_options = {{"", "Auto"}, {"en", "English"}, {"fr", "Français"}, {"it", "Italiano"}, {"zh_CN", "Chinese"}};
-
-                        std::string display_name = "Auto";
-                        for (auto &opt : language_options)
-                            if (current_language == opt.first)
-                                display_name = opt.second;
-
-                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-                        if (ImGui::BeginCombo("##languageCombo", display_name.c_str()))
-                        {
-                            for (auto &opt : language_options)
-                            {
-                                if (ImGui::Selectable(opt.second.c_str(), current_language == opt.first))
-                                {
-                                    logger->info("Setting language to : " + opt.first);
-                                    initLanguage(opt.first);
-                                    db->set_user("language", opt.first);
-                                    satdump::update_ui = true; // Rebuild UI fonts (CJK font is merged for zh_CN)
-                                }
-                            }
-
-                            ImGui::EndCombo();
-                        }
-                    }
-#endif
-
 #ifdef USE_OPENCL
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::Text(_("OpenCL Device"));
+                    ImGui::Text("OpenCL Device");
                     if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip(_("OpenCL Device SatTool will use for accelerated computing where it can help, eg, for some image processing tasks such as projections."));
+                        ImGui::SetTooltip("OpenCL Device SatDump will use for accelerated computing where it can help, eg, for some image processing tasks such as projections.");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                     ImGui::Combo("##opencldeviceselection", &opencl_devices_id, opencl_devices_str.c_str());
 #endif
 
                     for (std::pair<std::string, satdump::params::EditableParameter> &p : settings_general)
                         p.second.draw();
 
-                    // Keplers (used to be TLEs)
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::Text(_("Update Keplers Now"));
+                    ImGui::Text("Update TLEs Now");
                     ImGui::TableSetColumnIndex(1);
                     bool disable_update_button = tles_are_update;
                     if (disable_update_button)
                         style::beginDisabled();
-                    if (ImGui::Button(_("Update###updateKeplers")))
+                    if (ImGui::Button("Update###updateTLEs"))
                     {
-                        ui_thread_pool.push(
-                            [](int)
-                            {
-                                tles_are_update = true;
-                                db_keplers->updateKeplerDatabase();
-                                tles_are_update = false;
-                            });
+                        ui_thread_pool.push([](int)
+                                            {   tles_are_update = true;
+                                                updateTLEFile(satdump::user_path + "/satdump_tles.txt"); 
+                                                tles_are_update = false; });
                     }
                     if (disable_update_button)
                         style::endDisabled();
 
-                    time_t last_update = std::stod(db->get_meta("kepler_last_updated", "0"));
+                    time_t last_update = getValueOrDefault<time_t>(config::main_cfg["user"]["tles_last_updated"], 0);
                     if (last_update == 0)
-                        strcpy(tle_last_update, _("Never"));
+                        strcpy(tle_last_update, "Never");
                     else
                     {
                         struct tm ts;
@@ -245,48 +183,15 @@ namespace satdump
                         strftime(tle_last_update, sizeof(tle_last_update), "%Y-%m-%d %H:%M:%S UTC", &ts);
                     }
                     ImGui::SameLine(0.0f, 10.0f * ui_scale);
-                    ImGui::TextDisabled(_("Last updated: %s"), tle_last_update);
-
-                    // IERS
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text(_("Update IERS Bulletin Now"));
-                    ImGui::TableSetColumnIndex(1);
-                    disable_update_button = iers_are_update;
-                    if (disable_update_button)
-                        style::beginDisabled();
-                    if (ImGui::Button(_("Update###updateIERS")))
-                    {
-                        ui_thread_pool.push(
-                            [](int)
-                            {
-                                iers_are_update = true;
-                                db_iers->updateIERS();
-                                iers_are_update = false;
-                            });
-                    }
-                    if (disable_update_button)
-                        style::endDisabled();
-
-                    last_update = std::stod(db->get_meta("iers_last_updated", "0"));
-                    if (last_update == 0)
-                        strcpy(iers_last_update, _("Never"));
-                    else
-                    {
-                        struct tm ts;
-                        ts = *gmtime(&last_update);
-                        strftime(iers_last_update, sizeof(iers_last_update), "%Y-%m-%d %H:%M:%S UTC", &ts);
-                    }
-                    ImGui::SameLine(0.0f, 10.0f * ui_scale);
-                    ImGui::TextDisabled(_("Last updated: %s"), iers_last_update);
+                    ImGui::TextDisabled("Last updated: %s", tle_last_update);
 
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::Text(_("Clear Tile Map (OSM) Cache"));
+                    ImGui::Text("Clear Tile Map (OSM) Cache");
                     if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip(_("Delete all cached tiles (OSM, and other sources)."));
+                        ImGui::SetTooltip("Delete all cached tiles (OSM, and other sources).");
                     ImGui::TableSetColumnIndex(1);
-                    if (ImGui::Button(_("Clear Cache###deleteosmtiles")))
+                    if (ImGui::Button("Clear Cache###deleteosmtiles"))
                         if (std::filesystem::exists(satdump::user_path + "/osm_tiles/"))
                             std::filesystem::remove_all(satdump::user_path + "/osm_tiles/");
 
@@ -294,23 +199,21 @@ namespace satdump
                 }
             }
 
-            if (ImGui::CollapsingHeader(_("File Input/Output")))
+            if (ImGui::CollapsingHeader("File Input/Output"))
             {
-                const float table_width = ImGui::GetContentRegionAvail().x;
                 if (ImGui::BeginTable("##satdumpoutput_directories", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
                 {
-                    setupParameterColumns(table_width);
                     for (std::pair<std::string, satdump::params::EditableParameter> &p : settings_output_directories)
                         p.second.draw();
                     ImGui::EndTable();
                 }
             }
 
-            if (satdump_cfg.plugin_config_handlers.size() > 0)
+            if (config::plugin_config_handlers.size() > 0)
             {
                 ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10 * ui_scale);
-                ImGui::SeparatorText(_("Plugin Settings"));
-                for (auto &plugin_hdl : satdump_cfg.plugin_config_handlers)
+                ImGui::SeparatorText("Plugin Settings");
+                for (auto &plugin_hdl : config::plugin_config_handlers)
                 {
                     if (ImGui::CollapsingHeader(plugin_hdl.name.c_str()))
                     {
@@ -322,78 +225,67 @@ namespace satdump
             if (advanced_mode)
             {
                 ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10 * ui_scale);
-                ImGui::SeparatorText(_("Advanced Settings"));
-                if (ImGui::CollapsingHeader(_("TLE Settings")))
+                ImGui::SeparatorText("Advanced Settings");
+                if (ImGui::CollapsingHeader("TLE Settings"))
                 {
-                    widgets::JSONTreeEditor(satdump::satdump_cfg.main_cfg["tle_settings"], "tle_settings", false);
-                    if (ImGui::Button(_("Reset##tle_settings")))
-                        satdump::satdump_cfg.main_cfg["tle_settings"] = satdump::satdump_cfg.default_cfg["tle_settings"];
+                    widgets::JSONTreeEditor(satdump::config::main_cfg["tle_settings"], "tle_settings", false);
+                    if (ImGui::Button("Reset##tle_settings"))
+                        satdump::config::main_cfg["tle_settings"] = satdump::config::master_cfg["tle_settings"];
                 }
-                if (ImGui::CollapsingHeader(_("Advanced Settings")))
+                if (ImGui::CollapsingHeader("Advanced Settings"))
                 {
-                    widgets::JSONTreeEditor(satdump::satdump_cfg.main_cfg["advanced_settings"], "advanced_settings");
+                    widgets::JSONTreeEditor(satdump::config::main_cfg["advanced_settings"], "advanced_settings");
                     ImGui::SameLine();
-                    if (ImGui::Button(_("Reset##advanced_settings")))
-                        satdump::satdump_cfg.main_cfg["advanced_settings"] = satdump::satdump_cfg.default_cfg["advanced_settings"];
+                    if (ImGui::Button("Reset##advanced_settings"))
+                        satdump::config::main_cfg["advanced_settings"] = satdump::config::master_cfg["advanced_settings"];
                 }
-                if (ImGui::CollapsingHeader(_("Default Pipeline Configs")))
+                if (ImGui::CollapsingHeader("Instrument Config"))
                 {
-                    widgets::JSONTreeEditor(pipeline::pipelines_json, "pipelines");
+                    widgets::JSONTreeEditor(satdump::config::main_cfg["viewer"]["instruments"], "instrument_settings");
                     ImGui::SameLine();
-                    if (ImGui::Button(_("Reset##pipelines")))
-                        pipeline::pipelines_json = pipeline::pipelines_system_json;
+                    if (ImGui::Button("Reset##instrument_settings"))
+                        satdump::config::main_cfg["viewer"]["instruments"] = satdump::config::master_cfg["viewer"]["instruments"];
+                }
+                if (ImGui::CollapsingHeader("Default Pipeline Configs"))
+                {
+                    widgets::JSONTreeEditor(pipelines_json, "pipelines");
+                    ImGui::SameLine();
+                    if (ImGui::Button("Reset##pipelines"))
+                        pipelines_json = pipelines_system_json;
                 }
             }
 
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5 * ui_scale);
-            if (ImGui::Button(_("Save")))
+            if (ImGui::Button("Save"))
             {
 #ifdef USE_OPENCL
-                // Save OpenCL Device selection
-                if (ui_safety::validIndex(opencl_devices_id, opencl_devices_enum.size()))
-                {
-                    satdump::satdump_cfg.main_cfg["satdump_general"]["opencl_device"]["platform"] = opencl_devices_enum[opencl_devices_id].platform_id;
-                    satdump::satdump_cfg.main_cfg["satdump_general"]["opencl_device"]["device"] = opencl_devices_enum[opencl_devices_id].device_id;
-                    opencl::resetOCLContext();
-                }
+                satdump::config::main_cfg["satdump_general"]["opencl_device"]["platform"] = opencl_devices_enum[opencl_devices_id].platform_id;
+                satdump::config::main_cfg["satdump_general"]["opencl_device"]["device"] = opencl_devices_enum[opencl_devices_id].device_id;
+                opencl::resetOCLContext();
 #endif
 
-                // Most general settings
                 for (std::pair<std::string, satdump::params::EditableParameter> &p : settings_user_interface)
-                    satdump::satdump_cfg.main_cfg["user_interface"][p.first]["value"] = p.second.getValue();
+                    satdump::config::main_cfg["user_interface"][p.first]["value"] = p.second.getValue();
                 for (std::pair<std::string, satdump::params::EditableParameter> &p : settings_general)
-                    satdump::satdump_cfg.main_cfg["satdump_general"][p.first]["value"] = p.second.getValue();
+                    satdump::config::main_cfg["satdump_general"][p.first]["value"] = p.second.getValue();
                 for (std::pair<std::string, satdump::params::EditableParameter> &p : settings_output_directories)
-                    satdump::satdump_cfg.main_cfg["satdump_directories"][p.first]["value"] = p.second.getValue();
+                    satdump::config::main_cfg["satdump_directories"][p.first]["value"] = p.second.getValue();
 
-                // Theme
-                if (ui_safety::validIndex(selected_theme, themes.size()))
-                    satdump::satdump_cfg.main_cfg["user_interface"]["theme"]["value"] = themes[selected_theme];
+                satdump::config::main_cfg["user_interface"]["theme"]["value"] = themes[selected_theme];
 
-                // Plugin Settings
-                for (auto &plugin_hdl : satdump_cfg.plugin_config_handlers)
+                for (auto &plugin_hdl : config::plugin_config_handlers)
                     plugin_hdl.save();
 
-                // Re-initialize auto TLE update
-                ui_thread_pool.push(
-                    [](int)
-                    {
-                       
-                    });
-
-                // Save config files
-                satdump_cfg.saveUser();
+                config::saveUserConfig();
                 if (advanced_mode)
-                    pipeline::savePipelines();
-
-                // Clean up
-                advanced_mode = getValueOrDefault(satdump::satdump_cfg.main_cfg["user_interface"]["advanced_mode"]["value"], false);
-                saved_message.set_message(style::theme.green, _("Settings saved"));
+                    savePipelines();
+                advanced_mode = getValueOrDefault(satdump::config::main_cfg["user_interface"]["advanced_mode"]["value"], false);
+                saved_message.set_message(style::theme.green, "Settings saved");
                 satdump::update_ui = true;
             }
 
             saved_message.draw();
-            ImGui::TextColored(style::theme.yellow, _("Note : Some settings will require SatTool to be restarted\nto take effect!"));
+            ImGui::TextColored(style::theme.yellow, "Note : Some settings will require SatDump to be restarted\nto take effect!");
         }
-    } // namespace settings
-} // namespace satdump
+    }
+}

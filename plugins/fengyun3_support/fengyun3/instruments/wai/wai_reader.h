@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "image/image.h"
+#include "common/image/image.h"
 #include <string>
 #include <vector>
 

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "common/dsp/clock_recovery/clock_recovery_mm.h"
+#include "modules/demod/module_demod_base.h"
 #include "common/dsp/filter/fir.h"
 #include "common/dsp/pll/costas_loop.h"
-#include "pipeline/modules/demod/module_demod_base.h"
+#include "common/dsp/clock_recovery/clock_recovery_mm.h"
 
 namespace terra
 {
-    class TerraDBDemodModule : public satdump::pipeline::demod::BaseDemodModule
+    class TerraDBDemodModule : public demod::BaseDemodModule
     {
     protected:
         std::shared_ptr<dsp::FIRBlock<complex_t>> rrc;
@@ -22,12 +22,11 @@ namespace terra
         void init();
         void stop();
         void process();
-        nlohmann::json getModuleStats();
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
-} // namespace terra
+}

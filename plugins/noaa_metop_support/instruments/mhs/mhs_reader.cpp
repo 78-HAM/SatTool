@@ -8,9 +8,9 @@ This decoder takes in raw AIP data and processes it to MHS. It perfprms calibrat
 
 #include "mhs_reader.h"
 #include <cstring>
-#include "core/resources.h"
+#include "resources.h"
 #include "nlohmann/json_utils.h"
-#include "utils/stats.h"
+#include "common/utils.h"
 #include "common/calibration.h"
 
 #include "logger.h"
@@ -152,12 +152,12 @@ namespace noaa_metop
             // calib_out["lua"] = loadFileToString(resources::getResourcePath("calibration/MHS.lua"));
             calib_out["calibrator"] = "noaa_mhs";
 
-            uint8_t PIE = satdump::most_common(PIE_buff.begin(), PIE_buff.end(), 0);
+            uint8_t PIE = most_common(PIE_buff.begin(), PIE_buff.end(), 0);
             PIE_buff.clear();
 
             double a, b;
             double R[5], Tk[5], WTk = 0, Wk = 0, Tw;
-            std::array<double, 24> Tth;
+            std::array<double, 24> Tth;                            
 
             // weighed average of the samples, as described by the NOAA KLM User's Guide equation 7.6.6-3
             std::vector<uint16_t> conv_views[5][2];
@@ -411,7 +411,7 @@ namespace noaa_metop
         {
             if (packet.payload.size() < 1302)
                 return;
-            timestamps.push_back(ccsds::crcCheckVerticalParity(packet) ? ccsds::parseCCSDSTimeFull(packet, 10957) : -1);
+            timestamps.push_back(ccsds::parseCCSDSTimeFull(packet, 10957));
 
             work(&packet.payload[14]);
         }

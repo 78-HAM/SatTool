@@ -1,16 +1,18 @@
 #pragma once
 
+#include "core/module.h"
 #include "instruments/common.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
-#include "pipeline/modules/instrument_utils.h"
 
 namespace hinode
 {
     namespace instruments
     {
-        class HinodeInstrumentsDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+        class HinodeInstrumentsDecoderModule : public ProcessingModule
         {
         protected:
+            std::atomic<uint64_t> filesize;
+            std::atomic<uint64_t> progress;
+
             // Readers
             HinodeDepacketizer depack_flt_obs1, depack_flt_obs2;
             HinodeDepacketizer depack_spp_obs1, depack_spp_obs2;
@@ -28,8 +30,8 @@ namespace hinode
         public:
             static std::string getID();
             virtual std::string getIDM() { return getID(); };
-            static nlohmann::json getParams() { return {}; } // TODOREWORK
+            static std::vector<std::string> getParameters();
             static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         };
-    } // namespace instruments
-} // namespace hinode
+    } // namespace amsu
+} // namespace metop

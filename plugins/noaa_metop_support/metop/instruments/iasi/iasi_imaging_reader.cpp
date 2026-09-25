@@ -1,6 +1,6 @@
 #include "iasi_imaging_reader.h"
-#include "common/ccsds/ccsds_time.h"
 #include "common/repack.h"
+#include "common/ccsds/ccsds_time.h"
 #include "common/tracking/interpolator.h"
 
 namespace metop
@@ -14,7 +14,10 @@ namespace metop
             timestamps_ifov.resize(30, -1);
         }
 
-        IASIIMGReader::~IASIIMGReader() { ir_channel.clear(); }
+        IASIIMGReader::~IASIIMGReader()
+        {
+            ir_channel.clear();
+        }
 
         void IASIIMGReader::work(ccsds::CCSDSPacket &packet)
         {
@@ -107,6 +110,9 @@ namespace metop
             return img;
         }
 
-        nlohmann::json IASIIMGReader::getCalib() { return calib; }
+        nlohmann::json IASIIMGReader::getCalib()
+        {
+            return calib;
+        }
     } // namespace iasi
 } // namespace metop

@@ -1,8 +1,6 @@
 #include "ascat_reader.h"
 #include "common/ccsds/ccsds_time.h"
-#include <algorithm>
 #include <cmath>
-#include <cstring>
 
 namespace metop
 {
@@ -23,6 +21,33 @@ namespace metop
         {
             for (int i = 0; i < 6; i++)
                 channels[i].clear();
+        }
+
+        double parse_uint_to_float(uint16_t sample)
+        {
+            // Details of this format from pyascatreader.cpp
+            bool s = (sample >> 15) & 0x1;
+            unsigned int e = (sample >> 7) & 0xff;
+            unsigned int f = (sample) & 0x7f;
+
+            double value = 0;
+
+            if (e == 255)
+            {
+                value = 0.0;
+            }
+            else if (e == 0)
+            {
+                if (f == 0)
+                    value = 0.0;
+                else
+                    value = (s ? -1.0 : 1.0) * pow(2.0, -126.0) * (double)f / 128.0;
+            }
+            else
+            {
+                value = (s ? -1.0 : 1.0) * pow(2.0, double(e - 127)) * ((double)f / 128.0 + 1.0);
+            }
+            return value;
         }
 
         void ASCATReader::work(ccsds::CCSDSPacket &packet)
@@ -46,10 +71,10 @@ namespace metop
                     double value = parse_uint_to_float(sample);
 
                     channels[channel][lines[channel]][i] = value;
-                    channels_img[channel][lines[channel] * 256 + i] = sample; // value / 100;
+                    channels_img[channel][lines[channel] * 256 + i] = value / 100;
                 }
 
-                timestamps[channel].push_back(ccsds::crcCheckVerticalParity(packet) ? ccsds::parseCCSDSTimeFull(packet, 10957) : -1);
+                timestamps[channel].push_back(ccsds::parseCCSDSTimeFull(packet, 10957));
 
                 // Frame counter
                 lines[channel]++;
@@ -72,15 +97,21 @@ namespace metop
                     noise_channels[channel][noise_lines[channel]][i] = value;
                 }
 
-                noise_timestamps[channel].push_back(ccsds::crcCheckVerticalParity(packet) ? ccsds::parseCCSDSTimeFull(packet, 10957) : -1);
+                noise_timestamps[channel].push_back(ccsds::parseCCSDSTimeFull(packet, 10957));
 
                 // Frame counter
                 noise_lines[channel]++;
             }
         }
 
-        image::Image ASCATReader::getChannelImg(int channel) { return image::Image(channels_img[channel].data(), 16, 256, lines[channel], 1); }
+        image::Image ASCATReader::getChannelImg(int channel)
+        {
+            return image::Image(channels_img[channel].data(), 16, 256, lines[channel], 1);
+        }
 
-        std::vector<std::vector<float>> ASCATReader::getChannel(int channel) { return channels[channel]; }
-    } // namespace ascat
+        std::vector<std::vector<float>> ASCATReader::getChannel(int channel)
+        {
+            return channels[channel];
+        }
+    } // namespace avhrr
 } // namespace metop

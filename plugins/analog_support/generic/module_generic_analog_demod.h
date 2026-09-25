@@ -1,26 +1,24 @@
 #pragma once
 
+#include "modules/demod/module_demod_base.h"
 #include "common/dsp/demod/quadrature_demod.h"
-#include "pipeline/modules/demod/module_demod_base.h"
 
 namespace generic_analog
 {
-    class GenericAnalogDemodModule : public satdump::pipeline::demod::BaseDemodModule
+    class GenericAnalogDemodModule : public demod::BaseDemodModule
     {
-        enum ModulationType : int
-        {
-            AM,
-            NFM
-        };
-
     protected:
         std::shared_ptr<dsp::RationalResamplerBlock<complex_t>> res;
         std::shared_ptr<dsp::QuadratureDemodBlock> qua;
 
+
+        bool nfm_demod = true;
+        bool am_demod = false;
+
+        
         bool settings_changed = false;
         int upcoming_symbolrate = 0;
-        bool record_demod_audio = false;
-        ModulationType modulation_type = ModulationType::AM;
+        int e = 0;
 
         bool play_audio;
         uint64_t audio_samplerate = 48e3;
@@ -37,13 +35,10 @@ namespace generic_analog
 
         bool enable_audio = false;
 
-    private:
-        std::string make_safe_string(const std::string &str);
-
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
-} // namespace generic_analog
+}

@@ -1,10 +1,8 @@
-#include "common/geodetic/geodetic_coordinates.h"
-#include "common/tracking/tle.h"
-#include "common/utils.h"
-#include "init.h"
-#include "logger.h"
 #include "object_tracker.h"
-#include "utils/time.h"
+#include "common/geodetic/geodetic_coordinates.h"
+#include "common/utils.h"
+#include "logger.h"
+#include "common/tracking/tle.h"
 #include <cfloat>
 
 namespace satdump
@@ -20,7 +18,7 @@ namespace satdump
 
             general_mutex.lock();
 
-            double current_time = getTime() + tracking_time_offset;
+            double current_time = getTime();
 
             if (tracking_mode == TRACKING_HORIZONS)
             {
@@ -74,8 +72,7 @@ namespace satdump
                     if (satellite_object != nullptr)
                         predict_destroy_orbital_elements(satellite_object);
 
-                    auto &reg = db_keplers->all_;
-                    auto &tle = reg[current_satellite_id];
+                    auto &tle = general_tle_registry[current_satellite_id];
 
                     satellite_object = predict_parse_tle(tle.line1.c_str(), tle.line2.c_str());
                     updateNextPass(current_time);
@@ -122,7 +119,7 @@ namespace satdump
                     {
                         next_aos_time = horizons_data[i].timestamp;
                         sat_next_aos_pos.az = horizons_data[i].az;
-                        sat_next_aos_pos.el = 0;
+                        sat_next_aos_pos.el = horizons_data[i].el;
                         break;
                     }
                 }
@@ -145,7 +142,7 @@ namespace satdump
                     {
                         next_aos_time = horizons_data[i].timestamp;
                         sat_next_aos_pos.az = horizons_data[i].az;
-                        sat_next_aos_pos.el = 0;
+                        sat_next_aos_pos.el = horizons_data[i].el;
                         aos_iter = i;
                         break;
                     }
@@ -205,7 +202,7 @@ namespace satdump
             next_aos_time = predict_from_julian(next_aos.time);
 
             sat_next_aos_pos.az = next_aos.azimuth * RAD_TO_DEG;
-            sat_next_aos_pos.el = 0;
+            sat_next_aos_pos.el = next_aos.elevation * RAD_TO_DEG;
             sat_next_los_pos.az = next_los.azimuth * RAD_TO_DEG;
             sat_next_los_pos.el = next_los.elevation * RAD_TO_DEG;
 
@@ -255,4 +252,4 @@ namespace satdump
 
         upcoming_passes_mtx.unlock();
     }
-} // namespace satdump
+}

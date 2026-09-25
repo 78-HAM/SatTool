@@ -1,10 +1,9 @@
 #include "module_spacex_decoder.h"
-#include "common/codings/randomization.h"
-#include "common/codings/reedsolomon/reedsolomon.h"
-#include "common/codings/rotation.h"
-#include "imgui/imgui.h"
 #include "logger.h"
-#include <cstdint>
+#include "common/codings/randomization.h"
+#include "common/codings/rotation.h"
+#include "common/codings/reedsolomon/reedsolomon.h"
+#include "imgui/imgui.h"
 
 #define BUFFER_SIZE 8192 * 10
 
@@ -20,17 +19,29 @@ uint64_t getFilesize(std::string filepath);
 
 namespace spacex
 {
-    SpaceXDecoderModule::SpaceXDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-        : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters), qpsk(parameters["qpsk"].get<bool>())
+    SpaceXDecoderModule::SpaceXDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters),
+                                                                                                                                qpsk(parameters["qpsk"].get<bool>())
     {
         buffer = new int8_t[BUFFER_SIZE];
-        fsfsm_file_ext = ".cadu";
     }
 
-    SpaceXDecoderModule::~SpaceXDecoderModule() { delete[] buffer; }
+    SpaceXDecoderModule::~SpaceXDecoderModule()
+    {
+        delete[] buffer;
+    }
 
     void SpaceXDecoderModule::process()
     {
+        filesize = getFilesize(d_input_file);
+        data_in = std::ifstream(d_input_file, std::ios::binary);
+        data_out = std::ofstream(d_output_file_hint + ".cadu", std::ios::binary);
+        d_output_files.push_back(d_output_file_hint + ".cadu");
+
+        logger->info("Using input symbols " + d_input_file);
+        logger->info("Decoding to " + d_output_file_hint + ".cadu");
+
+        time_t lastTime = 0;
+
         reedsolomon::ReedSolomon rs(reedsolomon::RS239);
 
         // Final buffer after decoding
@@ -46,10 +57,10 @@ namespace spacex
         int ph = PHASE_0;
         bool swap = false;
 
-        while (should_run())
+        while (!data_in.eof())
         {
             // Read buffer
-            read_data((uint8_t *)buffer, BUFFER_SIZE);
+            data_in.read((char *)buffer, BUFFER_SIZE);
 
             if (qpsk)
                 rotate_soft((int8_t *)buffer, BUFFER_SIZE, (phase_t)ph, swap);
@@ -106,20 +117,22 @@ namespace spacex
                     derand_ccsds(&cadu[4], ccsds::ccsds_tm::CADU_SIZE - 4);
 
                     if (errors[0] > -1 && errors[1] > -1 && errors[2] > -1 && errors[3] > -1 && errors[4] > -1)
-                        write_data((uint8_t *)&cadu, ccsds::ccsds_tm::CADU_SIZE);
+                        data_out.write((char *)&cadu, ccsds::ccsds_tm::CADU_SIZE);
                 }
+            }
+
+            progress = data_in.tellg();
+
+            if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+            {
+                lastTime = time(NULL);
+                std::string deframer_state = deframer.getState() == 0 ? "NOSYNC" : (deframer.getState() == 2 || deframer.getState() == 6 ? "SYNCING" : "SYNCED");
+                logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%, Deframer : " + deframer_state);
             }
         }
 
-        cleanup();
-    }
-
-    nlohmann::json SpaceXDecoderModule::getModuleStats()
-    {
-        auto v = satdump::pipeline::base::FileStreamToFileStreamModule::getModuleStats();
-        std::string deframer_state = deframer.getState() == 0 ? "NOSYNC" : (deframer.getState() == 2 || deframer.getState() == 6 ? "SYNCING" : "SYNCED");
-        v["deframer_state"] = deframer_state;
-        return v;
+        data_out.close();
+        data_in.close();
     }
 
     void SpaceXDecoderModule::drawUI(bool window)
@@ -132,7 +145,7 @@ namespace spacex
             {
                 ImDrawList *draw_list = ImGui::GetWindowDrawList();
                 ImVec2 rect_min = ImGui::GetCursorScreenPos();
-                ImVec2 rect_max = {rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale};
+                ImVec2 rect_max = { rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale };
                 draw_list->AddRectFilled(rect_min, rect_max, style::theme.widget_bg);
                 draw_list->PushClipRect(rect_min, rect_max);
 
@@ -140,7 +153,8 @@ namespace spacex
                 {
                     draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (int)(100 * ui_scale + (buffer[i] / 127.0) * 100 * ui_scale) % int(200 * ui_scale),
                                                       ImGui::GetCursorScreenPos().y + (int)(100 * ui_scale + rng.gasdev() * 6 * ui_scale) % int(200 * ui_scale)),
-                                               2 * ui_scale, style::theme.constellation);
+                                               2 * ui_scale,
+                                               style::theme.constellation);
                 }
 
                 draw_list->PopClipRect();
@@ -187,15 +201,23 @@ namespace spacex
         }
         ImGui::EndGroup();
 
-        drawProgressBar();
+        ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
     }
 
-    std::string SpaceXDecoderModule::getID() { return "spacex_tlm_decoder"; }
+    std::string SpaceXDecoderModule::getID()
+    {
+        return "spacex_tlm_decoder";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> SpaceXDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> SpaceXDecoderModule::getParameters()
+    {
+        return {"qpsk"};
+    }
+
+    std::shared_ptr<ProcessingModule> SpaceXDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<SpaceXDecoderModule>(input_file, output_file_hint, parameters);
     }
-} // namespace spacex
+} // namespace falcon

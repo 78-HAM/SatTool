@@ -1,37 +1,31 @@
 #include "scheduler.h"
-#include "common/utils.h"
-#include "core/plugin.h"
-#include "init.h"
 #include "logger.h"
-#include "utils/time.h"
+#include "core/plugin.h"
+#include "common/utils.h"
 
 namespace satdump
 {
     AutoTrackScheduler::AutoTrackScheduler()
     {
-        auto &tle_registry = db_keplers->all_;
-        if (tle_registry.size() > 0)
+        if (general_tle_registry.size() > 0)
             has_tle = true;
 
-        for (auto &tle : tle_registry)
+        for (auto &tle : general_tle_registry)
             satoptions.push_back(tle.name);
 
         // Updates on registry updates
-        eventBus->register_handler<TLEsUpdatedEvent>(
-            [this](TLEsUpdatedEvent)
-            {
-                upcoming_satellite_passes_mtx.lock();
+        eventBus->register_handler<TLEsUpdatedEvent>([this](TLEsUpdatedEvent)
+                                                     {
+                                                            upcoming_satellite_passes_mtx.lock();
 
-                auto &tle_registry = db_keplers->all_;
-                if (tle_registry.size() > 0)
-                    has_tle = true;
+                                                            if (general_tle_registry.size() > 0)
+                                                                has_tle = true;
 
-                satoptions.clear();
-                for (auto &tle : tle_registry)
-                    satoptions.push_back(tle.name);
-
-                upcoming_satellite_passes_mtx.unlock();
-            });
+                                                            satoptions.clear();
+                                                            for (auto &tle : general_tle_registry)
+                                                                satoptions.push_back(tle.name);
+                                                                
+                                                            upcoming_satellite_passes_mtx.unlock(); });
     }
 
     AutoTrackScheduler::~AutoTrackScheduler()
@@ -64,7 +58,6 @@ namespace satdump
                             vfo_mode_norads_vis.insert({pass.norad, pass});
 
                             logger->critical("AOS!!!!!!!!!!!!!! %d", pass.norad);
-                            eventBus->fire_event<events::TrackingSchedulerAOSEvent>({upcoming_satellite_passes_sel[0]});
                             TrackedObject obj;
                             for (auto &v : enabled_satellites)
                                 if (v.norad == pass.norad)
@@ -80,7 +73,6 @@ namespace satdump
                     if (curr_time > p.second.los_time)
                     {
                         logger->critical("LOS!!!!!!!!!!!!!! %d ", p.first);
-                        eventBus->fire_event<events::TrackingSchedulerLOSEvent>({upcoming_satellite_passes_sel[0]});
                         TrackedObject obj;
                         for (auto &v : enabled_satellites)
                             if (v.norad == p.first)
@@ -110,7 +102,6 @@ namespace satdump
                     if (!autotrack_pass_has_started && curr_time > upcoming_satellite_passes_sel[0].aos_time)
                     {
                         logger->critical("AOS!!!!!!!!!!!!!! %d", upcoming_satellite_passes_sel[0].norad);
-                        eventBus->fire_event<events::TrackingSchedulerAOSEvent>({upcoming_satellite_passes_sel[0]});
                         TrackedObject obj;
                         for (auto &v : enabled_satellites)
                             if (v.norad == upcoming_satellite_passes_sel[0].norad)
@@ -125,7 +116,6 @@ namespace satdump
                     if (autotrack_pass_has_started)
                     {
                         logger->critical("LOS!!!!!!!!!!!!!! %d", upcoming_satellite_passes_sel[0].norad);
-                        eventBus->fire_event<events::TrackingSchedulerLOSEvent>({upcoming_satellite_passes_sel[0]});
                         TrackedObject obj;
                         for (auto &v : enabled_satellites)
                             if (v.norad == upcoming_satellite_passes_sel[0].norad)
@@ -182,7 +172,12 @@ namespace satdump
 
         upcoming_satellite_passes_all = filterPassesByElevation(upcoming_satellite_passes_all, autotrack_cfg.autotrack_min_elevation, 90); // TODO
 
-        std::sort(upcoming_satellite_passes_all.begin(), upcoming_satellite_passes_all.end(), [](SatellitePass &el1, SatellitePass &el2) { return el1.aos_time < el2.aos_time; });
+        std::sort(upcoming_satellite_passes_all.begin(), upcoming_satellite_passes_all.end(),
+                  [](SatellitePass &el1,
+                     SatellitePass &el2)
+                  {
+                      return el1.aos_time < el2.aos_time;
+                  });
 
         upcoming_satellite_passes_sel.clear();
 
@@ -193,7 +188,7 @@ namespace satdump
 
         // for (auto ppp : upcoming_satellite_passes_sel)
         // logger->debug("Pass of %s at AOS %s LOS %s elevation %.2f",
-        //               general_tle_registry->get_from_norad(ppp.norad).value().name.c_str(),
+        //               general_tle_registry.get_from_norad(ppp.norad).value().name.c_str(),
         //               timestamp_to_string(ppp.aos_time).c_str(),
         //               timestamp_to_string(ppp.los_time).c_str(),
         //               ppp.max_elevation);
@@ -232,9 +227,15 @@ namespace satdump
         upcoming_satellite_passes_mtx.unlock();
     }
 
-    bool AutoTrackScheduler::getEngaged() { return autotrack_engaged; }
+    bool AutoTrackScheduler::getEngaged()
+    {
+        return autotrack_engaged;
+    }
 
-    std::vector<TrackedObject> AutoTrackScheduler::getTracked() { return enabled_satellites; }
+    std::vector<TrackedObject> AutoTrackScheduler::getTracked()
+    {
+        return enabled_satellites;
+    }
 
     void AutoTrackScheduler::setTracked(std::vector<TrackedObject> tracked)
     {
@@ -258,7 +259,10 @@ namespace satdump
         }
     }
 
-    AutoTrackCfg AutoTrackScheduler::getAutoTrackCfg() { return autotrack_cfg; }
+    AutoTrackCfg AutoTrackScheduler::getAutoTrackCfg()
+    {
+        return autotrack_cfg;
+    }
 
     void AutoTrackScheduler::setAutoTrackCfg(AutoTrackCfg v)
     {
@@ -266,4 +270,4 @@ namespace satdump
         autotrack_cfg = v;
         upcoming_satellite_passes_mtx.unlock();
     }
-} // namespace satdump
+}

@@ -1,24 +1,32 @@
 #include "module_stdc_decoder.h"
-#include "common/utils.h"
-#include "common/widgets/themed_widgets.h"
+#include <fstream>
 #include "logger.h"
 #include <filesystem>
-#include <fstream>
+#include "common/widgets/themed_widgets.h"
+#include "common/utils.h"
 
 namespace inmarsat
 {
     namespace stdc
     {
-        STDCDecoderModule::STDCDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters), viterbi(ENCODED_FRAME_SIZE_NOSYNC / 2, {109, 79})
+        STDCDecoderModule::STDCDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters),
+                                                                                                                                viterbi(ENCODED_FRAME_SIZE_NOSYNC / 2, {109, 79})
         {
             buffer = new int8_t[ENCODED_FRAME_SIZE];
             buffer_shifter = new int8_t[ENCODED_FRAME_SIZE];
             buffer_synchronized = new int8_t[ENCODED_FRAME_SIZE];
             buffer_depermuted = new int8_t[ENCODED_FRAME_SIZE];
             buffer_vitdecoded = new uint8_t[ENCODED_FRAME_SIZE];
+        }
 
-            fsfsm_file_ext = ".frm";
+        std::vector<ModuleDataType> STDCDecoderModule::getInputTypes()
+        {
+            return {DATA_FILE, DATA_STREAM};
+        }
+
+        std::vector<ModuleDataType> STDCDecoderModule::getOutputTypes()
+        {
+            return {DATA_FILE, DATA_STREAM};
         }
 
         STDCDecoderModule::~STDCDecoderModule()
@@ -32,12 +40,33 @@ namespace inmarsat
 
         void STDCDecoderModule::process()
         {
-            while (should_run())
+            if (input_data_type == DATA_FILE)
+                filesize = getFilesize(d_input_file);
+            else
+                filesize = 0;
+            if (input_data_type == DATA_FILE)
+                data_in = std::ifstream(d_input_file, std::ios::binary);
+            if (output_data_type == DATA_FILE)
+            {
+                data_out = std::ofstream(d_output_file_hint + ".frm", std::ios::binary);
+                d_output_files.push_back(d_output_file_hint + ".frm");
+            }
+
+            logger->info("Using input symbols " + d_input_file);
+            logger->info("Decoding to " + d_output_file_hint + ".frm");
+
+            time_t lastTime = 0;
+            while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
                 // Read a buffer
-                read_data((uint8_t *)buffer, ENCODED_FRAME_SIZE);
+                if (input_data_type == DATA_FILE)
+                    data_in.read((char *)buffer, ENCODED_FRAME_SIZE);
+                else
+                    input_fifo->read((uint8_t *)buffer, ENCODED_FRAME_SIZE);
 
                 gotFrame = false;
+
+                uint16_t frm_num = 0;
 
                 for (int i = 0; i < ENCODED_FRAME_SIZE; i++)
                 {
@@ -66,25 +95,35 @@ namespace inmarsat
                         frm_num = buffer_vitdecoded[2] << 8 | buffer_vitdecoded[3];
                         logger->trace("Got STD-C Frame Corr %d Inv %d Ber %f No %d", best_match, (int)inverted, viterbi.ber(), frm_num);
 
-                        write_data((uint8_t *)buffer_vitdecoded, ENCODED_FRAME_SIZE_NOSYNC / 16);
+                        if (output_data_type == DATA_FILE)
+                            data_out.write((char *)buffer_vitdecoded, ENCODED_FRAME_SIZE_NOSYNC / 16);
+                        else
+                            output_fifo->write((uint8_t *)buffer_vitdecoded, ENCODED_FRAME_SIZE_NOSYNC / 16);
 
                         gotFrame = true;
                     }
                 }
+
+                if (input_data_type == DATA_FILE)
+                    progress = data_in.tellg();
+
+                // Update module stats
+                module_stats["deframer_lock"] = gotFrame;
+                module_stats["viterbi_ber"] = viterbi.ber();
+                module_stats["last_count"] = frm_num;
+
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    std::string lock_state = gotFrame ? "SYNCED" : "NOSYNC";
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%, Viterbi BER : " + std::to_string(viterbi.ber() * 100) + "%%, Lock : " + lock_state);
+                }
             }
 
-            cleanup();
-        }
-
-        nlohmann::json STDCDecoderModule::getModuleStats()
-        {
-            auto v = satdump::pipeline::base::FileStreamToFileStreamModule::getModuleStats();
-            v["deframer_lock"] = gotFrame;
-            v["viterbi_ber"] = viterbi.ber();
-            v["last_count"] = frm_num;
-            std::string lock_state = gotFrame ? "SYNCED" : "NOSYNC";
-            v["lock_state"] = lock_state;
-            return v;
+            if (input_data_type == DATA_FILE)
+                data_in.close();
+            if (output_data_type == DATA_FILE)
+                data_out.close();
         }
 
         void STDCDecoderModule::drawUI(bool window)
@@ -104,7 +143,8 @@ namespace inmarsat
                     std::memmove(&cor_history[0], &cor_history[1], (200 - 1) * sizeof(float));
                     cor_history[200 - 1] = cor;
 
-                    satdump::widgets::ThemedPlotLines(style::theme.plot_bg.Value, "##", cor_history, IM_ARRAYSIZE(cor_history), 0, "", 60.0f, 128.0f, ImVec2(200 * ui_scale, 50 * ui_scale));
+                    widgets::ThemedPlotLines(style::theme.plot_bg.Value, "", cor_history, IM_ARRAYSIZE(cor_history), 0, "", 60.0f, 128.0f,
+                        ImVec2(200 * ui_scale, 50 * ui_scale));
                 }
 
                 ImGui::Spacing();
@@ -118,21 +158,31 @@ namespace inmarsat
                     std::memmove(&ber_history[0], &ber_history[1], (200 - 1) * sizeof(float));
                     ber_history[200 - 1] = ber;
 
-                    satdump::widgets::ThemedPlotLines(style::theme.plot_bg.Value, "##", ber_history, IM_ARRAYSIZE(ber_history), 0, "", 0.0f, 1.0f, ImVec2(200 * ui_scale, 50 * ui_scale));
+                    widgets::ThemedPlotLines(style::theme.plot_bg.Value, "", ber_history, IM_ARRAYSIZE(ber_history), 0, "", 0.0f, 1.0f,
+                        ImVec2(200 * ui_scale, 50 * ui_scale));
                 }
             }
             ImGui::EndGroup();
 
-            drawProgressBar();
+            if (input_data_type == DATA_FILE)
+                ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string STDCDecoderModule::getID() { return "inmarsat_stdc_decoder"; }
+        std::string STDCDecoderModule::getID()
+        {
+            return "inmarsat_stdc_decoder";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> STDCDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> STDCDecoderModule::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> STDCDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<STDCDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace stdc
-} // namespace inmarsat
+    }
+}

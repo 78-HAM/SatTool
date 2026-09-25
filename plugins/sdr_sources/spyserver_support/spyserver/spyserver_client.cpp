@@ -1,7 +1,6 @@
 #include "spyserver_client.h"
 #include <volk/volk.h>
 #include <cstring>
-#include <chrono>
 
 using namespace std::chrono_literals;
 
@@ -16,7 +15,7 @@ namespace spyserver
 
         output->clearWriteStop();
 
-        sendHandshake("SatTool");
+        sendHandshake("SatDump");
 
         client->readAsync(sizeof(SpyServerMessageHeader), (uint8_t *)&receivedHeader, dataHandler, this);
     }

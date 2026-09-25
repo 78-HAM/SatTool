@@ -19,6 +19,13 @@ The name r2iq as Real 2 I+Q stream
 #include <assert.h>
 #include <utility>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+
+
 conv_r2iq::conv_r2iq() :
 	r2iqControlClass()
 {

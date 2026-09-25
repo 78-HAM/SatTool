@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cstdint>
-#include "image/image.h"
+#include "common/image/image.h"
 #include <vector>
+#include "common/resizeable_buffer.h"
 
 namespace fengyun3
 {
@@ -11,7 +12,7 @@ namespace fengyun3
         class MWRIReader
         {
         private:
-            std::vector<unsigned short> channels[10];
+            ResizeableBuffer<unsigned short> channels[10];
 
         public:
             MWRIReader();

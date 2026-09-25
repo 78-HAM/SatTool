@@ -12,6 +12,11 @@ namespace meteor
         {
             class Segment
             {
+            private:
+                std::shared_ptr<bool> buffer;
+
+                bool meteorm2x_mode;
+
             public:
                 uint16_t day_time;
                 uint32_t ms_time;

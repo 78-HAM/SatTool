@@ -1,27 +1,32 @@
-#include "loader.h"
-#include "core/backend.h"
-#include "core/resources.h"
-#include "core/style.h"
-#include "i18n.h"
-#include "image/image.h"
-#include "image/io.h"
+#include <random>
 #include "imgui/imgui.h"
 #include "imgui/imgui_flags.h"
 #include "imgui/imgui_image.h"
-#include <thread>
+#include "common/image/image.h"
+#include "common/image/io.h"
+#include "resources.h"
+#include "core/style.h"
+#include "core/backend.h"
+#include "loader.h"
+#include "const.h"
 
 namespace satdump
 {
     LoadingScreenSink::LoadingScreenSink()
     {
-        // TODOREWORK This can only work if the logger provides data from the MAIN thread!
-        thread_id = std::this_thread::get_id();
-
+        const time_t timevalue = time(0);
+        std::tm *timeConstant = gmtime(&timevalue);
         image::Image image;
-        loader_constant = false;
-        title = "SatTool";
-        slogan = _("General Purpose Satellite Data Processor");
-        image::load_png(image, resources::getResourcePath("icon.png"));
+        std::random_device dev;
+        std::mt19937 rng(dev());
+        std::uniform_int_distribution<std::mt19937::result_type> check(1, 1000);
+        loader_constant = ((timeConstant->tm_mon - 3) == 0 && (timeConstant->tm_mday - 1) == 0) ? (check(rng) != 42) : (check(rng) == 42);
+        title = loader_constant ? satdump::loader_constant_title : "SatDump";
+        slogan = loader_constant ? satdump::loader_constant_slogan : "General Purpose Satellite Data Processor";
+        if (loader_constant)
+            image::load_png(image, (uint8_t *)satdump::loader_constant_icon, sizeof(satdump::loader_constant_icon));
+        else
+            image::load_png(image, resources::getResourcePath("icon.png"));
 
         if (image.depth() != 8)
             image = image.to8bits();
@@ -58,15 +63,14 @@ namespace satdump
 
     void LoadingScreenSink::receive(slog::LogMsg log)
     {
-        // TODOREWORK This can only work if the logger provides data from the MAIN thread!
-        if (thread_id == std::this_thread::get_id() && log.lvl == slog::LOG_INFO)
+        if (log.lvl == slog::LOG_INFO)
             push_frame(log.str);
     }
 
     void LoadingScreenSink::push_frame(std::string str)
     {
         std::pair<int, int> dims = backend::beginFrame();
-        float scale = ui_scale;
+        float scale = backend::device_scale;
         ImGui::SetNextWindowPos({0, 0});
         ImGui::SetNextWindowSize({(float)dims.first, (float)dims.second});
         ImGui::Begin("Loading Screen", nullptr, NOWINDOW_FLAGS | ImGuiWindowFlags_NoDecoration);
@@ -82,8 +86,8 @@ namespace satdump
             ImGui::PopFont();
             ImGui::SetCursorPos({reference_pos.x + (230 * scale), reference_pos.y + (87 * scale)});
             ImGui::TextUnformatted(slogan.c_str());
-            ImGui::GetWindowDrawList()->AddLine({reference_pos.x + (230 * scale), reference_pos.y + (112 * scale)}, {reference_pos.x + (490 * scale), reference_pos.y + (112 * scale)},
-                                                IM_COL32(155, 155, 155, 255));
+            ImGui::GetWindowDrawList()->AddLine({reference_pos.x + (230 * scale), reference_pos.y + (112 * scale)},
+                                                {reference_pos.x + (490 * scale), reference_pos.y + (112 * scale)}, IM_COL32(155, 155, 155, 255));
             ImGui::SetCursorPos({reference_pos.x + (230 * scale), reference_pos.y + (120 * scale)});
         }
         else
@@ -107,4 +111,4 @@ namespace satdump
         ImGui::End();
         backend::endFrame();
     }
-} // namespace satdump
+}

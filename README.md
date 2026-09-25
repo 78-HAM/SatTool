@@ -1,11 +1,11 @@
 # SatDump
 
-<img src='./icon.png' width='500px' />
+<img src='/icon.png' width='500px' />
 
 A generic satellite data processing software.
 *Thanks Crosswalkersam for the icon!*
 
-There now also is a [Matrix](https://matrix.to/#/#satdump:altillimity.com) room if you want to chat! Otherwise, a [Discord](https://discord.gg/ctt3M8pRYG) bridge to the Matrix is also available.
+There now also is a [Matrix](https://matrix.to/#/#satdump:altillimity.com) room if you want to chat!
 
 # Introduction
 
@@ -13,43 +13,42 @@ There now also is a [Matrix](https://matrix.to/#/#satdump:altillimity.com) room 
 
 ## GUI Version
 
-### Processing recorded data
+### Offline processing (recorded data)
 Quick-Start :
-- Open the processing menu by selecting `File` > `Processing`
-- Select the appropriate pipeline
+- Choose the appropriate pipeline for what you want to process
 - Select the input file (baseband, frames, soft symbols...)
-- Set the appropriate input level (what type your input file is)
-- Check settings shown below are right (such as sample rate)
+- Set the appropriate input level (what your file is)
+- Check settings shown below are right (such as samplerate)
 - Press "Start"!
 
-![Image showing the processing window](gui-menu.png)
+![Img](gui_example.png)
 
-![As described below](gui-processing.png)
-*SatDump (1.0) demodulating a DVB-S2 baseband*
+![Img](gui_example2.png)
+*SatDump demodulating a DVB-S2 Baseband*
 
 ### Live processing or recording (directly from your SDR)
 
 Quick-Start :
-- Add a recorder by selecting `Add` > `Recorder`
+- Go in the "Recorder" Tab
 - Select and start your SDR Device
 - Choose a pipeline
 - Start it, and done!
+- For recording, use the recording tab instead. Both processing and recording can be used at once.
 
-
-![SatDump as described below](gui-live-source.png)
-*SatDump tuned to 103 MHz using a HydraSDR*
+![Img](gui_recording.png)
 
 ## CLI Version
 
-![Satdump CLI initializing](cli-init.png)
+![Img](cli_example.png)
 
 ### Offline processing
 
 ```
-Usage : satdump pipeline [pipeline_id] [input_level] [input_file] [output_file_or_directory] [additional options as required]
-Extra options can be found by adding --help to the end of the command 
+Usage : satdump [pipeline_id] [input_level] [input_file] [output_file_or_directory] [additional options as required]
+Extra options (examples. Any parameter used in modules can be used here) :
+  --samplerate [baseband_samplerate] --baseband_format [cf32/cs32/cs16/cs8/cu8] --dc_block --iq_swap
 Sample command :
-satdump pipeline metop_ahrpt baseband /home/user/metop_baseband.cs16 metop_output_directory --samplerate 6e6 --baseband_format cs16
+satdump metop_ahrpt baseband /home/user/metop_baseband.cs16 metop_output_directory --samplerate 6e6 --baseband_format cs16
 ```
 
 You can find a list of Satellite pipelines and their parameters [Here](https://docs.satdump.org/pipelines.html).
@@ -57,13 +56,13 @@ You can find a list of Satellite pipelines and their parameters [Here](https://d
 ### Live processing
 
 ```
-Usage : satdump legacy live [pipeline_id] [output_file_or_directory] [additional options as required]
+Usage : satdump live [pipeline_id] [output_file_or_directory] [additional options as required]
 Extra options (examples. Any parameter used in modules or sources can be used here) :
   --samplerate [baseband_samplerate] --baseband_format [cf32/cs32/cs16/cs8/w8] --dc_block --iq_swap
   --source [airspy/rtlsdr/etc] --gain 20 --bias
 As well as --timeout in seconds
 Sample command :
-satdump legacy live metop_ahrpt metop_output_directory --source airspy --samplerate 6e6 --frequency 1701.3e6 --general_gain 18 --bias --timeout 780
+satdump live metop_ahrpt metop_output_directory --source airspy --samplerate 6e6 --frequency 1701.3e6 --general_gain 18 --bias --timeout 780
 ```
 
 You can find a list of all SDR Options [Here](https://docs.satdump.org/sdr_options.html). Run `satdump sdr_probe` to get a list of available SDRs and their IDs.
@@ -71,15 +70,14 @@ You can find a list of all SDR Options [Here](https://docs.satdump.org/sdr_optio
 ### Recording
 
 ```
-Usage : satdump legacy record [output_baseband (without extension!)] [additional options as required]
+Usage : satdump record [output_baseband (without extension!)] [additional options as required]
 Extra options (examples. Any parameter used in sources can be used here) :
   --samplerate [baseband_samplerate] --baseband_format [cf32/cs32/cs16/cs8/cu8/w16] --dc_block --iq_swap
   --source [airspy/rtlsdr/etc] --gain 20 --bias
 As well as --timeout in seconds
 Sample command :
-satdump legacy record baseband_name --source airspy --samplerate 6e6 --frequency 1701.3e6 --general_gain 18 --bias --timeout 780 --baseband_format cf32
+satdump record baseband_name --source airspy --samplerate 6e6 --frequency 1701.3e6 --general_gain 18 --bias --timeout 780 --baseband_format cf32
 ```
-
 
 # Building / Installing
 
@@ -91,37 +89,36 @@ Our builds are made with Visual Studio 2019 for x64, so the appropriate Visual C
 For compilation information, see the dedicated documentation [here](https://docs.satdump.org/build_windows.html). *Note : Mingw builds are NOT supported, VOLK will not work.*
 
 ### macOS
+Dependency-free macOS builds are provided on the [releases page](https://github.com/altillimity/SatDump/releases) (Thanks to JVital2013, the builds are also signed!).
 
-Dependency-free macOS builds are provided on the [releases page](https://github.com/altillimity/SatDump/releases).
-
-General build instructions (Homebrew is required!)
+General build instructions (Brew and XCode command line tools required)
 
 ```bash
-# Install build tools and dependencies
-brew install cmake dylibbundler libtool autoconf automake meson orc libxml2 zlib portaudio boost libusb nng volk libjpeg-turbo libtiff libomp libpng glfw3 libusb fftw libxml2 portaudio jemalloc nng zstd armadillo hdf5 sqlite3
+# Install build tools
+brew install cmake dylibbundler pkg-config libtool autoconf automake meson
 
 # Clone SatDump
 git clone https://github.com/SatDump/SatDump.git && cd SatDump
+
+# Build dependencies
+./macOS/Configure-vcpkg.sh
+
+# Finally, build.
+# If you do not want to build the GUI Version, add -DBUILD_GUI=OFF to the command
+# If you want to disable some SDRs, you can add -DPLUGIN_HACKRF_SDR_SUPPORT=OFF or similar
 mkdir build && cd build
-
-# Build additional dependencies
-../macOS/build_deps.sh
-
-# Build SatDump
-cmake -DCMAKE_BUILD_TYPE=Release ..  # If you want to bundle the app, you must also add -DBUNDLING_MODE=ON, that makes the binary usable in a bundle
+cmake -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -DVCPKG_TARGET_TRIPLET=osx-satdump ..
 make -j$(sysctl -n hw.logicalcpu)
 
-# If -DBUNDLING_MODE was OFF
+# To run without bundling
 ln -s ../pipelines .        # Symlink pipelines so it can run
 ln -s ../resources .        # Symlink resources so it can run
-ln -s ../sattool_cfg.json . # Symlink settings so it can run
-
+ln -s ../satdump_cfg.json . # Symlink settings so it can run
 ./satdump-ui
 
-# If -DBUNDLING_MODE was ON and you want to bundle the app
+# Make an app bundle (to add to your /Applications folder). Saves to build/MacApp, and
+# a .dmg is created as well. 'make install' is not supported.
 ../macOS/bundle.sh
-
-# The bundled app is now available in ./MacApp
 ```
 
 ### Linux
@@ -136,12 +133,12 @@ On Linux, building from source is recommended, but builds are provided for x64-b
 
 ```bash
 sudo apt install git build-essential cmake g++ pkgconf libfftw3-dev libpng-dev \
-                 libtiff-dev libjemalloc-dev libcurl4-openssl-dev libsqlite3-dev
+                 libtiff-dev libjemalloc-dev libcurl4-openssl-dev
 sudo apt install libvolk-dev                                                      # If this package is not found, use libvolk2-dev or libvolk1-dev
 sudo apt install libnng-dev                                                       # If this package is not found, follow build instructions below for NNG
 
 # (Optional)
-sudo apt install libglfw3-dev libdbus-1-dev                                       # Only if you want to build the GUI Version
+sudo apt install libglfw3-dev zenity                                              # Only if you want to build the GUI Version
 sudo apt install portaudio19-dev                                                  # Only if you want audio output
 sudo apt install libzstd-dev                                                      # Only if you want to build with ZIQ Recording compression
 sudo apt install libhdf5-dev                                                      # Only if you want official product support (ex, EUMETSAT)
@@ -152,15 +149,13 @@ sudo apt install libomp-dev                                                     
 sudo apt install ocl-icd-opencl-dev                                               # Optional, but recommended as it drastically increases speed of some operations. Installs OpenCL.
 sudo apt install intel-opencl-icd                                                 # Enables OpenCL for Intel Integrated Graphics
 sudo apt install mesa-opencl-icd                                                  # For AMD Radeon cards *BEFORE series 5000* (e.g. RX480/580...). For newer cards, please install the official AMD drivers.
-sudo apt install libarmadillo-dev
 
 # One-liner to install all dependencies:
 sudo apt install git build-essential cmake g++ pkgconf libfftw3-dev libpng-dev \
                  libtiff-dev libjemalloc-dev libcurl4-openssl-dev libvolk-dev libnng-dev \
                  libglfw3-dev zenity portaudio19-dev libzstd-dev libhdf5-dev librtlsdr-dev \
                  libhackrf-dev libairspy-dev libairspyhf-dev libad9361-dev libiio-dev \
-                 libbladerf-dev libomp-dev ocl-icd-opencl-dev intel-opencl-icd mesa-opencl-icd \
-                 libdbus-1-dev libarmadillo-dev libsqlite3-dev
+                 libbladerf-dev libomp-dev ocl-icd-opencl-dev intel-opencl-icd mesa-opencl-icd
 ```
 
 </details>
@@ -170,10 +165,10 @@ sudo apt install git build-essential cmake g++ pkgconf libfftw3-dev libpng-dev \
 
 ```bash
 sudo dnf install git cmake g++ fftw-devel volk-devel libpng-devel jemalloc-devel \
-                 libtiff-devel nng-devel curl-devel sqlite-devel
+                 libtiff-devel nng-devel curl-devel
 
 # (Optional)
-sudo dnf install glfw-devel zenity dbus-devel                                                       # Only if you want to build the GUI Version
+sudo dnf install glfw-devel zenity                                                # Only if you want to build the GUI Version
 sudo dnf install portaudio-devel                                                  # Only if you want audio output
 sudo dnf install libzstd-devel                                                    # Only if you want to build with ZIQ Recording compression
 sudo dnf install hdf5-devel                                                       # Only if you want official product support (ex, EUMETSAT)
@@ -197,10 +192,10 @@ sudo dnf install git cmake g++ fftw-devel volk-devel libpng-devel jemalloc-devel
 # Adding the testing repository is required for libvolk-dev.
 # You need to build libnng from source, see below.
 sudo apk add git cmake make g++ pkgconf fftw-dev libvolk-dev libpng-dev \
-             jemalloc-dev tiff-dev curl-dev sqlite-dev
+             jemalloc-dev tiff-dev curl-dev
 
 # (Optional)
-sudo apk add glfw-dev zenity dbus-dev                                  # Only if you want to build the GUI Version
+sudo apk add glfw-dev zenity                                           # Only if you want to build the GUI Version
 sudo apk add portaudio-dev                                             # Only if you want audio output
 sudo apk add zstd-dev                                                  # Only if you want to build with ZIQ Recording compression
 sudo apk add hdf5-dev                                                  # Only if you want official product support (ex, EUMETSAT)
@@ -221,9 +216,9 @@ sudo apk add opencl-dev                                                # Optiona
 #       source if needed.
 
 sudo emerge --ask dev-vcs/git sci-libs/fftw dev-libs/jemalloc sci-libs/volk \
-                  media-libs/libpng media-libs/tiff net-misc/curl dev-db/sqlite
+                  media-libs/libpng media-libs/tiff net-misc/curl
 
-sudo emerge --ask media-libs/glfw gnome-extra/zenity sys-apps/dbus                                                      # Only if you want to build the GUI Version
+sudo emerge --ask media-libs/glfw gnome-extra/zenity      # Only if you want to build the GUI Version
 sudo emerge --ask media-libs/portaudio                    # Only if you want audio output
 sudo emerge --ask app-arch/zstd                           # Only if you want to build with ZIQ Recording compression
 sudo emerge --ask sci-libs/hdf5                           # Only if you want official product support (ex, EUMETSAT)
@@ -250,10 +245,10 @@ sudo emerge --ask dev-vcs/git sci-libs/fftw dev-libs/jemalloc sci-libs/volk \
 ```bash
 sudo zypper install git gcc-c++ cmake g++ pkgconf fftw3-devel libpng-devel \
                     libtiff-devel jemalloc-devel libcurl-devel volk-devel  \
-                    nng-devel sqlite3-devel 
+                    nng-devel 
 
 # (Optional)
-sudo zypper install libglfw-devel zenity dbus-1-devel                                                # Only if you want to build the GUI Version
+sudo zypper install libglfw-devel zenity                                        # Only if you want to build the GUI Version
 sudo zypper install portaudio-devel                                             # Only if you want audio output
 sudo zypper install libzstd-devel                                               # Only if you want to build with ZIQ Recording compression
 sudo zypper install hdf5-devel                                                  # Only if you want official product support (ex, EUMETSAT)
@@ -279,7 +274,7 @@ sudo zypper install git gcc-c++ cmake g++ pkgconf fftw3-devel libpng-devel libti
 
 If nng is not available for your distro, you will have to build it from source
 ```bash
-git clone https://github.com/nanomsg/nng.git -b v1.9.0
+git clone https://github.com/nanomsg/nng.git
 cd nng
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/usr ..
@@ -300,8 +295,9 @@ cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ..
 make -j`nproc`
 
 # To run without installing
+ln -s ../pipelines .        # Symlink pipelines so it can run
 ln -s ../resources .        # Symlink resources so it can run
-ln -s ../sattool_cfg.json . # Symlink settings so it can run
+ln -s ../satdump_cfg.json . # Symlink settings so it can run
 
 # To install system-wide
 sudo make install
@@ -310,10 +306,6 @@ sudo make install
 ./satdump-ui
 ```
 
-### Raspberry Pi
-
-In case you are using RPi3 (any revision) and older, run ```make -j1 ``` instead of ```make -j`nproc` ``` **otherwise the system will crash**.
-  
 ### Android
 
 On Android, the preferred source is F-Droid.

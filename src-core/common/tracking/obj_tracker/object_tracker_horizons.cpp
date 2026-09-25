@@ -1,8 +1,6 @@
 #include "object_tracker.h"
 #include "logger.h"
 #include "common/utils.h"
-#include "utils/http.h"
-#include <sstream>
 
 namespace satdump
 {
@@ -112,7 +110,7 @@ namespace satdump
 
         std::string url = "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='*'";
         std::string req_result;
-        satdump::perform_http_request(url, req_result);
+        perform_http_request(url, req_result);
 
         std::istringstream req_results(req_result);
         std::string line;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include "image/image.h"
+#include "common/image/image.h"
 
 namespace fengyun3
 {

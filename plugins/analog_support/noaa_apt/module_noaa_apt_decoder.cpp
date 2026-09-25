@@ -1,30 +1,28 @@
 #include "module_noaa_apt_decoder.h"
-#include "common/tracking/tle.h"
-#include "common/utils.h"
-#include "image/io.h"
-#include "image/processing.h"
+#include "logger.h"
+#include <filesystem>
 #include "imgui/imgui.h"
 #include "imgui/imgui_image.h"
-#include "init.h"
-#include "logger.h"
+#include "common/utils.h"
+#include "products/image_products.h"
+#include "products/dataset.h"
 #include "nlohmann/json_utils.h"
-#include "utils/stats.h"
-#include <filesystem>
+#include "common/image/io.h"
+#include "common/image/processing.h"
 
 #include "common/dsp/filter/firdes.h"
-#include "core/resources.h"
+#include "resources.h"
 
 #include "common/wav.h"
 
 #include "common/calibration.h"
-#include "products/dataset.h"
-#include "products/image_product.h"
 
 #define MAX_STDDEV_VALID 2100
 
 namespace noaa_apt
 {
-    NOAAAPTDecoderModule::NOAAAPTDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters)
+    NOAAAPTDecoderModule::NOAAAPTDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        : ProcessingModule(input_file, output_file_hint, parameters)
     {
         if (parameters.count("audio_samplerate") > 0)
             d_audio_samplerate = parameters["audio_samplerate"].get<long>();
@@ -72,7 +70,7 @@ namespace noaa_apt
 
     void NOAAAPTDecoderModule::process()
     {
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
             filesize = getFilesize(d_input_file);
         else
             filesize = 0;
@@ -84,7 +82,7 @@ namespace noaa_apt
         int autodetected_sat = -1;
 
         std::ifstream data_in;
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
         {
             wav::WavHeader hdr = wav::parseHeaderFromFileWav(d_input_file);
             if (!wav::isValidWav(hdr))
@@ -171,9 +169,9 @@ namespace noaa_apt
             const int buffer_size = 1024;
             int16_t *s16_buf = new int16_t[buffer_size];
             time_t lastTime = 0;
-            while (input_data_type == satdump::pipeline::DATA_FILE ? !data_in.eof() : input_active.load())
+            while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
-                if (input_data_type == satdump::pipeline::DATA_FILE)
+                if (input_data_type == DATA_FILE)
                     data_in.read((char *)s16_buf, buffer_size * sizeof(int16_t));
                 else
                     input_fifo->read((uint8_t *)s16_buf, buffer_size * sizeof(int16_t));
@@ -190,7 +188,7 @@ namespace noaa_apt
                     input_stream->swap(buffer_size);
                 }
 
-                if (input_data_type == satdump::pipeline::DATA_FILE)
+                if (input_data_type == DATA_FILE)
                     progress = data_in.tellg();
                 if (time(NULL) % 10 == 0 && lastTime != time(NULL))
                 {
@@ -224,7 +222,7 @@ namespace noaa_apt
         int image_i = 0;
         int last_line_cnt = 0;
         std::vector<uint16_t> imagebuf;
-        while (input_data_type == satdump::pipeline::DATA_FILE ? !data_in.eof() : input_active.load())
+        while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
         {
             int nsamp = ctm->output_stream->read();
 
@@ -259,7 +257,7 @@ namespace noaa_apt
                 last_line_cnt = line_cnt;
             }
 
-            gl_line_cnt = line_cnt;
+            module_stats["unsynced_lines"] = line_cnt;
         }
 
         // Stop everything
@@ -276,7 +274,7 @@ namespace noaa_apt
         if (feeder_thread.joinable())
             feeder_thread.join();
 
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
             data_in.close();
 
         apt_status = PROCESSING;
@@ -350,7 +348,8 @@ namespace noaa_apt
                 for (int x = 0; x < APT_IMG_WIDTH; x++) // for (int x = 86; x < 86 + 909; x++)
                     wip_apt_image.set(l * APT_IMG_WIDTH + x, scale_val_r(wip_apt_image.get(l * APT_IMG_WIDTH + x), new_black, new_white));
 
-            int valid_temp1 = 0, valid_temp2 = 0, valid_temp3 = 0, valid_temp4 = 0, valid_patch = 0, validn1_1 = 0, validn1_0 = 0;
+            int valid_temp1 = 0, valid_temp2 = 0, valid_temp3 = 0, valid_temp4 = 0, valid_patch = 0,
+                validn1_1 = 0, validn1_0 = 0;
             for (unsigned int i = 0; i < wedges1.size(); i++)
             { // Calib wedges 1
                 auto &wed = wedges1[i];
@@ -620,9 +619,9 @@ namespace noaa_apt
                 }
             }
 
-            if (validl1 > 0)
+            if(validl1 > 0)
                 space_av /= validl1;
-            if (validl2 > 0)
+            if(validl2 > 0)
                 space_bv /= validl2;
         }
         else
@@ -765,10 +764,10 @@ namespace noaa_apt
                 sat_name = "NOAA-19";
             }
 
-            if (d_parameters.contains("start_timestamp"))
-                satellite_tle = satdump::db_keplers->get_from_norad_time(norad, d_parameters["start_timestamp"]);
+            if(d_parameters.contains("start_timestamp"))
+                satellite_tle = satdump::general_tle_registry.get_from_norad_time(norad, d_parameters["start_timestamp"]);
             else
-                satellite_tle = satdump::db_keplers->get_from_norad(norad);
+                satellite_tle = satdump::general_tle_registry.get_from_norad(norad);
 
             // SATELLITE ID
             {
@@ -795,8 +794,9 @@ namespace noaa_apt
             else
                 logger->warn("Identified channels (debug): A: %d A1: %d B: %d", channel_a, channel_a1, channel_b);
 
-            satdump::products::ImageProduct avhrr_products;
+            satdump::ImageProducts avhrr_products;
             avhrr_products.instrument_name = "avhrr_3";
+            avhrr_products.bit_depth = 8;
 
             image::Image cha, cha1, cha2, chb;
             cha = wip_apt_image.crop_to(86, 86 + 909);
@@ -823,28 +823,6 @@ namespace noaa_apt
                         cha1.set(i * cha1.width() + x, 0);
             }
 
-            // IMAGES
-#if 0
-            for (int i = 0; i < 6; i++)
-                avhrr_products.images.push_back({"AVHRR-" + names[i], names[i], i == channel_a ? (channel_a1 == -1 ? cha : cha2) : (i == channel_b ? chb : (i == channel_a1 ? cha1 : hold))});
-#else
-            if (channel_a != -1)
-            {
-                avhrr_products.images.push_back({channel_a, "AVHRR-" + names[channel_a], names[channel_a], (channel_a1 == -1 ? cha : cha2), 8});
-            }
-            if (channel_a1 != -1)
-            {
-                avhrr_products.images.push_back({channel_a1, "AVHRR-" + names[channel_a1], names[channel_a1], cha1, 8});
-            }
-            if (channel_b != -1)
-            {
-                avhrr_products.images.push_back({channel_b, "AVHRR-" + names[channel_b], names[channel_b], chb, 8});
-            }
-#endif
-
-            avhrr_products.images.push_back({-1, "APT-A", "a", cha, 8});
-            avhrr_products.images.push_back({-2, "APT-B", "b", chb, 8});
-
             // CALIBRATION
             {
                 nlohmann::json calib_coefs = loadJsonFile(resources::getResourcePath("calibration/AVHRR.json"));
@@ -868,6 +846,7 @@ namespace noaa_apt
                     calib_out["wavenumbers"][7] = -1;
 
                     // calib_out["lua"] = loadFileToString(resources::getResourcePath("calibration/AVHRR.lua"));
+                    calib_out["calibrator"] = "noaa_avhrr3";
 
                     // PRT counts to temperature
                     double tbb = 0;
@@ -881,37 +860,60 @@ namespace noaa_apt
                         {
                             calib_out["vars"]["perChannel"][c]["Spc"] = space_av >> 8;
                             calib_out["vars"]["perChannel"][c]["Blb"] = bb_a >> 2;
-                            calib_out["vars"]["perChannel"][c]["Nbb"] = temperature_to_radiance(calib_coefs["channels"][c]["A"].get<double>() + calib_coefs["channels"][c]["B"].get<double>() * tbb,
-                                                                                                calib_coefs["channels"][c]["Vc"].get<double>());
+                            calib_out["vars"]["perChannel"][c]["Nbb"] =
+                                temperature_to_radiance(calib_coefs["channels"][c]["A"].get<double>() + calib_coefs["channels"][c]["B"].get<double>() * tbb,
+                                                        calib_coefs["channels"][c]["Vc"].get<double>());
                         }
                         else if (c == channel_a1)
                         {
                             calib_out["vars"]["perChannel"][c]["Spc"] = space_av1 >> 8;
                             calib_out["vars"]["perChannel"][c]["Blb"] = bb_a1 >> 2;
-                            calib_out["vars"]["perChannel"][c]["Nbb"] = temperature_to_radiance(calib_coefs["channels"][c]["A"].get<double>() + calib_coefs["channels"][c]["B"].get<double>() * tbb,
-                                                                                                calib_coefs["channels"][c]["Vc"].get<double>());
+                            calib_out["vars"]["perChannel"][c]["Nbb"] =
+                                temperature_to_radiance(calib_coefs["channels"][c]["A"].get<double>() + calib_coefs["channels"][c]["B"].get<double>() * tbb,
+                                                        calib_coefs["channels"][c]["Vc"].get<double>());
                         }
                         else if (c == channel_b)
                         {
                             calib_out["vars"]["perChannel"][c]["Spc"] = space_bv >> 8;
                             calib_out["vars"]["perChannel"][c]["Blb"] = calib_wedge_ch2.back_scan >> 2;
-                            calib_out["vars"]["perChannel"][c]["Nbb"] = temperature_to_radiance(calib_coefs["channels"][c]["A"].get<double>() + calib_coefs["channels"][c]["B"].get<double>() * tbb,
-                                                                                                calib_coefs["channels"][c]["Vc"].get<double>());
+                            calib_out["vars"]["perChannel"][c]["Nbb"] =
+                                temperature_to_radiance(calib_coefs["channels"][c]["A"].get<double>() + calib_coefs["channels"][c]["B"].get<double>() * tbb,
+                                                        calib_coefs["channels"][c]["Vc"].get<double>());
                         }
                     }
-                    avhrr_products.set_calibration("noaa_avhrr3", calib_out);
-                    for (int n = 0; n < 6; n++)
+                    avhrr_products.set_calibration(calib_out);
+                    for (int n = 0; n < 3; n++)
                     {
-                        if (n == channel_a || n == channel_a1 || n == channel_b)
-                        {
-                            avhrr_products.set_channel_unit(n, n < 3 ? CALIBRATION_ID_REFLECTIVE_RADIANCE : CALIBRATION_ID_EMISSIVE_RADIANCE);
-                            avhrr_products.set_channel_wavenumber(n, calib_coefs["channels"][n]["wavnb"]);
-                        }
+                        avhrr_products.set_calibration_type(n, avhrr_products.CALIB_REFLECTANCE);
+                        avhrr_products.set_calibration_type(n + 3, avhrr_products.CALIB_RADIANCE);
                     }
+                    for (int c = 0; c < 6; c++)
+                        avhrr_products.set_calibration_default_radiance_range(c, calib_coefsc["all"]["default_display_range"][c][0].get<double>(), calib_coefsc["all"]["default_display_range"][c][1].get<double>());
                 }
                 else
                     logger->warn("(AVHRR) Calibration data for " + sat_name + " not found. Calibration will not be performed");
             }
+
+#if 0
+            for (int i = 0; i < 6; i++)
+                avhrr_products.images.push_back({"AVHRR-" + names[i], names[i], i == channel_a ? (channel_a1 == -1 ? cha : cha2) : (i == channel_b ? chb : (i == channel_a1 ? cha1 : hold))});
+#else
+            if (channel_a != -1)
+            {
+                avhrr_products.images.push_back({"AVHRR-" + names[channel_a], names[channel_a], (channel_a1 == -1 ? cha : cha2), {}, -1, -1, 0, channel_a});
+            }
+            if (channel_a1 != -1)
+            {
+                avhrr_products.images.push_back({"AVHRR-" + names[channel_a1], names[channel_a1], cha1, {}, -1, -1, 0, channel_a1});
+            }
+            if (channel_b != -1)
+            {
+                avhrr_products.images.push_back({"AVHRR-" + names[channel_b], names[channel_b], chb, {}, -1, -1, 0, channel_b});
+            }
+#endif
+
+            avhrr_products.images.push_back({"APT-A", "a", cha, {}, -1, -1, 0, -2});
+            avhrr_products.images.push_back({"APT-B", "b", chb, {}, -1, -1, 0, -2});
 
             if (d_parameters.contains("start_timestamp") && norad != 0)
             {
@@ -937,6 +939,7 @@ namespace noaa_apt
                     proj_cfg.erase("corr_resol");
                     proj_cfg.erase("corr_altit");
                     proj_cfg.erase("apt_marker_offset");
+                    avhrr_products.set_proj_cfg(proj_cfg);
 
                     // Adjust time based on timing lines
                     if (d_align_timestamps)
@@ -970,14 +973,17 @@ namespace noaa_apt
                     for (int i = first_valid_line; i < last_valid_line; i++)
                         timestamps.push_back(start_tt + (double(i) * 0.5));
 
-                    avhrr_products.set_proj_cfg_tle_timestamps(proj_cfg, satellite_tle, timestamps);
+                    avhrr_products.has_timestamps = true;
+                    avhrr_products.set_tle(satellite_tle);
+                    avhrr_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
+                    avhrr_products.set_timestamps(timestamps);
                 }
             }
 
             avhrr_products.save(main_dir);
         }
 
-        satdump::products::DataSet dataset;
+        satdump::ProductDataSet dataset;
         dataset.satellite_name = sat_name;
         dataset.timestamp = start_tt;
         dataset.products_list.push_back(".");
@@ -1001,18 +1007,21 @@ namespace noaa_apt
 
         apt_status = DONE;
         dataset.save(d_output_file_hint.substr(0, d_output_file_hint.rfind('/')));
-    }
-
-    nlohmann::json NOAAAPTDecoderModule::getModuleStats()
-    {
-        nlohmann::json v;
-        v["unsynced_lines"] = gl_line_cnt;
-        return v;
+        d_output_files.push_back(d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/dataset.json");
     }
 
     image::Image NOAAAPTDecoderModule::synchronize(int line_cnt)
     {
-        const int sync_a[] = {0, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        const int sync_a[] = {0, 0, 0,
+                              255, 255, 0, 0,
+                              255, 255, 0, 0,
+                              255, 255, 0, 0,
+                              255, 255, 0, 0,
+                              255, 255, 0, 0,
+                              255, 255, 0, 0,
+                              255, 255, 0, 0,
+                              0, 0, 0, 0,
+                              0, 0, 0, 0};
 
         std::vector<int> final_sync_a;
         for (int i = 0; i < 39; i++)
@@ -1131,7 +1140,7 @@ namespace noaa_apt
                     for (int y = 0; y < 8; y++)
                         vals.push_back(wedge.get((wed.start_line + c * 8 + y) * wedge.width() + x));
 
-                double mean = satdump::avg_overflowless(vals);
+                double mean = avg_overflowless(vals);
                 double variance = 0;
                 for (double &val : vals)
                     variance += (val - mean) * (val - mean);
@@ -1159,10 +1168,15 @@ namespace noaa_apt
             }
             /////////////////////////////////////
 
-            logger->trace("Wedge %d Pos %d Cor %d CAL %d %d %d %d %d %d %d %d CHV %d CH %d", line, best_pos, best_cor, wed.ref1, wed.ref2, wed.ref3, wed.ref4, wed.ref5, wed.ref6, wed.ref7, wed.ref8,
+            logger->trace("Wedge %d Pos %d Cor %d CAL %d %d %d %d %d %d %d %d CHV %d CH %d",
+                          line, best_pos, best_cor,
+                          wed.ref1, wed.ref2, wed.ref3, wed.ref4, wed.ref5, wed.ref6, wed.ref7, wed.ref8,
                           wed.channel, best_wedge);
-            logger->trace("StdDev %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d", wed.std_dev[0], wed.std_dev[1], wed.std_dev[2], wed.std_dev[3], wed.std_dev[4], wed.std_dev[5], wed.std_dev[6],
-                          wed.std_dev[7], wed.std_dev[8], wed.std_dev[9], wed.std_dev[10], wed.std_dev[11], wed.std_dev[12], wed.std_dev[13], wed.std_dev[14], wed.std_dev[15]);
+            logger->trace("StdDev %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
+                          wed.std_dev[0], wed.std_dev[1], wed.std_dev[2], wed.std_dev[3], wed.std_dev[4],
+                          wed.std_dev[5], wed.std_dev[6], wed.std_dev[7], wed.std_dev[8], wed.std_dev[9],
+                          wed.std_dev[10], wed.std_dev[11], wed.std_dev[12], wed.std_dev[13], wed.std_dev[14],
+                          wed.std_dev[15]);
 
             if (1 <= best_wedge && best_wedge <= 5)
                 wed.rchannel = best_wedge;
@@ -1236,16 +1250,24 @@ namespace noaa_apt
         }
         ImGui::EndGroup();
 
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
             ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
     }
 
-    std::string NOAAAPTDecoderModule::getID() { return "noaa_apt_decoder"; }
+    std::string NOAAAPTDecoderModule::getID()
+    {
+        return "noaa_apt_decoder";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> NOAAAPTDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> NOAAAPTDecoderModule::getParameters()
+    {
+        return {};
+    }
+
+    std::shared_ptr<ProcessingModule> NOAAAPTDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<NOAAAPTDecoderModule>(input_file, output_file_hint, parameters);
     }
-} // namespace noaa_apt
+}

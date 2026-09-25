@@ -1,6 +1,6 @@
 #include "viterbi_1_2.h"
 #include <cstring>
-#include "utils.h"
+#include "common/utils.h"
 
 #define ST_IDLE 0
 #define ST_SYNCED 1

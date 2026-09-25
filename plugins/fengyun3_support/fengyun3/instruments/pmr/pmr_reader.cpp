@@ -1,6 +1,6 @@
 #include "pmr_reader.h"
 #include "logger.h"
-#include "image/io.h"
+#include "common/image/io.h"
 
 namespace fengyun3
 {

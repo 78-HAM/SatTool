@@ -6,14 +6,6 @@ then
     cd $( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/../build
 fi
 
-HOMEBREW_LIB="/usr/local"
-PLATFORM="Intel"
-if [[ $(uname -m) == 'arm64' ]]; then
-    PLATFORM="Silicon"
-    HOMEBREW_LIB="/opt/homebrew"
-fi
-
-
 if [[ -n "$MACOS_CERTIFICATE" && -n "$MACOS_CERTIFICATE_PWD" ]]
 then
     echo "Extracting signing certificate..."
@@ -26,13 +18,14 @@ then
 fi
 
 rm -rf MacApp
-rm -rf SatDump-macOS-$PLATFORM.dmg
+rm -rf SatDump-macOS-$1.dmg
 
 echo "Making app shell..." 
 mkdir -p MacApp/SatDump.app/Contents/MacOS
 mkdir -p MacApp/SatDump.app/Contents/Resources/plugins
 cp -r $GITHUB_WORKSPACE/resources MacApp/SatDump.app/Contents/Resources/resources
-cp $GITHUB_WORKSPACE/sattool_cfg.json MacApp/SatDump.app/Contents/Resources
+cp -r $GITHUB_WORKSPACE/pipelines MacApp/SatDump.app/Contents/Resources/pipelines
+cp $GITHUB_WORKSPACE/satdump_cfg.json MacApp/SatDump.app/Contents/Resources
 cp $GITHUB_WORKSPACE/macOS/Info.plist MacApp/SatDump.app/Contents
 cp $GITHUB_WORKSPACE/macOS/Readme.rtf MacApp/Readme.rtf
 
@@ -62,52 +55,13 @@ then
     SIGN_FLAG="-ns"
 fi
 
-# Omp, openblas, and gfortran are not in $HOMEBREW_LIB/lib for some ungodly reason; we include their full paths instead
-echo "Packaging and re-linking libraries..."
+echo "Re-linking binaries"
 plugin_args=$(ls MacApp/SatDump.app/Contents/Resources/plugins | xargs printf -- '-x MacApp/SatDump.app/Contents/Resources/plugins/%s ')
-dylibbundler $SIGN_FLAG \
-  -cd \
-  -b \
-  -of \
-  -s . \
-  -s $GITHUB_WORKSPACE/deps/lib \
-  -s $HOMEBREW_LIB/lib \
-  -s $HOMEBREW_LIB/opt/libomp/lib \
-  -s $HOMEBREW_LIB/opt/openblas/lib \
-  -s $HOMEBREW_LIB/opt/gfortran/lib/gcc/current \
-  -d MacApp/SatDump.app/Contents/libs \
-  -x MacApp/SatDump.app/Contents/MacOS/satdump-ui \
-  -x MacApp/SatDump.app/Contents/MacOS/satdump_sdr_server \
-  -x MacApp/SatDump.app/Contents/MacOS/satdump \
-  $plugin_args
-
-# SDRPlay is custom, not staticaly linked; we can copy it manually
-cp $GITHUB_WORKSPACE/deps/lib/libsdrplay*.dylib MacApp/SatDump.app/Contents/libs
-
-
-# Some libraries are processed more than once, dylibbundler is silly and doesn't check whether
-# it injects multiple LC_RPATH entries. MacOS is pissy about it and refuses to work with more than one,
-# so we have to remove the duplicates manually.
-echo "Removing duplicate RPATH entries..."
-find MacApp/SatDump.app/Contents/libs -name "*.dylib" | while read lib; do
-    rpaths=($(otool -l "$lib" | awk '/LC_RPATH/{getline; getline; sub(/.*path /,""); sub(/ .*/,""); print}'))
-    seen=()
-    for rp in "${rpaths[@]}"; do
-        if [[ " ${seen[*]} " != *" $rp "* ]]; then
-            seen+=("$rp")
-        else
-            install_name_tool -delete_rpath "$rp" "$lib"
-        fi
-    done
-
-    # We have to resign the libraries afterwards as we changed their Mach-O headers
-    codesign -v --force --timestamp --sign - "$lib"
-done
-
+dylibbundler $SIGN_FLAG -cd -s $GITHUB_WORKSPACE/vcpkg/installed/osx-satdump/lib/ -s . -d MacApp/SatDump.app/Contents/libs -b -x MacApp/SatDump.app/Contents/MacOS/satdump-ui -x MacApp/SatDump.app/Contents/MacOS/satdump_sdr_server -x MacApp/SatDump.app/Contents/MacOS/satdump $plugin_args
 
 if [[ -n "$MACOS_SIGNING_SIGNATURE" ]]
 then
-    echo "Signing code using proper signature..."
+    echo "Code signing..."
     for dylib in MacApp/SatDump.app/Contents/libs/*.dylib
     do
 	    codesign -v --force --timestamp --sign "$MACOS_SIGNING_SIGNATURE" $dylib
@@ -121,28 +75,21 @@ then
     codesign -v --force --options runtime --entitlements $GITHUB_WORKSPACE/macOS/Entitlements.plist --timestamp --sign "$MACOS_SIGNING_SIGNATURE" MacApp/SatDump.app/Contents/MacOS/satdump
     codesign -v --force --options runtime --entitlements $GITHUB_WORKSPACE/macOS/Entitlements.plist --timestamp --sign "$MACOS_SIGNING_SIGNATURE" MacApp/SatDump.app/Contents/MacOS/satdump_sdr_server
     codesign -v --force --options runtime --entitlements $GITHUB_WORKSPACE/macOS/Entitlements.plist --timestamp --sign "$MACOS_SIGNING_SIGNATURE" MacApp/SatDump.app/Contents/MacOS/satdump-ui
-else 
-    echo "No signature found, signing with ad-hoc signature..."
 
-    codesign -v --force --options runtime --entitlements $GITHUB_WORKSPACE/macOS/Entitlements.plist --timestamp --sign - MacApp/SatDump.app/Contents/MacOS/satdump
-    codesign -v --force --options runtime --entitlements $GITHUB_WORKSPACE/macOS/Entitlements.plist --timestamp --sign - MacApp/SatDump.app/Contents/MacOS/satdump_sdr_server
-    codesign -v --force --options runtime --entitlements $GITHUB_WORKSPACE/macOS/Entitlements.plist --timestamp --sign - MacApp/SatDump.app/Contents/MacOS/satdump-ui
-
-    codesign --force --deep --sign - MacApp/SatDump.app
 fi
 
 echo "Creating SatDump.dmg..."
-hdiutil create -srcfolder MacApp/ -volname SatDump SatDump-macOS-$PLATFORM.dmg
+hdiutil create -srcfolder MacApp/ -volname SatDump SatDump-macOS-$1.dmg
 
 if [[ -n "$MACOS_SIGNING_SIGNATURE" ]]
 then
-    codesign -v --force --timestamp --sign "$MACOS_SIGNING_SIGNATURE" SatDump-macOS-$PLATFORM.dmg
+    codesign -v --force --timestamp --sign "$MACOS_SIGNING_SIGNATURE" SatDump-macOS-$1.dmg
 
     if [[ -n "$MACOS_NOTARIZATION_UN" && -n "$MACOS_NOTARIZATION_PWD" && -n "$MACOS_TEAM" ]]
     then
         echo "Notarizing DMG..."
-        xcrun notarytool submit SatDump-macOS-$PLATFORM.dmg --apple-id $MACOS_NOTARIZATION_UN --password $MACOS_NOTARIZATION_PWD --team-id $MACOS_TEAM --wait
-        xcrun stapler staple SatDump-macOS-$PLATFORM.dmg
+        xcrun notarytool submit SatDump-macOS-$1.dmg --apple-id $MACOS_NOTARIZATION_UN --password $MACOS_NOTARIZATION_PWD --team-id $MACOS_TEAM --wait
+        xcrun stapler staple SatDump-macOS-$1.dmg
     fi
 fi
 

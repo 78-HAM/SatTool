@@ -1,16 +1,19 @@
 #pragma once
 
+#include "core/module.h"
+
 #include "instruments/amsr2/amsr2_reader.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
-#include "pipeline/modules/instrument_utils.h"
 
 namespace gcom1
 {
     namespace instruments
     {
-        class GCOM1InstrumentsDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+        class GCOM1InstrumentsDecoderModule : public ProcessingModule
         {
         protected:
+            std::atomic<uint64_t> filesize;
+            std::atomic<uint64_t> progress;
+
             // Readers
             amsr2::AMSR2Reader amsr2_reader;
 
@@ -25,8 +28,8 @@ namespace gcom1
         public:
             static std::string getID();
             virtual std::string getIDM() { return getID(); };
-            static nlohmann::json getParams() { return {}; } // TODOREWORK
+            static std::vector<std::string> getParameters();
             static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         };
-    } // namespace instruments
-} // namespace gcom1
+    } // namespace amsu
+} // namespace metop

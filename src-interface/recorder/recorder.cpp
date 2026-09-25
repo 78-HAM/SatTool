@@ -1,30 +1,30 @@
 #include "recorder.h"
-#include "common/utils.h"
-#include "common/widgets/frequency_input.h"
-#include "common/widgets/stepped_slider.h"
 #include "core/config.h"
-#include "core/plugin.h"
+#include "common/utils.h"
 #include "core/style.h"
-#include "handlers/handler.h"
-#include "imgui/imgui.h"
-#include "imgui/imgui_stdlib.h"
 #include "logger.h"
+#include "imgui/imgui_stdlib.h"
+#include "core/pipeline.h"
+#include "common/widgets/stepped_slider.h"
+#include "common/widgets/frequency_input.h"
 #include <math.h>
 
 #include "main_ui.h"
 
 #include "imgui/imgui_internal.h"
 
-#include "core/resources.h"
-#include "pipeline/pipeline.h"
+#include "processing.h"
+
+#include "resources.h"
 
 namespace satdump
 {
-    RecorderApplication::RecorderApplication(nlohmann::json cli_set) : handlers::Handler(), pipeline_selector(true)
+    RecorderApplication::RecorderApplication()
+        : Application("recorder"), pipeline_selector(true)
     {
-        automated_live_output_dir = satdump_cfg.main_cfg["satdump_directories"]["live_processing_autogen"]["value"].get<bool>();
-        processing_modules_floating_windows = satdump_cfg.main_cfg["user_interface"]["recorder_floating_windows"]["value"].get<bool>();
-        remaining_disk_space_time = satdump_cfg.main_cfg["user_interface"]["remaining_disk_space_time"]["value"].get<int>();
+        automated_live_output_dir = config::main_cfg["satdump_directories"]["live_processing_autogen"]["value"].get<bool>();
+        processing_modules_floating_windows = config::main_cfg["user_interface"]["recorder_floating_windows"]["value"].get<bool>();
+        remaining_disk_space_time = config::main_cfg["user_interface"]["remaining_disk_space_time"]["value"].get<int>();
 
         load_rec_path_data();
         dsp::registerAllSources();
@@ -37,9 +37,9 @@ namespace satdump
         }
 
         // First, check to see if a source was passed via command line
-        if (satdump::satdump_cfg.main_cfg.contains("cli") && satdump::satdump_cfg.main_cfg["cli"].contains("source"))
+        if (satdump::config::main_cfg.contains("cli") && satdump::config::main_cfg["cli"].contains("source"))
         {
-            auto &cli_settings = satdump::satdump_cfg.main_cfg["cli"];
+            auto &cli_settings = satdump::config::main_cfg["cli"];
             std::string source = cli_settings["source"];
             for (int i = 0; i < (int)sources.size(); i++)
             {
@@ -64,10 +64,9 @@ namespace satdump
         }
 
         // If not, or it failed to open, revert to last used SDR
-        auto dcfg = db->get_user_json("recorder_sdr_settings");
-        if (sdr_select_id == -1 && dcfg.contains("last_used_sdr"))
+        if (sdr_select_id == -1 && config::main_cfg["user"]["recorder_sdr_settings"].contains("last_used_sdr"))
         {
-            std::string last_used_sdr = dcfg["last_used_sdr"].get<std::string>();
+            std::string last_used_sdr = config::main_cfg["user"]["recorder_sdr_settings"]["last_used_sdr"].get<std::string>();
             for (int i = 0; i < (int)sources.size(); i++)
             {
                 if (sources[i].name != last_used_sdr)
@@ -141,12 +140,12 @@ namespace satdump
         fft_plot->frequency = frequency_hz;
         waterfall_plot = std::make_shared<widgets::WaterfallPlot>(fft_sizes_lut[0], 500);
 
-        fft->on_fft = [this](float *v) { waterfall_plot->push_fft(v); };
+        fft->on_fft = [this](float *v)
+        { waterfall_plot->push_fft(v); };
 
         // Load config
-        auto cfg = db->get_user_json("recorder_state");
-        if (!cfg.is_null())
-            deserialize_config(cfg);
+        if (config::main_cfg["user"].contains("recorder_state"))
+            deserialize_config(config::main_cfg["user"]["recorder_state"]);
 
         file_sink->set_output_sample_type(baseband_format);
         fft_plot->set_size(fft_size);
@@ -154,9 +153,9 @@ namespace satdump
         waterfall_plot->set_rate(fft_rate, waterfall_rate);
 
         // Attempt to apply provided CLI settings
-        if (!cli_set.is_null())
+        if (satdump::config::main_cfg.contains("cli"))
         {
-            auto &cli_settings = cli_set;
+            auto &cli_settings = satdump::config::main_cfg["cli"];
             if (source_ptr)
             {
                 if (cli_settings.contains("samplerate"))
@@ -178,54 +177,53 @@ namespace satdump
         }
 
         //////////////////////////////////////////////////////////////////////////////////////////////////////////
-        eventBus->register_handler<RecorderSetFrequencyEvent>([this](const RecorderSetFrequencyEvent &evt) { set_frequency(evt.frequency); });
+        eventBus->register_handler<RecorderSetFrequencyEvent>([this](const RecorderSetFrequencyEvent &evt)
+                                                              { set_frequency(evt.frequency); });
 
-        eventBus->register_handler<RecorderStartDeviceEvent>([this](const RecorderStartDeviceEvent &) { start(); });
-        eventBus->register_handler<RecorderStopDeviceEvent>([this](const RecorderStopDeviceEvent &) { stop(); });
-        eventBus->register_handler<RecorderSetDeviceSamplerateEvent>([this](const RecorderSetDeviceSamplerateEvent &evt) { source_ptr->set_samplerate(evt.samplerate); });
-        eventBus->register_handler<RecorderSetDeviceDecimationEvent>([this](const RecorderSetDeviceDecimationEvent &evt) { current_decimation = evt.decimation; });
-        eventBus->register_handler<RecorderSetDeviceLoOffsetEvent>([this](const RecorderSetDeviceLoOffsetEvent &evt) { xconverter_frequency = evt.offset; });
+        eventBus->register_handler<RecorderStartDeviceEvent>([this](const RecorderStartDeviceEvent &)
+                                                             { start(); });
+        eventBus->register_handler<RecorderStopDeviceEvent>([this](const RecorderStopDeviceEvent &)
+                                                            { stop(); });
+        eventBus->register_handler<RecorderSetDeviceSamplerateEvent>([this](const RecorderSetDeviceSamplerateEvent &evt)
+                                                                     { source_ptr->set_samplerate(evt.samplerate); });
+        eventBus->register_handler<RecorderSetDeviceDecimationEvent>([this](const RecorderSetDeviceDecimationEvent &evt)
+                                                                     { current_decimation = evt.decimation; });
+        eventBus->register_handler<RecorderSetDeviceLoOffsetEvent>([this](const RecorderSetDeviceLoOffsetEvent &evt)
+                                                                   { xconverter_frequency = evt.offset; });
 
-        eventBus->register_handler<RecorderStartProcessingEvent>(
-            [this](const RecorderStartProcessingEvent &evt)
-            {
-                pipeline_selector.select_pipeline(evt.pipeline_id);
-                start_processing();
-            });
-        eventBus->register_handler<RecorderStopProcessingEvent>([this](const RecorderStopProcessingEvent &) { stop_processing(); });
+        eventBus->register_handler<RecorderStartProcessingEvent>([this](const RecorderStartProcessingEvent &evt)
+                                                                 { pipeline_selector.select_pipeline(evt.pipeline_id); start_processing(); });
+        eventBus->register_handler<RecorderStopProcessingEvent>([this](const RecorderStopProcessingEvent &)
+                                                                { stop_processing(); });
 
-        eventBus->register_handler<RecorderSetFFTSettingsEvent>(
-            [this](const RecorderSetFFTSettingsEvent &evt)
-            {
-                if (evt.fft_min != -1)
-                    fft_plot->scale_min = waterfall_plot->scale_min = evt.fft_min;
-                if (evt.fft_max != -1)
-                    fft_plot->scale_max = waterfall_plot->scale_max = evt.fft_max;
-                if (evt.fft_avgn != -1)
-                    fft->avg_num = evt.fft_avgn;
-                if (evt.fft_size != -1 || evt.fft_rate != -1 || evt.waterfall_rate != -1)
-                {
-                    if (evt.fft_size != -1)
-                        fft_size = evt.fft_size;
-                    if (evt.fft_rate != -1)
-                        fft_rate = evt.fft_rate;
-                    if (evt.waterfall_rate != -1)
-                        waterfall_rate = evt.waterfall_rate;
-                    fft->set_fft_settings(fft_size, get_samplerate(), fft_rate);
-                    waterfall_plot->set_rate(fft_rate, waterfall_rate);
-                    waterfall_plot->set_size(fft_size);
-                    fft_plot->set_size(fft_size);
-                    for (int i = 0; i < (int)fft_sizes_lut.size(); i++)
-                        if (fft_sizes_lut[i] == fft_size)
-                            selected_fft_size = i;
-                }
-            });
+        eventBus->register_handler<RecorderSetFFTSettingsEvent>([this](const RecorderSetFFTSettingsEvent &evt)
+                                                                {
+                                                                    if (evt.fft_min != -1)
+                                                                        fft_plot->scale_min = waterfall_plot->scale_min = evt.fft_min;
+                                                                    if (evt.fft_max != -1)
+                                                                        fft_plot->scale_max = waterfall_plot->scale_max = evt.fft_max;
+                                                                    if (evt.fft_avgn != -1)
+                                                                        fft->avg_num = evt.fft_avgn;
+                                                                    if(evt.fft_size != -1 || evt.fft_rate != -1 || evt.waterfall_rate!=-1) 
+                                                                    {
+                                                                        if (evt.fft_size != -1)
+                                                                            fft_size = evt.fft_size;
+                                                                        if (evt.fft_rate != -1)
+                                                                            fft_rate = evt.fft_rate;
+                                                                        if (evt.waterfall_rate != -1)
+                                                                            waterfall_rate = evt.waterfall_rate;
+                                                                        fft->set_fft_settings(fft_size, get_samplerate(), fft_rate);
+                                                                        waterfall_plot->set_rate(fft_rate, waterfall_rate);
+                                                                        waterfall_plot->set_size(fft_size);
+                                                                        fft_plot->set_size(fft_size);
+                                                                        for (int i = 0; i < (int)fft_sizes_lut.size(); i++)
+                                                                            if (fft_sizes_lut[i] == fft_size)
+                                                                                selected_fft_size = i;
+                                                                    } });
     }
 
     RecorderApplication::~RecorderApplication()
     {
-        save_settings();
-
     retry_vfo:
         for (auto &vfo : vfo_list)
         {
@@ -248,535 +246,510 @@ namespace satdump
             delete constellation_debug;
     }
 
-    void RecorderApplication::drawMenu()
+    void RecorderApplication::drawUI()
     {
-        bool assume_started = is_started;
-        if (ImGui::CollapsingHeader(_("Source"), tracking_started_cli ? ImGuiTreeNodeFlags_None : ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            ImGui::Spacing();
-            if (assume_started)
-                style::beginDisabled();
-            if (ImGui::Combo("##Source", &sdr_select_id, sdr_select_string.c_str()))
-            {
-                // Try to open a device, if it doesn't work, we re-open a device we can
-                try
-                {
-                    source_ptr.reset();
-                    source_ptr = getSourceFromDescriptor(sources[sdr_select_id]);
-                    source_ptr->open();
-                }
-                catch (std::runtime_error &e)
-                {
-                    logger->error("Could not open device! %s", e.what());
+        ImVec2 recorder_size = ImGui::GetContentRegionAvail();
+        float wf_size_offset = 0;
+        if (is_processing && !processing_modules_floating_windows)
+            wf_size_offset = 250 * ui_scale;
+        if (vfo_list.size() > 0)
+            wf_size_offset = 270 * ui_scale;
+        float wf_size = recorder_size.y - wf_size_offset; // + 13 * ui_scale;
 
-                    for (int i = 0; i < (int)sources.size(); i++)
+        if (wf_size > 0 && ImGui::BeginTable("##recorder_table", 2, ImGuiTableFlags_NoBordersInBodyUntilResize | ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingStretchProp))
+        {
+            ImGui::TableSetupColumn("##panel_v", ImGuiTableColumnFlags_None, recorder_size.x * panel_ratio);
+            ImGui::TableSetupColumn("##view", ImGuiTableColumnFlags_None, recorder_size.x * (1.0f - panel_ratio));
+            ImGui::TableNextColumn();
+
+            float left_width = ImGui::GetColumnWidth(0);
+            float right_width = recorder_size.x - left_width;
+            if (left_width != last_width && last_width != -1)
+                panel_ratio = left_width / recorder_size.x;
+            last_width = left_width;
+
+            ImGui::BeginGroup();
+            ImGui::BeginChild("RecorderChildPanel", {left_width, wf_size}, false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+            {
+                bool assume_started = is_started;
+                if (ImGui::CollapsingHeader("Device", tracking_started_cli ? ImGuiTreeNodeFlags_None : ImGuiTreeNodeFlags_DefaultOpen))
+                {
+                    ImGui::Spacing();
+                    if (assume_started)
+                        style::beginDisabled();
+                    if (ImGui::Combo("##Source", &sdr_select_id, sdr_select_string.c_str()))
                     {
+                        // Try to open a device, if it doesn't work, we re-open a device we can
                         try
                         {
                             source_ptr.reset();
-                            source_ptr = dsp::getSourceFromDescriptor(sources[i]);
+                            source_ptr = getSourceFromDescriptor(sources[sdr_select_id]);
                             source_ptr->open();
-                            sdr_select_id = i;
-                            break;
                         }
                         catch (std::runtime_error &e)
                         {
-                            logger->error(e.what());
-                        }
-                    }
-                }
+                            logger->error("Could not open device! %s", e.what());
 
-                set_frequency(frequency_hz);
-                try_load_sdr_settings();
-            }
-            ImGui::SameLine();
-            if (ImGui::Button(u8" \uead2 "))
-            {
-                sources = dsp::getAllAvailableSources();
-
-                sdr_select_string.clear();
-                for (dsp::SourceDescriptor src : sources)
-                {
-                    logger->debug("Device " + src.name);
-                    sdr_select_string += src.name + '\0';
-                }
-
-                while (sdr_select_id >= (int)sources.size())
-                    sdr_select_id--;
-
-                source_ptr = getSourceFromDescriptor(sources[sdr_select_id]);
-                source_ptr->open();
-                set_frequency(frequency_hz);
-                try_load_sdr_settings();
-            }
-            /*
-            if (ImGui::IsItemHovered())
-                {
-                    ImGui::BeginTooltip();
-                    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-                    ImGui::TextUnformatted("Refresh source list");
-                    ImGui::PopTextWrapPos();
-                    ImGui::EndTooltip();
-                }
-            */
-
-            ImGui::InputInt(_("Decimation##recorderdecimation"), &current_decimation);
-            if (current_decimation < 1)
-                current_decimation = 1;
-
-            bool disableLO = satdump_cfg.main_cfg["user_interface"]["lock_xconverter_input"]["value"];
-            if (assume_started && !disableLO)
-                style::endDisabled();
-
-            bool pushed_color_xconv = xconverter_frequency != 0;
-            if (pushed_color_xconv)
-                ImGui::PushStyleColor(ImGuiCol_Text, style::theme.green.Value);
-
-            if (ImGui::InputDouble(_("MHz (LO offset)##downupconverter"), &xconverter_frequency))
-                set_frequency(frequency_hz);
-
-            if (pushed_color_xconv)
-                ImGui::PopStyleColor();
-
-            if (assume_started && disableLO)
-                style::endDisabled();
-
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            if (widgets::FrequencyInput("Hz##mainfreq", &frequency_hz))
-                set_frequency(frequency_hz);
-
-            ImGui::Spacing();
-            source_ptr->drawControlUI();
-
-            if (!assume_started)
-            {
-                if (ImGui::Button(_("Start")))
-                    start();
-            }
-            else
-            {
-                if (ImGui::Button(_("Stop")))
-                    stop();
-            }
-
-            sdr_error.draw();
-        }
-
-        if (ImGui::CollapsingHeader(_("FFT"), tracking_started_cli ? ImGuiTreeNodeFlags_None : ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (ImGui::Combo(_("FFT Size"), &selected_fft_size,
-                             "131072\0"
-                             "65536\0"
-                             "32768\0"
-                             "16384\0"
-                             "8192\0"
-                             "4096\0"
-                             "2048\0"
-                             "1024\0"))
-            {
-                fft_size = fft_sizes_lut[selected_fft_size];
-
-                fft->set_fft_settings(fft_size, get_samplerate(), fft_rate);
-                fft_plot->set_size(fft_size);
-                waterfall_plot->set_size(fft_size);
-
-                logger->info("Set FFT size to %d", fft_size);
-            }
-            int old_rate = fft_rate;
-            if (ImGui::InputInt(_("FFT Rate"), &fft_rate))
-            {
-                if (fft_rate <= 0)
-                    fft_rate = old_rate;
-                else
-                {
-                    fft_size = fft_sizes_lut[selected_fft_size];
-                    fft->set_fft_settings(fft_size, get_samplerate(), fft_rate);
-                    waterfall_plot->set_rate(fft_rate, waterfall_rate);
-                    logger->info("Set FFT rate to %d", fft_rate);
-                }
-            }
-            if (ImGui::IsItemDeactivatedAfterEdit() && fft_rate < waterfall_rate)
-            {
-                waterfall_rate = fft_rate;
-                waterfall_plot->set_rate(fft_rate, waterfall_rate);
-                logger->info("Set Waterfall rate to %d", waterfall_rate);
-            }
-            old_rate = waterfall_rate;
-            if (ImGui::InputInt(_("Waterfall Rate"), &waterfall_rate))
-            {
-                if (waterfall_rate <= 0)
-                    waterfall_rate = old_rate;
-                else
-                {
-                    waterfall_plot->set_rate(fft_rate, waterfall_rate);
-                    logger->info("Set Waterfall rate to %d", waterfall_rate);
-                }
-            }
-            if (ImGui::IsItemDeactivatedAfterEdit() && waterfall_rate > fft_rate)
-            {
-                fft_rate = waterfall_rate;
-                fft->set_fft_settings(fft_size, get_samplerate(), fft_rate);
-                waterfall_plot->set_rate(fft_rate, waterfall_rate);
-                logger->info("Set FFT rate to %d", fft_rate);
-            }
-            widgets::SteppedSliderFloat(_("FFT Max"), &fft_plot->scale_max, -160, 150);
-            widgets::SteppedSliderFloat(_("FFT Min"), &fft_plot->scale_min, -160, 150);
-            widgets::SteppedSliderFloat(_("Avg Num"), &fft->avg_num, 1, 500, 1);
-            if (ImGui::Combo(_("Palette"), &selected_waterfall_palette, waterfall_palettes_str.c_str()))
-                waterfall_plot->set_palette(waterfall_palettes[selected_waterfall_palette]);
-            ImGui::Checkbox(_("Show Waterfall"), &show_waterfall);
-            ImGui::Checkbox(_("Frequency Scale"), &fft_plot->enable_freq_scale);
-        }
-
-        if (fft_plot->scale_max < fft_plot->scale_min)
-        {
-            fft_plot->scale_min = waterfall_plot->scale_min;
-            fft_plot->scale_max = waterfall_plot->scale_max;
-        }
-        else if (fft_plot->scale_min > fft_plot->scale_max)
-        {
-            fft_plot->scale_min = waterfall_plot->scale_min;
-            fft_plot->scale_max = waterfall_plot->scale_max;
-        }
-        else
-        {
-            waterfall_plot->scale_min = fft_plot->scale_min;
-            waterfall_plot->scale_max = fft_plot->scale_max;
-        }
-
-        if (ImGui::CollapsingHeader(_("Processing")))
-        {
-            // Settings & Selection menu
-            bool assume_processing = is_processing;
-            if (assume_processing)
-                style::beginDisabled();
-            pipeline_selector.renderSelectionBox(ImGui::GetContentRegionAvail().x);
-            if (!automated_live_output_dir)
-                pipeline_selector.drawMainparamsLive();
-            pipeline_selector.renderParamTable();
-            if (assume_processing)
-                style::endDisabled();
-
-            // Preset Menu
-            if (pipeline_selector.selected_pipeline.preset.frequencies.size() > 0)
-            {
-                if (ImGui::BeginCombo(_("Freq###presetscombo"), pipeline_selector.selected_pipeline.preset.frequencies[pipeline_preset_id].second == frequency_hz
-                                                                    ? pipeline_selector.selected_pipeline.preset.frequencies[pipeline_preset_id].first.c_str()
-                                                                    : ""))
-                {
-                    for (int n = 0; n < (int)pipeline_selector.selected_pipeline.preset.frequencies.size(); n++)
-                    {
-                        const bool is_selected = (pipeline_preset_id == n);
-                        if (ImGui::Selectable(pipeline_selector.selected_pipeline.preset.frequencies[n].first.c_str(), is_selected))
-                        {
-                            pipeline_preset_id = n;
-
-                            if (pipeline_selector.selected_pipeline.preset.frequencies[pipeline_preset_id].second != 0)
+                            for (int i = 0; i < (int)sources.size(); i++)
                             {
-                                frequency_hz = pipeline_selector.selected_pipeline.preset.frequencies[pipeline_preset_id].second;
-                                set_frequency(frequency_hz);
+                                try
+                                {
+                                    source_ptr.reset();
+                                    source_ptr = dsp::getSourceFromDescriptor(sources[i]);
+                                    source_ptr->open();
+                                    sdr_select_id = i;
+                                    break;
+                                }
+                                catch (std::runtime_error &e)
+                                {
+                                    logger->error(e.what());
+                                }
                             }
                         }
 
-                        if (is_selected)
-                            ImGui::SetItemDefaultFocus();
+                        set_frequency(frequency_hz);
+                        try_load_sdr_settings();
                     }
-                    ImGui::EndCombo();
-                }
-            }
-
-            if (!assume_started)
-                style::beginDisabled();
-
-            bool assume_stopping_processing = is_stopping_processing;
-            if (!assume_processing)
-            {
-                if (ImGui::Button(_("Start###startprocessing")))
-                    start_processing();
-            }
-            else if (assume_stopping_processing)
-            {
-                style::beginDisabled();
-                ImGui::Button(_("Stopping...##stoppingprocessing"));
-                style::endDisabled();
-            }
-            else
-            {
-                if (ImGui::Button(_("Stop##stopprocessing")))
-                    ui_thread_pool.push([=](int) { stop_processing(); });
-            }
-
-            error.draw();
-
-            if (!assume_started)
-                style::endDisabled();
-        }
-
-        if (ImGui::CollapsingHeader(_("Recording")))
-        {
-            bool assume_recording = is_recording;
-            if (assume_recording)
-                style::beginDisabled();
-
-            if (baseband_format.draw_record_combo(_("Format##basebandrecordformat")))
-                file_sink->set_output_sample_type(baseband_format);
-
-            if (assume_recording)
-                style::endDisabled();
-
-            uint64_t file_written = file_sink->get_written();
-            uint64_t estimated_available = 0;
-            if (file_written <= disk_available)
-                estimated_available = disk_available - file_written;
-
-            if (file_written < 1e9)
-                ImGui::Text(_("Size : %.2f MB"), file_written / 1e6);
-            else
-                ImGui::Text(_("Size : %.2f GB"), file_written / 1e9);
-
-            ImGui::Text(_("Free Space: %.2f GB"), estimated_available / pow(1024, 3));
-
-            int timeleft;
-            switch (baseband_format)
-            {
-            case dsp::CF_32:
-            case dsp::CS_32:
-                timeleft = estimated_available / (8 * get_samplerate());
-                break;
-            case dsp::CS_16:
-            case dsp::WAV_16:
-                timeleft = estimated_available / (4 * get_samplerate());
-                break;
-            case dsp::CS_8:
-            case dsp::CU_8:
-                timeleft = estimated_available / (2 * get_samplerate());
-                break;
-            default:
-                // Silence GCC warns
-                timeleft = 0;
-                break;
-            }
-#ifdef BUILD_ZIQ
-            if (baseband_format != dsp::ZIQ)
-#endif
-            {
-#ifdef BUILD_ZIQ2
-                if (baseband_format != dsp::ZIQ2)
-#endif
-                {
-                    if (is_recording && remaining_disk_space_time > timeleft && !been_warned)
+                    ImGui::SameLine();
+                    if (ImGui::Button(u8" \uead2 "))
                     {
-                        logger->warn(_("!!!!WARNING - LOW AMOUNT OF FREE DISK SPACE!!!!"));
-                        been_warned = true;
+                        sources = dsp::getAllAvailableSources();
+
+                        sdr_select_string.clear();
+                        for (dsp::SourceDescriptor src : sources)
+                        {
+                            logger->debug("Device " + src.name);
+                            sdr_select_string += src.name + '\0';
+                        }
+
+                        while (sdr_select_id >= (int)sources.size())
+                            sdr_select_id--;
+
+                        source_ptr = getSourceFromDescriptor(sources[sdr_select_id]);
+                        source_ptr->open();
+                        set_frequency(frequency_hz);
+                        try_load_sdr_settings();
                     }
+                    /*
+                    if (ImGui::IsItemHovered())
+                        {
+                            ImGui::BeginTooltip();
+                            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+                            ImGui::TextUnformatted("Refresh source list");
+                            ImGui::PopTextWrapPos();
+                            ImGui::EndTooltip();
+                        }
+                    */
 
-                    int day = timeleft / (24 * 3600);
+                    ImGui::InputInt("Decimation##recorderdecimation", &current_decimation);
+                    if (current_decimation < 1)
+                        current_decimation = 1;
 
-                    timeleft = timeleft % (24 * 3600);
-                    int hour = timeleft / 3600;
+                    bool pushed_color_xconv = xconverter_frequency != 0;
+                    if (pushed_color_xconv)
+                        ImGui::PushStyleColor(ImGuiCol_Text, style::theme.green.Value);
+                    if (ImGui::InputDouble("MHz (LO offset)##downupconverter", &xconverter_frequency))
+                        set_frequency(frequency_hz);
+                    if (pushed_color_xconv)
+                        ImGui::PopStyleColor();
 
-                    timeleft %= 3600;
-                    int minutes = timeleft / 60;
+                    if (assume_started)
+                        style::endDisabled();
 
-                    timeleft %= 60;
-                    int seconds = timeleft;
-                    ImGui::Text(_("Time left: %02d:%02d:%02d:%02d"), day, hour, minutes, seconds);
-                }
-            }
-
-#ifdef BUILD_ZIQ
-            if (baseband_format == dsp::ZIQ)
-            {
-                if (file_sink->get_written_raw() < 1e9)
-                    ImGui::Text(_("Size (raw) : %.2f MB"), file_sink->get_written_raw() / 1e6);
-                else
-                    ImGui::Text(_("Size (raw) : %.2f GB"), file_sink->get_written_raw() / 1e9);
-            }
-#endif
-
-            ImGui::Text(_("File : %s"), recorder_filename.c_str());
-
-            ImGui::Spacing();
-
-            if (!assume_recording)
-                ImGui::TextColored(style::theme.red, _("IDLE"));
-            else
-                ImGui::TextColored(style::theme.green, _("RECORDING"));
-
-            ImGui::Spacing();
-
-            if (!assume_recording)
-            {
-                if (ImGui::Button(_("Start###startrecording")))
-                    start_recording();
-            }
-            else
-            {
-                if (ImGui::Button(_("Stop##stoprecording")))
-                    stop_recording();
-            }
-        }
-
-        show_tracking = ImGui::CollapsingHeader(_("Tracking"), tracking_started_cli ? ImGuiTreeNodeFlags_DefaultOpen : ImGuiTreeNodeFlags_None);
-        if (show_tracking)
-        {
-            try_init_tracking_widget();
-            tracking_widget->render();
-        }
-
-        if (ImGui::CollapsingHeader(_("VFOs")))
-        {
-            vfos_mtx.lock();
-            std::string to_delete = "";
-            if (vfo_list.size() == 0)
-            {
-                const char *no_vfo_text = _("No Active VFOs");
-                ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x / 2 - ImGui::CalcTextSize(no_vfo_text).x / 2);
-                ImGui::TextDisabled("%s", no_vfo_text);
-            }
-            else
-            {
-                for (auto &vfo : vfo_list)
-                {
-                    ImGui::PushStyleColor(ImGuiCol_Text, style::theme.green.Value);
-                    ImGui::SeparatorText(vfo.name.c_str());
-                    ImGui::PopStyleColor();
-                    ImGui::BulletText(_("Frequency: %s"), format_notated(vfo.freq, "Hz").c_str());
-                    if (vfo.selected_pipeline.id != "")
-                    {
-                        ImGui::BulletText(_("Pipeline: %s"), vfo.selected_pipeline.id.c_str());
-                        ImGui::BulletText(_("Directory: %s"), vfo.output_dir.c_str());
-                    }
-                    else if (vfo.file_sink)
-                    {
-                        if (vfo.file_sink->get_written() < 1e9)
-                            ImGui::BulletText(_("IQ Size: %.2f MB"), vfo.file_sink->get_written() / 1e6);
-                        else
-                            ImGui::BulletText(_("IQ Size: %.2f GB"), vfo.file_sink->get_written() / 1e9);
-                    }
                     ImGui::Spacing();
-                    if (ImGui::Button(std::string(_("Stop##") + vfo.id).c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 0)))
-                        to_delete = vfo.id;
+                    ImGui::Separator();
+                    ImGui::Spacing();
+
+                    if (widgets::FrequencyInput("Hz##mainfreq", &frequency_hz))
+                        set_frequency(frequency_hz);
+
+                    ImGui::Spacing();
+                    source_ptr->drawControlUI();
+
+                    if (!assume_started)
+                    {
+                        if (ImGui::Button("Start"))
+                            start();
+                    }
+                    else
+                    {
+                        if (ImGui::Button("Stop"))
+                            stop();
+                    }
+
+                    sdr_error.draw();
                 }
-            }
-            vfos_mtx.unlock();
-            if (to_delete != "")
-                del_vfo(to_delete);
-#if 0
-            if (ImGui::Button("Add Test"))
-            {
-                int idp = 0;
-                for (int n = 0; n < (int)pipeline::pipelines.size(); n++)
+
+                if (ImGui::CollapsingHeader("FFT", tracking_started_cli ? ImGuiTreeNodeFlags_None : ImGuiTreeNodeFlags_DefaultOpen))
                 {
-                    if ("meteor_m2-x_lrpt" == pipeline::pipelines[n].id)
-                        idp = n;
+                    if (ImGui::Combo("FFT Size", &selected_fft_size, "131072\0"
+                                                                     "65536\0"
+                                                                     "32768\0"
+                                                                     "16384\0"
+                                                                     "8192\0"
+                                                                     "4096\0"
+                                                                     "2048\0"
+                                                                     "1024\0"))
+                    {
+                        fft_size = fft_sizes_lut[selected_fft_size];
+
+                        fft->set_fft_settings(fft_size, get_samplerate(), fft_rate);
+                        fft_plot->set_size(fft_size);
+                        waterfall_plot->set_size(fft_size);
+
+                        logger->info("Set FFT size to %d", fft_size);
+                    }
+                    int old_rate = fft_rate;
+                    if (ImGui::InputInt("FFT Rate", &fft_rate))
+                    {
+                        if (fft_rate <= 0)
+                            fft_rate = old_rate;
+                        else
+                        {
+                            fft_size = fft_sizes_lut[selected_fft_size];
+                            fft->set_fft_settings(fft_size, get_samplerate(), fft_rate);
+                            waterfall_plot->set_rate(fft_rate, waterfall_rate);
+                            logger->info("Set FFT rate to %d", fft_rate);
+                        }
+                    }
+                    if (ImGui::IsItemDeactivatedAfterEdit() && fft_rate < waterfall_rate)
+                    {
+                        waterfall_rate = fft_rate;
+                        waterfall_plot->set_rate(fft_rate, waterfall_rate);
+                        logger->info("Set Waterfall rate to %d", waterfall_rate);
+                    }
+                    old_rate = waterfall_rate;
+                    if (ImGui::InputInt("Waterfall Rate", &waterfall_rate))
+                    {
+                        if (waterfall_rate <= 0)
+                            waterfall_rate = old_rate;
+                        else
+                        {
+                            waterfall_plot->set_rate(fft_rate, waterfall_rate);
+                            logger->info("Set Waterfall rate to %d", waterfall_rate);
+                        }
+                    }
+                    if (ImGui::IsItemDeactivatedAfterEdit() && waterfall_rate > fft_rate)
+                    {
+                        fft_rate = waterfall_rate;
+                        fft->set_fft_settings(fft_size, get_samplerate(), fft_rate);
+                        waterfall_plot->set_rate(fft_rate, waterfall_rate);
+                        logger->info("Set FFT rate to %d", fft_rate);
+                    }
+                    widgets::SteppedSliderFloat("FFT Max", &fft_plot->scale_max, -160, 150);
+                    widgets::SteppedSliderFloat("FFT Min", &fft_plot->scale_min, -160, 150);
+                    widgets::SteppedSliderFloat("Avg Num", &fft->avg_num, 1, 500, 1);
+                    if (ImGui::Combo("Palette", &selected_waterfall_palette, waterfall_palettes_str.c_str()))
+                        waterfall_plot->set_palette(waterfall_palettes[selected_waterfall_palette]);
+                    ImGui::Checkbox("Show Waterfall", &show_waterfall);
+                    ImGui::Checkbox("Frequency Scale", &fft_plot->enable_freq_scale);
                 }
 
-                add_vfo_live("meteor_test", "Meteor Test", 137.9e6, pipeline::pipelines[idp], {});
-            }
+                if (fft_plot->scale_max < fft_plot->scale_min)
+                {
+                    fft_plot->scale_min = waterfall_plot->scale_min;
+                    fft_plot->scale_max = waterfall_plot->scale_max;
+                }
+                else if (fft_plot->scale_min > fft_plot->scale_max)
+                {
+                    fft_plot->scale_min = waterfall_plot->scale_min;
+                    fft_plot->scale_max = waterfall_plot->scale_max;
+                }
+                else
+                {
+                    waterfall_plot->scale_min = fft_plot->scale_min;
+                    waterfall_plot->scale_max = fft_plot->scale_max;
+                }
 
-            if (ImGui::Button("Del Test"))
-            {
-                del_vfo("meteor_test");
-            }
+                if (ImGui::CollapsingHeader("Processing"))
+                {
+                    // Settings & Selection menu
+                    bool assume_processing = is_processing;
+                    if (assume_processing)
+                        style::beginDisabled();
+                    pipeline_selector.renderSelectionBox(ImGui::GetContentRegionAvail().x);
+                    if (!automated_live_output_dir)
+                        pipeline_selector.drawMainparamsLive();
+                    pipeline_selector.renderParamTable();
+                    if (assume_processing)
+                        style::endDisabled();
+
+                    // Preset Menu
+                    if (pipeline_selector.selected_pipeline.preset.frequencies.size() > 0)
+                    {
+                        if (ImGui::BeginCombo("Freq###presetscombo", pipeline_selector.selected_pipeline.preset.frequencies[pipeline_preset_id].second == frequency_hz ? pipeline_selector.selected_pipeline.preset.frequencies[pipeline_preset_id].first.c_str() : ""))
+                        {
+                            for (int n = 0; n < (int)pipeline_selector.selected_pipeline.preset.frequencies.size(); n++)
+                            {
+                                const bool is_selected = (pipeline_preset_id == n);
+                                if (ImGui::Selectable(pipeline_selector.selected_pipeline.preset.frequencies[n].first.c_str(), is_selected))
+                                {
+                                    pipeline_preset_id = n;
+
+                                    if (pipeline_selector.selected_pipeline.preset.frequencies[pipeline_preset_id].second != 0)
+                                    {
+                                        frequency_hz = pipeline_selector.selected_pipeline.preset.frequencies[pipeline_preset_id].second;
+                                        set_frequency(frequency_hz);
+                                    }
+                                }
+
+                                if (is_selected)
+                                    ImGui::SetItemDefaultFocus();
+                            }
+                            ImGui::EndCombo();
+                        }
+                    }
+
+                    if (!assume_started)
+                        style::beginDisabled();
+
+                    bool assume_stopping_processing = is_stopping_processing;
+                    if (!assume_processing)
+                    {
+                        if (ImGui::Button("Start###startprocessing"))
+                            start_processing();
+                    }
+                    else if (assume_stopping_processing)
+                    {
+                        style::beginDisabled();
+                        ImGui::Button("Stopping...##stoppingprocessing");
+                        style::endDisabled();
+                    }
+                    else
+                    {
+                        if (ImGui::Button("Stop##stopprocessing"))
+                            ui_thread_pool.push([=](int)
+                                                { stop_processing(); });
+                    }
+
+                    error.draw();
+
+                    if (!assume_started)
+                        style::endDisabled();
+                }
+
+                if (ImGui::CollapsingHeader("Recording"))
+                {
+                    bool assume_recording = is_recording;
+                    if (assume_recording)
+                        style::beginDisabled();
+
+                    if (baseband_format.draw_record_combo("Format##basebandrecordformat"))
+                        file_sink->set_output_sample_type(baseband_format);
+
+                    if (assume_recording)
+                        style::endDisabled();
+
+                    uint64_t file_written = file_sink->get_written();
+                    uint64_t estimated_available = 0;
+                    if(file_written <= disk_available)
+                        estimated_available = disk_available - file_written;
+
+                    if (file_written < 1e9)
+                        ImGui::Text("Size : %.2f MB", file_written / 1e6);
+                    else
+                        ImGui::Text("Size : %.2f GB", file_written / 1e9);
+
+                    ImGui::Text("Free Space: %.2f GB", estimated_available / pow(1024, 3));
+
+                    int timeleft;
+                    switch (baseband_format)
+                    {
+                    case dsp::CF_32: case dsp::CS_32:
+                        timeleft = estimated_available / (8 * get_samplerate());
+                        break;
+                    case dsp::CS_16: case dsp::WAV_16:
+                        timeleft = estimated_available / (4 * get_samplerate());
+                        break;
+                    case dsp::CS_8: case dsp::CU_8:
+                        timeleft = estimated_available / (2 * get_samplerate());
+                        break;
+                    default:
+                        // Silence GCC warns
+                        timeleft = 0;
+                        break;
+                    }
+#ifdef BUILD_ZIQ
+                    if (baseband_format != dsp::ZIQ)
 #endif
-        }
+                    {
+#ifdef BUILD_ZIQ2
+                        if (baseband_format != dsp::ZIQ2)
+#endif
+                        {
+                            if (is_recording && remaining_disk_space_time > timeleft && !been_warned)
+                            {
+                                logger->warn("!!!!WARNING - LOW AMOUNT OF FREE DISK SPACE!!!!");
+                                been_warned = true;
+                            }
 
-        if (ImGui::CollapsingHeader(_("Debug")))
-        {
-            if (constellation_debug == nullptr)
-                constellation_debug = new widgets::ConstellationViewer();
-            if (is_started)
-                constellation_debug->pushComplex(source_ptr->output_stream->readBuf, 256);
-            constellation_debug->draw();
-        }
+                            int day = timeleft / (24 * 3600);
 
-        eventBus->fire_event<RecorderDrawPanelEvent>({});
-    }
+                            timeleft = timeleft % (24 * 3600);
+                            int hour = timeleft / 3600;
 
-    void RecorderApplication::drawContents(ImVec2 win_size)
-    {
-        float right_width = win_size.x;
-        float wf_size = win_size.y;
-        float left_width = ImGui::GetCursorPosX();
+                            timeleft %= 3600;
+                            int minutes = timeleft / 60;
 
-        float recorder_size_x = right_width;
+                            timeleft %= 60;
+                            int seconds = timeleft;
+                            ImGui::Text("Time left: %02d:%02d:%02d:%02d", day, hour, minutes, seconds);
+                        }
+                    }
 
-        float _live_height = 250;
+#ifdef BUILD_ZIQ
+                    if (baseband_format == dsp::ZIQ)
+                    {
+                        if (file_sink->get_written_raw() < 1e9)
+                            ImGui::Text("Size (raw) : %.2f MB", file_sink->get_written_raw() / 1e6);
+                        else
+                            ImGui::Text("Size (raw) : %.2f GB", file_sink->get_written_raw() / 1e9);
+                    }
+#endif
 
-        float wf_size_offset = 0;
-        if (is_processing && !processing_modules_floating_windows)
-            wf_size_offset = _live_height * ui_scale;
-        if (vfo_list.size() > 0)
-        {
-            wf_size_offset = 270 * ui_scale;
-            _live_height = 270;
-        }
+                    ImGui::Text("File : %s", recorder_filename.c_str());
 
-        wf_size = win_size.y - wf_size_offset; // + 13 * ui_scale;
+                    ImGui::Spacing();
 
-        // float wf_size_offset = 0;
-        // if (is_processing && !processing_modules_floating_windows)
-        //     wf_size_offset = 250 * ui_scale;
-        // if (vfo_list.size() > 0)
-        //     wf_size_offset = 270 * ui_scale;
+                    if (!assume_recording)
+                        ImGui::TextColored(style::theme.red, "IDLE");
+                    else
+                        ImGui::TextColored(style::theme.green, "RECORDING");
 
-        // ImVec2 recorder_size = ImGui::GetContentRegionAvail();
-        // float wf_size_offset = 0;
-        // if (is_processing && !processing_modules_floating_windows)
-        //     wf_size_offset = 250 * ui_scale;
-        // if (vfo_list.size() > 0)
-        //     wf_size_offset = 270 * ui_scale;
-        // float wf_size = recorder_size.y - wf_size_offset; // + 13 * ui_scale;
+                    ImGui::Spacing();
 
-        {
+                    if (!assume_recording)
+                    {
+                        if (ImGui::Button("Start###startrecording"))
+                            start_recording();
+                    }
+                    else
+                    {
+                        if (ImGui::Button("Stop##stoprecording"))
+                            stop_recording();
+                    }
+                }
+
+                show_tracking = ImGui::CollapsingHeader("Tracking", tracking_started_cli ? ImGuiTreeNodeFlags_DefaultOpen : ImGuiTreeNodeFlags_None);
+                if (show_tracking)
+                {
+                    try_init_tracking_widget();
+                    tracking_widget->render();
+                }
+
+                if (ImGui::CollapsingHeader("VFOs"))
+                {
+                    vfos_mtx.lock();
+                    std::string to_delete = "";
+                    if (vfo_list.size() == 0)
+                    {
+                        const char *no_vfo_text = "No Active VFOs";
+                        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x / 2 - ImGui::CalcTextSize(no_vfo_text).x / 2);
+                        ImGui::TextDisabled("%s", no_vfo_text);
+                    }
+                    else
+                    {
+                        for (auto &vfo : vfo_list)
+                        {
+                            ImGui::PushStyleColor(ImGuiCol_Text, style::theme.green.Value);
+                            ImGui::SeparatorText(vfo.name.c_str());
+                            ImGui::PopStyleColor();
+                            ImGui::BulletText("Frequency: %s", format_notated(vfo.freq, "Hz").c_str());
+                            if (vfo.selected_pipeline.name != "")
+                            {
+                                ImGui::BulletText("Pipeline: %s", vfo.selected_pipeline.readable_name.c_str());
+                                ImGui::BulletText("Directory: %s", vfo.output_dir.c_str());
+                            }
+                            else if (vfo.file_sink)
+                            {
+                                if (vfo.file_sink->get_written() < 1e9)
+                                    ImGui::BulletText("IQ Size: %.2f MB", vfo.file_sink->get_written() / 1e6);
+                                else
+                                    ImGui::BulletText("IQ Size: %.2f GB", vfo.file_sink->get_written() / 1e9);
+                            }
+                            ImGui::Spacing();
+                            if (ImGui::Button(std::string("Stop##" + vfo.id).c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 0)))
+                                to_delete = vfo.id;
+                        }
+                    }
+                    vfos_mtx.unlock();
+                    if (to_delete != "")
+                        del_vfo(to_delete);
+#if 0
+                    if (ImGui::Button("Add Test"))
+                    {
+                        int idp = 0;
+                        for (int n = 0; n < (int)pipelines.size(); n++)
+                        {
+                            if ("meteor_m2-x_lrpt" == pipelines[n].name)
+                                idp = n;
+                        }
+
+                        add_vfo("meteor_test", "Meteor Test", 137.9e6, idp, {});
+                    }
+
+                    if (ImGui::Button("Del Test"))
+                    {
+                        del_vfo("meteor_test");
+                    }
+#endif
+                }
+
+                if (ImGui::CollapsingHeader("Debug"))
+                {
+                    if (constellation_debug == nullptr)
+                        constellation_debug = new widgets::ConstellationViewer();
+                    if (is_started)
+                        constellation_debug->pushComplex(source_ptr->output_stream->readBuf, 256);
+                    constellation_debug->draw();
+                }
+
+                eventBus->fire_event<RecorderDrawPanelEvent>({});
+            }
+            ImGui::EndChild();
+            ImGui::EndGroup();
+
+            ImGui::TableNextColumn();
+            ImGui::BeginGroup();
             ImGui::BeginChild("RecorderFFT", {right_width, wf_size}, false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
             {
-                // Fix for "could not allocate waterfall memory"
-                if (waterfall_ratio > 0.9)
-                    waterfall_ratio = 0.9;
-
                 float fft_height = wf_size * (show_waterfall ? waterfall_ratio : 1.0);
                 float wf_height = wf_size * (1 - waterfall_ratio) + 15 * ui_scale;
                 float wfft_widht = right_width - 9 * ui_scale;
+                bool t = true;
 #ifdef __ANDROID__
                 int offset = 8;
 #else
                 int offset = 30;
 #endif
-                // ImGui::SetNextWindowSizeConstraints(ImVec2((right_width + offset * ui_scale), 50), ImVec2((right_width + offset * ui_scale), wf_size));
-                //                   ImGui::SetNextWindowSize(ImVec2((right_width + offset * ui_scale), show_waterfall ? waterfall_ratio * wf_size : wf_size));
-                ImGui::SetCursorScreenPos(ImVec2(left_width + 8, 25 * ui_scale));
-                if (ImGui::BeginChild("#fft", ImVec2((right_width + offset * ui_scale), (show_waterfall ? waterfall_ratio * wf_size : wf_size)), ImGuiChildFlags_ResizeY, //
-                                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_ChildWindow | ImGuiWindowFlags_NoScrollbar |
-                                          ImGuiWindowFlags_NoScrollWithMouse))
+                ImGui::SetNextWindowSizeConstraints(ImVec2((right_width + offset * ui_scale), 50), ImVec2((right_width + offset * ui_scale), wf_size));
+                ImGui::SetNextWindowSize(ImVec2((right_width + offset * ui_scale), show_waterfall ? waterfall_ratio * wf_size : wf_size));
+                ImGui::SetNextWindowPos(ImVec2(left_width, 25 * ui_scale));
+                if (ImGui::Begin("#fft", &t, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_ChildWindow | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
                 {
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 9 * ui_scale);
                     fft_plot->draw({float(wfft_widht), fft_height});
-                    if (show_waterfall) // && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+                    if (show_waterfall && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
                         waterfall_ratio = ImGui::GetWindowHeight() / wf_size;
                     if (ImGui::IsWindowHovered())
                     {
                         ImVec2 mouse_pos = ImGui::GetMousePos();
                         float ratio = (mouse_pos.x - left_width - 16 * ui_scale) / (right_width - 9 * ui_scale) - 0.5;
-                        ImGui::SetTooltip(
-                            "%s",
-                            ((ratio >= 0 ? "" : "- ") + format_notated(abs(ratio) * get_samplerate(), "Hz\n") + format_notated(source_ptr->get_frequency() + ratio * get_samplerate(), "Hz")).c_str());
+                        ImGui::SetTooltip("%s", ((ratio >= 0 ? "" : "- ") + format_notated(abs(ratio) * get_samplerate(), "Hz\n") +
+                                                 format_notated(source_ptr->get_frequency() + ratio * get_samplerate(), "Hz"))
+                                                    .c_str());
                     }
-
-                    ImGui::EndChild();
                 }
-
+                ImGui::EndChild();
                 if (show_waterfall)
                 {
-                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8 * ui_scale);
-                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 4 * ui_scale);
+                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 15 * ui_scale);
                     waterfall_plot->draw({wfft_widht, wf_height}, is_started);
                 }
             }
             ImGui::EndChild();
+            ImGui::EndGroup();
+            ImGui::EndTable();
         }
 
         if (vfo_list.size() > 0)
@@ -785,15 +758,15 @@ namespace satdump
             {
                 if (is_processing)
                 {
-                    if (ImGui::BeginTabItem(_("Live Processing")))
+                    if (ImGui::BeginTabItem("Live Processing"))
                     {
-                        float y_pos = ImGui::GetCursorPosY(); //+ 35 * ui_scale;
-                        float live_width = recorder_size_x + 16 * ui_scale;
-                        float live_height = _live_height * ui_scale;
+                        float y_pos = ImGui::GetCursorPosY() + 35 * ui_scale;
+                        float live_width = recorder_size.x + 16 * ui_scale;
+                        float live_height = 250 * ui_scale;
                         float winwidth = live_pipeline->modules.size() > 0 ? live_width / live_pipeline->modules.size() : live_width;
-                        float currentPos = ImGui::GetCursorPosX();
+                        float currentPos = 0;
                         ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
-                        for (std::shared_ptr<pipeline::ProcessingModule> &module : live_pipeline->modules)
+                        for (std::shared_ptr<ProcessingModule> &module : live_pipeline->modules)
                         {
                             ImGui::SetNextWindowPos({currentPos, y_pos});
                             ImGui::SetNextWindowSize({(float)winwidth, (float)live_height});
@@ -814,16 +787,15 @@ namespace satdump
                 {
                     if (ImGui::BeginTabItem(vfo.name.c_str()))
                     {
-                        if (vfo.selected_pipeline.id != "")
+                        if (vfo.selected_pipeline.name != "")
                         {
-                            float y_pos = ImGui::GetCursorPosY(); //+ 35 * ui_scale;
-                            float live_width = recorder_size_x + 16 * ui_scale;
-                            float live_height = _live_height * ui_scale;
+                            float y_pos = ImGui::GetCursorPosY() + 35 * ui_scale;
+                            float live_width = recorder_size.x + 16 * ui_scale;
+                            float live_height = 250 * ui_scale;
                             float winwidth = vfo.live_pipeline->modules.size() > 0 ? live_width / vfo.live_pipeline->modules.size() : live_width;
-                            float currentPos = ImGui::GetCursorPosX();
-                            ;
+                            float currentPos = 0;
                             ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
-                            for (std::shared_ptr<pipeline::ProcessingModule> &module : vfo.live_pipeline->modules)
+                            for (std::shared_ptr<ProcessingModule> &module : vfo.live_pipeline->modules)
                             {
                                 ImGui::SetNextWindowPos({currentPos, y_pos});
                                 ImGui::SetNextWindowSize({(float)winwidth, (float)live_height});
@@ -848,18 +820,18 @@ namespace satdump
         {
             if (processing_modules_floating_windows)
             {
-                for (std::shared_ptr<pipeline::ProcessingModule> &module : live_pipeline->modules)
+                for (std::shared_ptr<ProcessingModule> &module : live_pipeline->modules)
                     module->drawUI(true);
             }
             else
             {
-                float y_pos = ImGui::GetCursorPosY(); //+ 35 * ui_scale;
-                float live_width = recorder_size_x + 16 * ui_scale;
-                float live_height = _live_height * ui_scale;
+                float y_pos = ImGui::GetCursorPosY() + 35 * ui_scale;
+                float live_width = recorder_size.x + 16 * ui_scale;
+                float live_height = 250 * ui_scale;
                 float winwidth = live_pipeline->modules.size() > 0 ? live_width / live_pipeline->modules.size() : live_width;
-                float currentPos = ImGui::GetCursorPosX();
+                float currentPos = 0;
                 ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
-                for (std::shared_ptr<pipeline::ProcessingModule> &module : live_pipeline->modules)
+                for (std::shared_ptr<ProcessingModule> &module : live_pipeline->modules)
                 {
                     ImGui::SetNextWindowPos({currentPos, y_pos});
                     ImGui::SetNextWindowSize({(float)winwidth, (float)live_height});
@@ -877,7 +849,7 @@ namespace satdump
         // Keyboard shortcuts
         {
             // FFT
-            if (ImGui::IsKeyDown(ImGuiKey_ReservedForModShift) && ImGui::IsKeyDown(ImGuiKey_X))
+            if (ImGui::IsKeyDown(ImGuiKey_ModShift) && ImGui::IsKeyDown(ImGuiKey_X))
             {
                 if (ImGui::IsKeyDown(ImGuiKey_DownArrow))
                     fft_plot->scale_max -= 0.5;
@@ -901,4 +873,4 @@ namespace satdump
             }
         }
     }
-}; // namespace satdump
+};

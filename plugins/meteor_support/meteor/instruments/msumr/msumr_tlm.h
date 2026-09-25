@@ -3,17 +3,11 @@
 #include <cstdint>
 #include "nlohmann/json.hpp"
 
-enum DownlinkMode : int
-{
-    LRPT,
-    HRPT
-};
-
 // This is most likely temporary to some extent until
 // more of this is figured out for calibration.
 // Translations from Russians are definitely very imperfect,
 // and this will need to be more data-oriented later!
-inline void parseMSUMRTelemetry(nlohmann::json &msu_mr_telemetry, nlohmann::json &msu_mr_telemetry_calib, int linecnt, uint8_t *msumr_frame, DownlinkMode mode)
+inline void parseMSUMRTelemetry(nlohmann::json &msu_mr_telemetry, nlohmann::json &msu_mr_telemetry_calib, int linecnt, uint8_t *msumr_frame)
 {
     if ((msumr_frame[12] & 0xF) == 0b0000)
         msu_mr_telemetry[linecnt]["msu_mr_set"] = "primary";
@@ -25,7 +19,7 @@ inline void parseMSUMRTelemetry(nlohmann::json &msu_mr_telemetry, nlohmann::json
     int mid = msumr_frame[12] >> 4;
     msu_mr_telemetry[linecnt]["msu_mr_id"] = mid;
 
-    if ((mode == LRPT && (msumr_frame[13] & 0x0F) == 0x0F) || (mode == HRPT && msumr_frame[13] == 0b00001111)) // Analog TLM
+    if (msumr_frame[13] == 0b00001111) // Analog TLM
     {
         const char *names[16 + 5] = {
             "Detector Temperature Channel 5", //"AF temperature of the 5th channel",
@@ -40,9 +34,9 @@ inline void parseMSUMRTelemetry(nlohmann::json &msu_mr_telemetry, nlohmann::json
             "Lamp Current Channel 2",         //"Lamp current of calibration unit VK2",
             "Lamp Current Channel 3",         //"Lamp current of calibration unit VK3",
             "IR Lenses temperatures",         //"Temperature of IR lenses of channels 4, 5, 6",
-            "Channel 1 Photodetector Bias Voltage", //"High voltage control on FP VK1"
-            "Channel 2 Photodetector Bias Voltage", //"High voltage control on FP VK2"
-            "Channel 3 Photodetector Temperature", //"FP temperature VK3",
+            "High voltage control on FP VK1",
+            "High voltage control on FP VK2",
+            "Detector Temperature Channel 3", //"FP temperature VK3",
             "Baseplate Temperature",          //    "Temperature of control point No. 1",
             "UKN1",
             "UKN2",
@@ -67,22 +61,22 @@ inline void parseMSUMRTelemetry(nlohmann::json &msu_mr_telemetry, nlohmann::json
         for (int i = 14; i < 16 /*+ 5*/; i++)
             msu_mr_telemetry[linecnt]["analog_tlm"][names[15 - i]] = ((uint8_t *)msumr_frame)[14 + i];
     }
-    else if ((mode == LRPT && (msumr_frame[13] & 0x0F) == 0x00) || (mode == HRPT && msumr_frame[13] == 0b00000000)) // Digital TLM
+    else if (msumr_frame[13] == 0b00000000) // Digital TLM
     {
         uint8_t *ptr = &msumr_frame[14];
 
         auto opModeToString = [](int mode) -> std::string
         {
             if (mode == 0b0001)
-                return "Gain mode corresponding to model brightness V0";
+                return "Gain mode corresponding to model brightness B0";
             else if (mode == 0b0011)
-                return "Gain mode corresponding to model brightness 0.5×V0";
+                return "Gain mode corresponding to model brightness 0.5V0";
             else if (mode == 0b0100)
-                return "Gain mode corresponding to model brightness 0.25×V0";
+                return "Gain mode corresponding to model brightness 0.25V0";
             else if (mode == 0b0101)
-                return "Discrete gain mode across the brightness range"; //Discrete gain mode for brightness range
+                return "Discrete gain mode for brightness range";
             else if (mode == 0b0110)
-                return "Linear mode"; //Linear transfer characteristic mode
+                return "Linear transfer characteristic mode";
             else if (mode == 0b0111)
                 return "TEST mode 1 (a gradation wedge is formed only in 4, 5, 6 channels)";
             else if (mode == 0b1000)
@@ -96,11 +90,11 @@ inline void parseMSUMRTelemetry(nlohmann::json &msu_mr_telemetry, nlohmann::json
         auto pHopModeToString = [](int mode) -> std::string
         {
             if (mode == 0)
-                return "Normal";
+                return "Norm";
             else if (mode == 1)
-                return "High clamping"; //"Restrict from above"
+                return "Limit from above";
             else if (mode == 2)
-                return "Low clamping"; //"Restrict from below"
+                return "Restrict from below";
             else if (mode == 3)
                 return "Reserve";
             else

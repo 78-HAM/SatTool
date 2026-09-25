@@ -1,9 +1,8 @@
 #pragma once
-#include "core/params.h"
-#include "i18n.h"
-#include "imgui/dialogs/widget.h"
-#include "pipeline/pipeline.h"
 #include <string>
+#include "core/params.h"
+#include "core/pipeline.h"
+#include "imgui/pfd/widget.h"
 
 namespace satdump
 {
@@ -22,7 +21,7 @@ namespace satdump
 
         FileSelectWidget inputfileselect = FileSelectWidget("Input File", "Select Input File");
         FileSelectWidget outputdirselect = FileSelectWidget("Output Directory", "Select Output Directory", true);
-        pipeline::Pipeline selected_pipeline;
+        Pipeline selected_pipeline;
         int pipelines_levels_select_id = 0;
 
     private:
@@ -30,7 +29,7 @@ namespace satdump
         void getParamsFromInput();
         void try_set_param(std::string name, nlohmann::json v);
 
-        bool live_mode;
+        bool live_mode, *advanced_mode;
         std::string text = u8"\uf006";
         std::vector<int> favourite;
         std::mutex pipeline_mtx;
@@ -41,4 +40,4 @@ namespace satdump
         std::vector<std::pair<std::string, satdump::params::EditableParameter>> parameters_ui;
         std::vector<std::pair<std::string, satdump::params::EditableParameter>> parameters_ui_pipeline;
     };
-} // namespace satdump
+}

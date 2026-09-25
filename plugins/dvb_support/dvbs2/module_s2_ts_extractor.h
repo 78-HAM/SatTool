@@ -1,11 +1,11 @@
 #pragma once
 
-#include "pipeline/module.h"
+#include "core/module.h"
 #include <fstream>
 
 namespace dvbs2
 {
-    class S2TStoTCPModule : public satdump::pipeline::ProcessingModule
+    class S2TStoTCPModule : public ProcessingModule
     {
     protected:
         int bbframe_size;
@@ -20,13 +20,13 @@ namespace dvbs2
         ~S2TStoTCPModule();
         void process();
         void drawUI(bool window);
-        std::vector<satdump::pipeline::ModuleDataType> getInputTypes();
-        std::vector<satdump::pipeline::ModuleDataType> getOutputTypes();
+        std::vector<ModuleDataType> getInputTypes();
+        std::vector<ModuleDataType> getOutputTypes();
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
-} // namespace dvbs2
+}

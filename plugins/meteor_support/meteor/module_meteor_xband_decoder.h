@@ -1,14 +1,15 @@
 #pragma once
 
+#include "core/module.h"
+#include <complex>
+#include <thread>
+#include <fstream>
+#include "deframer.h"
 #include "common/widgets/constellation.h"
 #include "meteor_xband_types.h"
-#include "pipeline/module.h"
-#include <fstream>
 
 namespace meteor
 {
-    using namespace satdump::pipeline; // TODOREWORK
-
     class MeteorXBandDecoderModule : public ProcessingModule
     {
     protected:
@@ -28,7 +29,7 @@ namespace meteor
         int frame_count = 0;
 
         // UI Stuff
-        satdump::widgets::ConstellationViewer constellation;
+        widgets::ConstellationViewer constellation;
 
     public:
         MeteorXBandDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
@@ -41,7 +42,7 @@ namespace meteor
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
 } // namespace meteor

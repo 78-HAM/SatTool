@@ -1,24 +1,22 @@
 #include "module_proba_instruments.h"
-#include "common/ccsds/ccsds_tm/demuxer.h"
+#include <fstream>
 #include "common/ccsds/ccsds_tm/vcdu.h"
-#include "core/exception.h"
-#include "image/io.h"
-#include "imgui/imgui.h"
-#include "instruments/vegetation/vegx_reader.h"
 #include "logger.h"
-#include "products/dataset.h"
-#include "products/image/channel_transform.h"
-#include "products/image_product.h"
-#include <algorithm>
-#include <cstdint>
 #include <filesystem>
+#include "imgui/imgui.h"
+#include "common/utils.h"
+#include "common/ccsds/ccsds_tm/demuxer.h"
+#include "products/products.h"
+#include "products/dataset.h"
+#include "core/exception.h"
+#include "common/image/io.h"
 
 namespace proba
 {
     namespace instruments
     {
         PROBAInstrumentsDecoderModule::PROBAInstrumentsDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+            : ProcessingModule(input_file, output_file_hint, parameters)
         {
             if (parameters["satellite"] == "proba1")
                 d_satellite = PROBA_1;
@@ -26,15 +24,18 @@ namespace proba
                 d_satellite = PROBA_2;
             else if (parameters["satellite"] == "probaV")
                 d_satellite = PROBA_V;
-            else if (parameters["satellite"] == "proba3")
-                d_satellite = PROBA_3;
             else
                 throw satdump_exception("Proba Instruments Decoder : Proba satellite \"" + parameters["satellite"].get<std::string>() + "\" is not valid!");
-            fsfsm_enable_output = false;
         }
 
         void PROBAInstrumentsDecoderModule::process()
         {
+            filesize = getFilesize(d_input_file);
+            std::ifstream data_in(d_input_file, std::ios::binary);
+
+            logger->info("Using input frames " + d_input_file);
+
+            time_t lastTime = 0;
             uint8_t cadu[1279];
 
             // Demuxers
@@ -46,15 +47,13 @@ namespace proba
             // std::ofstream output("file.ccsds");
 
             // Products dataset
-            satdump::products::DataSet dataset;
+            satdump::ProductDataSet dataset;
             if (d_satellite == PROBA_1)
                 dataset.satellite_name = "PROBA-1";
             else if (d_satellite == PROBA_2)
                 dataset.satellite_name = "PROBA-2";
             else if (d_satellite == PROBA_V)
                 dataset.satellite_name = "PROBA-V";
-            else if (d_satellite == PROBA_3)
-                dataset.satellite_name = "PROBA-3";
             dataset.timestamp = time(0); // avg_overflowless(avhrr_reader.timestamps);
 
             // Init readers
@@ -82,15 +81,10 @@ namespace proba
             }
             else if (d_satellite == PROBA_V)
             {
-                std::string vegs_directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/Vegetation-S";
+                std::string vegs_directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/Vegetation";
 
                 if (!std::filesystem::exists(vegs_directory))
                     std::filesystem::create_directory(vegs_directory);
-
-                std::string vegx_directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/Vegetation-X";
-
-                if (!std::filesystem::exists(vegx_directory))
-                    std::filesystem::create_directory(vegx_directory);
 
                 for (int i = 0; i < 3; i++)
                 {
@@ -108,33 +102,10 @@ namespace proba
                 gps_ascii_reader = std::make_unique<gps_ascii::GPSASCII>(d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/gps_logs.txt");
             }
 
-            int i = 0;
-
-            // bool is_pv_x = true;
-
-            vegetation::VegetationX vegx_reader1(352, 128, 15);
-            vegetation::VegetationX vegx_reader2(352, 128, 3);
-            vegetation::VegetationX vegx_reader3(352, 128, 3);
-            vegetation::VegetationX vegx_reader4(352, 128, 3);
-            vegetation::VegetationX vegx_reader5(352, 128, 15);
-            vegetation::VegetationX vegx_reader6(352, 128, 15);
-            vegetation::VegetationX vegx_reader7(352, 128, 15);
-            vegetation::VegetationX vegx_reader8(352, 128, 15);
-            vegetation::VegetationX vegx_reader9(352, 128, 3);
-            vegetation::VegetationX vegx_reader10(352, 128, 3);
-            vegetation::VegetationX vegx_reader11(352, 128, 3);
-            vegetation::VegetationX vegx_reader12(352, 128, 15);
-            vegetation::VegetationX vegx_reader13(352, 128, 15);
-            vegetation::VegetationX vegx_reader14(352, 128, 15);
-            vegetation::VegetationX vegx_reader15(352, 128, 15);
-            vegetation::VegetationX vegx_reader16(352, 128, 3);
-            vegetation::VegetationX vegx_reader17(352, 128, 3);
-            vegetation::VegetationX vegx_reader18(352, 128, 3);
-
-            while (should_run())
+            while (!data_in.eof())
             {
                 // Read buffer
-                read_data((uint8_t *)&cadu, 1279);
+                data_in.read((char *)&cadu, 1279);
 
                 // Parse this transport frame
                 ccsds::ccsds_tm::VCDU vcdu = ccsds::ccsds_tm::parseVCDU(cadu);
@@ -221,98 +192,60 @@ namespace proba
                     {
                         if (d_satellite == PROBA_V)
                         {
-                            // if (!is_pv_x)
-                            {
-                                // Vegs-1
-                                if (pkt.header.apid == 289)
-                                    vegs_readers[1][0]->work(pkt);
-                                else if (pkt.header.apid == 273)
-                                    vegs_readers[1][1]->work(pkt);
-                                else if (pkt.header.apid == 321)
-                                    vegs_readers[1][2]->work(pkt);
-                                else if (pkt.header.apid == 281)
-                                    vegs_readers[1][3]->work(pkt);
-                                else if (pkt.header.apid == 297)
-                                    vegs_readers[1][4]->work(pkt);
-                                else if (pkt.header.apid == 329)
-                                    vegs_readers[1][5]->work(pkt);
-                                // Vegs-2
-                                else if (pkt.header.apid == 290)
-                                    vegs_readers[0][0]->work(pkt);
-                                else if (pkt.header.apid == 274)
-                                    vegs_readers[0][1]->work(pkt);
-                                else if (pkt.header.apid == 322)
-                                    vegs_readers[0][2]->work(pkt);
-                                else if (pkt.header.apid == 282)
-                                    vegs_readers[0][3]->work(pkt);
-                                else if (pkt.header.apid == 298)
-                                    vegs_readers[0][4]->work(pkt);
-                                else if (pkt.header.apid == 330)
-                                    vegs_readers[0][5]->work(pkt);
-                                // Vegs-3
-                                else if (pkt.header.apid == 292)
-                                    vegs_readers[2][0]->work(pkt);
-                                else if (pkt.header.apid == 276)
-                                    vegs_readers[2][1]->work(pkt);
-                                else if (pkt.header.apid == 324)
-                                    vegs_readers[2][2]->work(pkt);
-                                else if (pkt.header.apid == 284)
-                                    vegs_readers[2][3]->work(pkt);
-                                else if (pkt.header.apid == 300)
-                                    vegs_readers[2][4]->work(pkt);
-                                else if (pkt.header.apid == 332)
-                                    vegs_readers[2][5]->work(pkt);
-                                else
-                                    logger->critical(pkt.header.apid);
-                            }
-                            //  else
-                            {
-                                if (pkt.header.apid == 324)
-                                    vegx_reader1.work(pkt);
-                                else if (pkt.header.apid == 330)
-                                    vegx_reader2.work(pkt);
-                                else if (pkt.header.apid == 298)
-                                    vegx_reader3.work(pkt);
-                                else if (pkt.header.apid == 329)
-                                    vegx_reader4.work(pkt);
-                                else if (pkt.header.apid == 289)
-                                    vegx_reader5.work(pkt);
-                                else if (pkt.header.apid == 273)
-                                    vegx_reader6.work(pkt);
-                                else if (pkt.header.apid == 321)
-                                    vegx_reader7.work(pkt);
-                                else if (pkt.header.apid == 290)
-                                    vegx_reader8.work(pkt);
-                                else if (pkt.header.apid == 282)
-                                    vegx_reader9.work(pkt);
-                                else if (pkt.header.apid == 297)
-                                    vegx_reader10.work(pkt);
-                                else if (pkt.header.apid == 281)
-                                    vegx_reader11.work(pkt);
-                                else if (pkt.header.apid == 274)
-                                    vegx_reader12.work(pkt);
-                                else if (pkt.header.apid == 322)
-                                    vegx_reader13.work(pkt);
-                                else if (pkt.header.apid == 292)
-                                    vegx_reader14.work(pkt);
-                                else if (pkt.header.apid == 276)
-                                    vegx_reader15.work(pkt);
-                                else if (pkt.header.apid == 332)
-                                    vegx_reader16.work(pkt);
-                                else if (pkt.header.apid == 300)
-                                    vegx_reader17.work(pkt);
-                                else if (pkt.header.apid == 284)
-                                    vegx_reader18.work(pkt);
-                                else
-                                    logger->info("%d, %d", pkt.header.apid, pkt.payload.size());
-                            }
+                            // Vegs-1
+                            if (pkt.header.apid == 289)
+                                vegs_readers[1][0]->work(pkt);
+                            else if (pkt.header.apid == 273)
+                                vegs_readers[1][1]->work(pkt);
+                            else if (pkt.header.apid == 321)
+                                vegs_readers[1][2]->work(pkt);
+                            else if (pkt.header.apid == 281)
+                                vegs_readers[1][3]->work(pkt);
+                            else if (pkt.header.apid == 297)
+                                vegs_readers[1][4]->work(pkt);
+                            else if (pkt.header.apid == 329)
+                                vegs_readers[1][5]->work(pkt);
+                            // Vegs-2
+                            else if (pkt.header.apid == 290)
+                                vegs_readers[0][0]->work(pkt);
+                            else if (pkt.header.apid == 274)
+                                vegs_readers[0][1]->work(pkt);
+                            else if (pkt.header.apid == 322)
+                                vegs_readers[0][2]->work(pkt);
+                            else if (pkt.header.apid == 282)
+                                vegs_readers[0][3]->work(pkt);
+                            else if (pkt.header.apid == 298)
+                                vegs_readers[0][4]->work(pkt);
+                            else if (pkt.header.apid == 330)
+                                vegs_readers[0][5]->work(pkt);
+                            // Vegs-3
+                            else if (pkt.header.apid == 292)
+                                vegs_readers[2][0]->work(pkt);
+                            else if (pkt.header.apid == 276)
+                                vegs_readers[2][1]->work(pkt);
+                            else if (pkt.header.apid == 324)
+                                vegs_readers[2][2]->work(pkt);
+                            else if (pkt.header.apid == 284)
+                                vegs_readers[2][3]->work(pkt);
+                            else if (pkt.header.apid == 300)
+                                vegs_readers[2][4]->work(pkt);
+                            else if (pkt.header.apid == 332)
+                                vegs_readers[2][5]->work(pkt);
+                            else
+                                logger->critical(pkt.header.apid);
                         }
-                        else if (d_satellite == PROBA_3) {}
                     }
+                }
+
+                progress = data_in.tellg();
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
                 }
             }
 
-            cleanup();
+            data_in.close();
 
             // CHRIS
             if (d_satellite == PROBA_1)
@@ -361,170 +294,30 @@ namespace proba
                     for (int y = 0; y < 6; y++)
                         vegs_status[i][y] = SAVING;
 
-                    // if (!is_pv_x)
-                    {
-                        std::string vegs_directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/Vegetation-S";
+                    logger->info("----------- Vegetation %d", i + 1);
+                    logger->info("Lines (1) : %d", vegs_readers[i][0]->lines);
+                    logger->info("Lines (2) : %d", vegs_readers[i][1]->lines);
+                    logger->info("Lines (3) : %d", vegs_readers[i][2]->lines);
+                    logger->info("Lines (4) : %d", vegs_readers[i][3]->lines);
+                    logger->info("Lines (5) : %d", vegs_readers[i][4]->lines);
+                    logger->info("Lines (6) : %d", vegs_readers[i][5]->lines);
 
-                        logger->info("----------- Vegetation %d", i + 1);
-                        logger->info("Lines (1) : %d", vegs_readers[i][0]->lines);
-                        logger->info("Lines (2) : %d", vegs_readers[i][1]->lines);
-                        logger->info("Lines (3) : %d", vegs_readers[i][2]->lines);
-                        logger->info("Lines (4) : %d", vegs_readers[i][3]->lines);
-                        logger->info("Lines (5) : %d", vegs_readers[i][4]->lines);
-                        logger->info("Lines (6) : %d", vegs_readers[i][5]->lines);
+                    std::string vegs_directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/Vegetation";
 
-                        auto img = vegs_readers[i][0]->getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_1");
-                        img = vegs_readers[i][1]->getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_2");
-                        auto img3 = vegs_readers[i][2]->getImg();
-                        img3.mirror(true, false);
-                        image::save_img(img3, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_3");
-                        img3.clear();
-                        img = vegs_readers[i][3]->getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_4");
-                        img = vegs_readers[i][4]->getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_5");
-                        img = vegs_readers[i][5]->getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_6");
-                    }
-                    //  else
-                    {
-                        std::string vegs_directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/Vegetation-X";
-
-                        const std::vector<std::vector<vegetation::VegetationX *>> correction_groups = {
-                                 {&vegx_reader1, &vegx_reader14, &vegx_reader15}, //
-                                 {&vegx_reader8, &vegx_reader12, &vegx_reader13}, //
-                                 {&vegx_reader5, &vegx_reader6, &vegx_reader7},   //
-                                 //
-                                 {&vegx_reader16, &vegx_reader17, &vegx_reader18}, //
-                                 {&vegx_reader2, &vegx_reader3, &vegx_reader9},    //
-                                 {&vegx_reader4, &vegx_reader10, &vegx_reader11},  //
-                             };
-                        for (const auto &tocorr_inst : correction_groups)
-                        {
-                            std::vector<int> to_corr;
-
-                            for (auto &veg : tocorr_inst)
-                                for (auto &seg : veg->img_segments)
-                                    if (std::find(to_corr.begin(), to_corr.end(), seg.first) == to_corr.end())
-                                        to_corr.push_back(seg.first);
-
-                            std::sort(to_corr.begin(), to_corr.end());
-
-                            for (auto &veg : tocorr_inst)
-                            {
-                                auto vegcpy = veg->img_segments;
-                                veg->img_segments.erase(veg->img_segments.begin(), veg->img_segments.end());
-
-                                for (auto &line : to_corr)
-                                {
-                                    if (vegcpy.count(line))
-                                        veg->img_segments.insert_or_assign(line, vegcpy.find(line)->second);
-                                    else
-                                        veg->img_segments.insert_or_assign(line, std::array<satdump::image::Image, 15>());
-                                }
-                            }
-                        }
-
-                        {
-                            std::string directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/Vegetation-X/Vegetation_1";
-
-                            if (!std::filesystem::exists(directory))
-                                std::filesystem::create_directories(directory);
-
-                            satdump::products::ImageProduct ocm_products;
-                            ocm_products.instrument_name = "probav_vegetation_hd";
-
-                            ocm_products.images.push_back({0, "Vegetation-1", "1", vegx_reader1.getImg(), 12});
-                            auto img = vegx_reader14.getImg();
-                            img.mirror(1, 0);
-                            ocm_products.images.push_back({1, "Vegetation-2", "2", img, 12, satdump::ChannelTransform().init_affine_slantx(0.996000, 1, -70.000000, -160.000000, 0, 0.022000)});
-                            img = vegx_reader15.getImg();
-                            img.mirror(1, 0);
-                            ocm_products.images.push_back({2, "Vegetation-3", "3", img, 12, satdump::ChannelTransform().init_affine(1, 1, -80.098282, -66.785806)});
-
-                            ocm_products.save(directory);
-                        }
-
-                        {
-                            std::string directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/Vegetation-X/Vegetation_2";
-
-                            if (!std::filesystem::exists(directory))
-                                std::filesystem::create_directories(directory);
-
-                            satdump::products::ImageProduct ocm_products;
-                            ocm_products.instrument_name = "probav_vegetation_hd";
-
-                            ocm_products.images.push_back({0, "Vegetation-1", "1", vegx_reader13.getImg(), 12});
-                            auto img = vegx_reader12.getImg();
-                            img.mirror(1, 0);
-                            ocm_products.images.push_back({1, "Vegetation-2", "2", img, 12, satdump::ChannelTransform().init_affine(1, 1, -80.021092, -53.112902)});
-                            img = vegx_reader8.getImg();
-                            img.mirror(1, 0);
-                            ocm_products.images.push_back({2, "Vegetation-3", "3", img, 12, satdump::ChannelTransform().init_affine(1, 1, -81.243169, -159.856325)});
-
-                            ocm_products.save(directory);
-                        }
-
-                        {
-                            std::string directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/Vegetation-X/Vegetation_3";
-
-                            if (!std::filesystem::exists(directory))
-                                std::filesystem::create_directories(directory);
-
-                            satdump::products::ImageProduct ocm_products;
-                            ocm_products.instrument_name = "probav_vegetation_hd";
-
-                            ocm_products.images.push_back({0, "Vegetation-1", "1", vegx_reader7.getImg(), 12});
-                            auto img = vegx_reader6.getImg();
-                            img.mirror(1, 0);
-                            ocm_products.images.push_back({1, "Vegetation-2", "2", img, 12, satdump::ChannelTransform().init_affine_slantx(0.999000, 1, -76.000000, -93.000000, 0, -0.007500)});
-                            img = vegx_reader5.getImg();
-                            img.mirror(1, 0);
-                            ocm_products.images.push_back({2, "Vegetation-3", "3", img, 12, satdump::ChannelTransform().init_affine_slantx(0.996500, 1, -69.000000, -276.000000, 0, -0.023500)});
-
-                            ocm_products.save(directory);
-                        }
-
-                        logger->info("----------- Vegetation-X");
-                        auto img = vegx_reader1.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_1.png");
-                        img = vegx_reader2.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_2.png");
-                        img = vegx_reader3.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_3.png");
-                        img = vegx_reader4.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_4.png");
-                        img = vegx_reader5.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_5.png");
-                        img = vegx_reader6.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_6.png");
-                        img = vegx_reader7.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_7.png");
-                        img = vegx_reader8.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_8.png");
-                        img = vegx_reader9.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_9.png");
-                        img = vegx_reader10.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_10.png");
-                        img = vegx_reader11.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_11.png");
-                        img = vegx_reader12.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_12.png");
-                        img = vegx_reader13.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_13.png");
-                        img = vegx_reader14.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_14.png");
-                        img = vegx_reader15.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_15.png");
-                        img = vegx_reader16.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_16.png");
-                        img = vegx_reader17.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_17.png");
-                        img = vegx_reader18.getImg();
-                        image::save_img(img, vegs_directory + "/Vegetation_18.png");
-                    }
+                    auto img = vegs_readers[i][0]->getImg();
+                    image::save_img(img, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_1");
+                    img = vegs_readers[i][1]->getImg();
+                    image::save_img(img, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_2");
+                    auto img3 = vegs_readers[i][2]->getImg();
+                    img3.mirror(true, false);
+                    image::save_img(img3, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_3");
+                    img3.clear();
+                    img = vegs_readers[i][3]->getImg();
+                    image::save_img(img, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_4");
+                    img = vegs_readers[i][4]->getImg();
+                    image::save_img(img, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_5");
+                    img = vegs_readers[i][5]->getImg();
+                    image::save_img(img, vegs_directory + "/Vegetation" + std::to_string(i + 1) + "_6");
 
                     for (int y = 0; y < 6; y++)
                         vegs_status[i][y] = DONE;
@@ -636,16 +429,24 @@ namespace proba
                 ImGui::EndTable();
             }
 
-            drawProgressBar();
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string PROBAInstrumentsDecoderModule::getID() { return "proba_instruments"; }
+        std::string PROBAInstrumentsDecoderModule::getID()
+        {
+            return "proba_instruments";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> PROBAInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> PROBAInstrumentsDecoderModule::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> PROBAInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<PROBAInstrumentsDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace instruments
-} // namespace proba
+    } // namespace amsu
+} // namespace metop

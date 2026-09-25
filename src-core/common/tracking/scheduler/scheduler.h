@@ -1,11 +1,11 @@
 #pragma once
 
-#include "common/dsp/io/baseband_type.h"
 #include "common/widgets/pipeline_selector.h"
-#include "image/image.h"
-#include "nlohmann/json_utils.h"
 #include "passes.h"
 #include <functional>
+#include "common/image/image.h"
+#include "common/dsp/io/baseband_type.h"
+#include "nlohmann/json_utils.h"
 
 namespace satdump
 {
@@ -65,7 +65,7 @@ namespace satdump
             j["downlinks"][i]["frequency"] = v.downlinks[i].frequency;
             j["downlinks"][i]["record"] = v.downlinks[i].record;
             j["downlinks"][i]["live"] = v.downlinks[i].live;
-            j["downlinks"][i]["pipeline_name"] = v.downlinks[i].pipeline_selector->selected_pipeline.id;
+            j["downlinks"][i]["pipeline_name"] = v.downlinks[i].pipeline_selector->selected_pipeline.name;
             j["downlinks"][i]["pipeline_params"] = v.downlinks[i].pipeline_selector->getParameters();
             j["downlinks"][i]["baseband_format"] = (std::string)v.downlinks[i].baseband_format;
             j["downlinks"][i]["baseband_decimation"] = v.downlinks[i].baseband_decimation;
@@ -84,14 +84,16 @@ namespace satdump
             for (auto &step : v.downlinks[i].pipeline_selector->selected_pipeline.steps)
             {
                 nlohmann::ordered_json step_params = nlohmann::ordered_json::object();
-
-                nlohmann::ordered_json module_diff =
-                    perform_json_diff(pipeline::pipelines_json[v.downlinks[i].pipeline_selector->selected_pipeline.id]["work"][step.level][step.module], step.parameters);
-                if (!module_diff.is_null())
-                    step_params[step.module] = module_diff;
-
+                for (auto& this_module : step.modules)
+                {
+                    nlohmann::ordered_json module_diff =
+                        perform_json_diff(pipelines_json[v.downlinks[i].pipeline_selector->selected_pipeline.name]["work"][step.level_name][this_module.module_name],
+                            this_module.parameters);
+                    if (!module_diff.is_null())
+                        step_params[this_module.module_name] = module_diff;
+                }
                 if (step_params.size() > 0)
-                    work_params[step.level] = step_params;
+                    work_params[step.level_name] = step_params;
             }
             if (work_params.size() > 0)
                 j["downlinks"][i]["work_params"] = work_params;
@@ -137,9 +139,11 @@ namespace satdump
                         v.downlinks[i].baseband_decimation = j["downlinks"][i]["baseband_decimation"];
                     if (j["downlinks"][i].contains("work_params"))
                         for (auto &step : v.downlinks[i].pipeline_selector->selected_pipeline.steps)
-                            if (j["downlinks"][i]["work_params"].contains(step.level))
-                                if (j["downlinks"][i]["work_params"][step.level].contains(step.module))
-                                    step.parameters = merge_json_diffs(step.parameters, j["downlinks"][i]["work_params"][step.level][step.module]);
+                            if(j["downlinks"][i]["work_params"].contains(step.level_name))
+                                for (auto &this_module : step.modules)
+                                    if(j["downlinks"][i]["work_params"][step.level_name].contains(this_module.module_name))
+                                        this_module.parameters = merge_json_diffs(this_module.parameters,
+                                            j["downlinks"][i]["work_params"][step.level_name][this_module.module_name]);
 
 #if defined(BUILD_ZIQ) || defined(BUILD_ZIQ2)
                     if (j["downlinks"][i].contains("ziq_depth"))
@@ -214,16 +218,4 @@ namespace satdump
 
         image::Image getScheduleImage(int width, double curr_time);
     };
-
-    namespace events
-    {
-        struct TrackingSchedulerAOSEvent
-        {
-            SatellitePass pass;
-        };
-        struct TrackingSchedulerLOSEvent
-        {
-            SatellitePass pass;
-        };
-    } // namespace events
-} // namespace satdump
+}

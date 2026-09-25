@@ -20,7 +20,6 @@
 #include "remote.h"
 #include "actions.h"
 #include "pkt_handler.h"
-#include "satdump_vars.h"
 
 // The TCP Server
 TCPServer *tcp_server;
@@ -36,7 +35,7 @@ bool source_is_started = false;
 int main(int argc, char *argv[])
 {
     initLogger();
-    logger->info("Starting SatTool SDR Server V" + (std::string)satdump::SATDUMP_VERSION);
+    logger->info("Starting SatDump SDR Server v" + (std::string)SATDUMP_VERSION);
 
     int port_used = 5656;
     try
@@ -53,7 +52,7 @@ int main(int argc, char *argv[])
     // We don't wanna spam with init this time around
     logger->set_level(slog::LOG_OFF);
     satdump::tle_do_update_on_init = false;
-    satdump::initSatDump();
+    satdump::initSatdump();
     completeLoggerInit();
     logger->set_level(slog::LOG_TRACE);
 
@@ -82,7 +81,5 @@ int main(int argc, char *argv[])
     while (1)
         tcp_server->wait_client();
     //  std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    satdump::exitSatDump();
     return 0;
 }

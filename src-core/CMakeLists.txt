@@ -5,19 +5,7 @@ include(CheckCSourceCompiles)
 include(CMakePushCheckState)
 include(CheckCCompilerFlag)
 
-# Set the resources path
-if(MSVC OR BUILD_MSVC)
-    set(RESOURCES_PATH "./")
-    set(LIBRARIES_PATH "./")
-else()
-    set(RESOURCES_PATH "${CMAKE_INSTALL_PREFIX}/share/sattool/")
-    set(LIBRARIES_PATH "${CMAKE_INSTALL_FULL_LIBDIR}/sattool/")
-endif()
-
-configure_file(${PROJECT_SOURCE_DIR}/src-core/satdump_varst.cxx ${CMAKE_CURRENT_BINARY_DIR}/satdump_varst.cpp @ONLY)
-
 file(GLOB_RECURSE SatDump_core_CPPS *.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/satdump_varst.cpp
     libs/aec/*.c
     libs/predict/*.c
     libs/bzlib/*.c
@@ -32,99 +20,22 @@ file(GLOB_RECURSE SatDump_core_CPPS *.cpp
     libs/deepspace-turbo/*.c
     libs/bzlib/*.c
     libs/tiny-regex-c/*.c
-    libs/supernovas/*.c
-    libs/calceph/*.c
-    libs/bpe/*.c
-    libs/mqttc/*.c
+    libs/lua/onelua.c
 )
-
-################################################################
-####### AngelScript START
-################################################################
-# Exclude AngelScript library files
-# file(GLOB_RECURSE SatDump_core_angelscript_CPPS angelscript/lib/*.cpp)
-#foreach(ii IN ITEMS ${SatDump_core_angelscript_CPPS})
-#    list(REMOVE_ITEM SatDump_core_CPPS ${ii})
-#endforeach()
-
-set(ARCHFLAGS "${CMAKE_SYSTEM_PROCESSOR}")
-if(APPLE AND NOT IOS)
-    if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm")
-        set(ARCHFLAGS "aarch64")
-    endif()
-endif()
-
-if(MSVC)
-    if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "ARM64")
-        enable_language(ASM_MARMASM)
-        if(CMAKE_ASM_MARMASM_COMPILER_WORKS)
-            set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} angelscript/lib/as_callfunc_arm64_msvc.asm)
-        else()
-            message(FATAL ERROR "MSVC arm64 target requires a working assembler")
-        endif()
-    elseif(CMAKE_CL_64)
-        enable_language(ASM_MASM)
-        if(CMAKE_ASM_MASM_COMPILER_WORKS)
-            set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} angelscript/lib/as_callfunc_x64_msvc_asm.asm)
-        else()
-            message(FATAL ERROR "MSVC x86_64 target requires a working assembler")
-        endif()
-    endif()
-endif()
-
-if(${ARCHFLAGS} MATCHES "^arm")
-    enable_language(ASM)
-    if(CMAKE_ASM_COMPILER_WORKS)
-        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} angelscript/lib/as_callfunc_arm.cpp angelscript/lib/as_callfunc_arm_gcc.S)
-        set_property(SOURCE as_callfunc_arm_gcc.S APPEND PROPERTY COMPILE_FLAGS " -Wa,-mimplicit-it=always")
-    else()
-        message(FATAL ERROR "ARM target requires a working assembler")
-    endif()
-endif()
-
-if(${ARCHFLAGS} MATCHES "^aarch64")
-    enable_language(ASM)
-    if(CMAKE_ASM_COMPILER_WORKS)
-        if(NOT APPLE)
-            set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} angelscript/lib/as_callfunc_arm64.cpp angelscript/lib/as_callfunc_arm64_gcc.S)
-        else()
-            set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} angelscript/lib/as_callfunc_arm64.cpp angelscript/lib/as_callfunc_arm64_xcode.S)
-        endif()
-    else()
-        message(FATAL ERROR "ARM target requires a working assembler")
-    endif()
-endif()
-
-if(${ARCHFLAGS} MATCHES "riscv64")
-    enable_language(ASM)
-    if(CMAKE_ASM_COMPILER_WORKS)
-        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} angelscript/lib/as_callfunc_riscv64.cpp angelscript/lib/as_callfunc_riscv64_gcc.S)
-    else()
-        message(FATAL ERROR "RISC-V 64 target requires a working assembler")
-    endif()
-endif()
-
-if(${ARCHFLAGS} MATCHES "^e2k")
-    enable_language(ASM)
-    if(CMAKE_ASM_COMPILER_WORKS)
-        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} angelscript/lib/as_callfunc_e2k.cpp angelscript/lib/as_callfunc_e2k.S)
-    else()
-        message(FATAL ERROR "E2K target requires a working assembler")
-    endif()
-endif()
-
-set(SatDump_core_CPPS ${SatDump_core_CPPS} ${ANGELSCRIPT_SOURCE})
-unset(ANGELSCRIPT_SOURCE)
-################################################################
-####### AngelScript STOP
-################################################################
 
 find_package(PkgConfig)
 
 add_library(satdump_core SHARED ${SatDump_core_CPPS})
-set_target_properties(satdump_core PROPERTIES OUTPUT_NAME sattool_core)
 target_include_directories(satdump_core PUBLIC .)
-#target_precompile_headers(satdump_core PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/nlohmann/json.hpp>")
+
+# Set the resources path
+if(MSVC OR BUILD_MSVC)
+    target_compile_definitions(satdump_core PUBLIC RESOURCES_PATH="./")
+    target_compile_definitions(satdump_core PUBLIC LIBRARIES_PATH="./")
+else()
+    target_compile_definitions(satdump_core PUBLIC RESOURCES_PATH="${CMAKE_INSTALL_PREFIX}/share/satdump/")
+    target_compile_definitions(satdump_core PUBLIC LIBRARIES_PATH="${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/satdump/")
+endif()
 
 # We have to... For MSVC
 if(BUILD_OPENCL)
@@ -168,7 +79,6 @@ if(MSVC)
     target_link_libraries(satdump_core PUBLIC nng.dll)
     target_link_libraries(satdump_core PUBLIC tiff.dll)
     target_link_libraries(satdump_core PUBLIC libcurl.dll)
-    target_link_libraries(satdump_core PUBLIC sqlite3.dll)
 
     if(BUILD_ZIQ)
         target_link_libraries(satdump_core PUBLIC zstd.dll)
@@ -176,8 +86,7 @@ if(MSVC)
     endif()
 
     target_include_directories(satdump_core PUBLIC libs/lua)
-    find_library(SATTOOL_PTHREAD_LIBRARY NAMES pthreadVC3 pthread pthreads PATHS "${CMAKE_SOURCE_DIR}/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/lib" REQUIRED)
-    target_link_libraries(satdump_core PUBLIC ws2_32 ${SATTOOL_PTHREAD_LIBRARY})
+    target_link_libraries(satdump_core PUBLIC ws2_32)
 elseif(ANDROID)
     # Jemalloc
     # TODO
@@ -197,9 +106,6 @@ elseif(ANDROID)
 
     # cURL
     target_link_libraries(satdump_core PUBLIC curl wolfssl)
-
-    # SQLite3
-    target_link_libraries(satdump_core PUBLIC sqlite3)
 
     # Libzstd
     target_link_libraries(satdump_core PUBLIC zstd)
@@ -267,15 +173,6 @@ else()
         target_link_libraries(satdump_core PUBLIC ${CURL_LIBRARIES})
         target_include_directories(satdump_core PUBLIC ${CURL_INCLUDE_DIRS})
         message("-- Building with curl!")
-    endif()
-
-    # SQLite3
-    find_package(SQLite3 REQUIRED)
-
-    if(SQLite3_FOUND)
-        target_link_libraries(satdump_core PUBLIC ${SQLite3_LIBRARIES})
-        target_include_directories(satdump_core PUBLIC ${SQLite3_INCLUDE_DIRS})
-        message("-- Building with SQLite3!")
     endif()
 
     # Dynamic linking

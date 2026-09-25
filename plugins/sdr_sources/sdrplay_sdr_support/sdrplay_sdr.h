@@ -1,10 +1,10 @@
 #pragma once
 
 #include "common/dsp_source_sink/dsp_sample_source.h"
+#include <sdrplay_api.h>
+#include "logger.h"
 #include "common/rimgui.h"
 #include "common/widgets/double_list.h"
-#include "dynload.h" //#include <sdrplay_api.h>
-#include "logger.h"
 
 // define HW id for RSP1B if it's not available in older version of SDRPlay API
 #ifndef SDRPLAY_RSP1B_ID
@@ -19,8 +19,6 @@
 class SDRPlaySource : public dsp::DSPSampleSource
 {
 protected:
-    SDRPlayApiInstance api;
-
     bool is_open = false, is_started = false;
     sdrplay_api_DeviceT sdrplay_dev;
     sdrplay_api_DeviceParamsT *dev_params = nullptr;
@@ -32,7 +30,7 @@ protected:
 
     int max_gain;
 
-    satdump::widgets::DoubleList samplerate_widget;
+    widgets::DoubleList samplerate_widget;
 
     int lna_gain = 0;
     int if_gain = 20;
@@ -52,7 +50,9 @@ protected:
     void set_duo_channel();
 
 public:
-    SDRPlaySource(dsp::SourceDescriptor source) : DSPSampleSource(source), api(sdrplay_api_path), samplerate_widget("Samplerate") {}
+    SDRPlaySource(dsp::SourceDescriptor source) : DSPSampleSource(source), samplerate_widget("Samplerate")
+    {
+    }
 
     ~SDRPlaySource()
     {

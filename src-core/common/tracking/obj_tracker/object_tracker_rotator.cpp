@@ -6,7 +6,6 @@
 #include <cfloat>
 #include "imgui/imgui.h"
 #include "core/style.h"
-#include "utils/time.h"
 
 #include "common/widgets/azel_input.h"
 
@@ -74,10 +73,6 @@ namespace satdump
 
                     rot_current_reqlast_pos.az = rot_current_req_pos.az;
                     rot_current_reqlast_pos.el = rot_current_req_pos.el;
-
-                    if(rotator_target_pos_updated_callback) {
-                        rotator_target_pos_updated_callback(rot_current_req_pos.az, rot_current_req_pos.el);
-                    }
                 }
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(uint64_t(rotator_update_period * 1e3)));
@@ -254,8 +249,6 @@ namespace satdump
         ImGui::Checkbox("Arrow Keys Control", &rotator_arrowkeys_enable);
         if (rotator_arrowkeys_enable)
             ImGui::InputDouble("Arrow Keys Control Increment", &rotator_arrowkeys_increment);
-
-        ImGui::InputDouble("Time Offset", &tracking_time_offset);
     }
 
     nlohmann::json ObjectTracker::getRotatorConfig()

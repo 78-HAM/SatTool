@@ -18,8 +18,8 @@ protected:
     rtlsdr_dev *rtlsdr_dev_obj;
     static void _rx_callback(unsigned char *buf, uint32_t len, void *ctx);
 
-    satdump::widgets::DoubleList samplerate_widget;
-    satdump::widgets::NotatedNum<int> ppm_widget;
+    widgets::DoubleList samplerate_widget;
+    widgets::NotatedNum<int> ppm_widget;
 
     int gain = 0;
     int last_ppm = 0;
@@ -29,7 +29,6 @@ protected:
     bool changed_agc = true;
     bool bias_enabled = false;
     bool lna_agc_enabled = false;
-    bool tuner_agc_enabled = false;
 
     void set_gains();
     void set_bias();

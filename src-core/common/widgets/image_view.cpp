@@ -1,14 +1,10 @@
 #include "image_view.h"
-#include "core/style.h"
-#include "i18n.h"
-#include "imgui/imgui.h"
 #include "imgui/imgui_image.h"
+#include "core/style.h"
 #include "imgui/imgui_internal.h"
 #include "imgui/implot/implot.h"
 #include "imgui/implot/implot_internal.h"
 #include "logger.h"
-#include <cmath>
-#include <cstdio>
 
 ImageViewWidget::ImageViewWidget()
 {
@@ -17,7 +13,9 @@ ImageViewWidget::ImageViewWidget()
     id_num++;
 }
 
-ImageViewWidget::~ImageViewWidget() {}
+ImageViewWidget::~ImageViewWidget()
+{
+}
 
 void ImageViewWidget::update(image::Image &image)
 {
@@ -37,6 +35,7 @@ void ImageViewWidget::update(image::Image &image)
     }
     else
     {
+        logger->trace("Mouse tooltip might have an issue here! (TODO)");
         fimg_width = image.width();
         fimg_height = image.height();
 
@@ -66,7 +65,7 @@ void ImageViewWidget::update(image::Image &image)
                 image::image_to_rgba(crop, img_chunks[i].texture_buffer.data());
 
                 img_chunks[i].offset_x = width_start;
-                img_chunks[i].offset_y = fimg_height - height_end;
+                img_chunks[i].offset_y = fimg_height - height_start;
             }
         }
     }
@@ -130,68 +129,6 @@ inline void addPlotScroll(ImPlotPlot &plot, float wheel_scroll)
     }
 }
 
-static double TickStep(double x)
-{
-    // 1/2/5 * 10^n step
-    if (x <= 0.0)
-        return 1.0;
-    const double e = floor(log10(x));
-    const double p = pow(10.0, e);
-    const double f = x / p;
-    double nf;
-    if (f < 1.5)
-        nf = 1.0;
-    else if (f < 3.0)
-        nf = 2.0;
-    else if (f < 7.0)
-        nf = 5.0;
-    else
-        nf = 10.0;
-    return nf * p;
-}
-
-static void SetGridTicks(ImPlotPlot &plot, float target_px = 48.0f)
-{
-    ImPlotAxis &x = plot.XAxis(0);
-    ImPlotAxis &y = plot.YAxis(0);
-
-    const double xmin = x.Range.Min, xmax = x.Range.Max;
-    const double ymin = y.Range.Min, ymax = y.Range.Max;
-    const double xspan = xmax - xmin;
-    if (xspan <= 0.0)
-        return;
-
-    const float wpx = plot.PlotRect.GetWidth();
-    const float hpx = plot.PlotRect.GetHeight();
-    if (wpx <= 0 || hpx <= 0)
-        return;
-
-    const double units_per_px = xspan / (double)wpx;
-    double step = TickStep(units_per_px * (double)target_px);
-    if (!(step > 0.0) || !std::isfinite(step))
-        return;
-
-    const int MAX_TICKS = 2048;
-    if (xspan / step > MAX_TICKS)
-        step = TickStep(xspan / MAX_TICKS);
-
-    static thread_local std::vector<double> xticks;
-    static thread_local std::vector<double> yticks;
-    xticks.clear();
-    yticks.clear();
-
-    const double x0 = floor(xmin / step) * step;
-    const double y0 = floor(ymin / step) * step;
-
-    for (double v = x0; v <= xmax + step * 0.5; v += step)
-        xticks.push_back(v);
-    for (double v = y0; v <= ymax + step * 0.5; v += step)
-        yticks.push_back(v);
-
-    ImPlot::SetupAxisTicks(ImAxis_X1, xticks.data(), (int)xticks.size(), nullptr, false);
-    ImPlot::SetupAxisTicks(ImAxis_Y1, yticks.data(), (int)yticks.size(), nullptr, false);
-}
-
 void ImageViewWidget::draw(ImVec2 win_size)
 {
     image_mtx.lock();
@@ -210,41 +147,34 @@ void ImageViewWidget::draw(ImVec2 win_size)
         has_to_update = false;
     }
 
-    ImGui::BeginChild(id_str.c_str(), win_size, 0, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::BeginChild(id_str.c_str(), win_size, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
     if (img_chunks.size() > 0)
     {
         ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0, 0));
         ImPlot::PushStyleVar(ImPlotStyleVar_PlotBorderSize, 0.0f);
-        if (ImPlot::BeginPlot((id_str + "plot").c_str(), ImVec2(win_size.x, win_size.y - 16 * ui_scale),
-                              ImPlotFlags_NoLegend | ImPlotFlags_NoTitle | ImPlotFlags_CanvasOnly | ImPlotFlags_Equal | ImPlotFlags_NoFrame))
+        if (ImPlot::BeginPlot((id_str + "plot").c_str(), ImVec2(win_size.x, win_size.y - 16 * ui_scale), ImPlotFlags_NoLegend | ImPlotFlags_NoTitle | ImPlotFlags_CanvasOnly | ImPlotFlags_Equal))
         {
             if (autoFitNextFrame)
             {
-                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoTickLabels /*| ImPlotAxisFlags_NoGridLines*/ | ImPlotAxisFlags_AutoFit,
-                                  ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoTickLabels /*| ImPlotAxisFlags_NoGridLines*/ | ImPlotAxisFlags_AutoFit);
+                ImPlot::SetupAxes(nullptr, nullptr,
+                                  ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoGridLines | ImPlotAxisFlags_AutoFit,
+                                  ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoGridLines | ImPlotAxisFlags_AutoFit);
                 autoFitNextFrame = false;
             }
             else
-                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoTickLabels /*| ImPlotAxisFlags_NoGridLines*/ | (isSelectingCrop ? ImPlotAxisFlags_Lock : 0),
-                                  ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoTickLabels /*| ImPlotAxisFlags_NoGridLines*/ | (isSelectingCrop ? ImPlotAxisFlags_Lock : 0));
-
-            auto *p = ImPlot::GetCurrentPlot();
-            if (p && ImHasFlag(p->Flags, ImPlotFlags_Equal))
-            {
-                float target_px = ImClamp(48.0f * ui_scale, 24.0f, 96.0f);
-                SetGridTicks(*p, target_px);
-            }
+                ImPlot::SetupAxes(nullptr, nullptr,
+                                  ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoGridLines,
+                                  ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoGridLines);
 
             for (auto &chunk : img_chunks)
-                ImPlot::PlotImage((id_str + "plotimg").c_str(), (void *)(intptr_t)chunk.texture_id, ImPlotPoint(chunk.offset_x, chunk.offset_y),
-                                  ImPlotPoint(chunk.offset_x + chunk.img_width, chunk.offset_y + chunk.img_height));
+                ImPlot::PlotImage((id_str + "plotimg").c_str(), (void *)(intptr_t)chunk.texture_id,
+                                  ImPlotPoint(chunk.offset_x, chunk.offset_y), ImPlotPoint(chunk.offset_x + chunk.img_width, chunk.offset_y + chunk.img_height));
 
             auto pos = ImPlot::GetPlotMousePos(ImAxis_X1, ImAxis_Y1);
-            auto rpos = ImGui::GetMousePos() - ImGui::GetWindowPos();
-            if (pos.x >= 0 && pos.y >= 0 && pos.x < fimg_width && pos.y < fimg_height)
-                if (rpos.x >= 0 && rpos.y >= 0 && rpos.x < ImGui::GetWindowWidth() && rpos.y < ImGui::GetWindowHeight())
-                    mouseCallback(pos.x, (fimg_height - 1) - pos.y);
+            if (pos.x >= 0 && pos.y >= 0 &&
+                pos.x < fimg_width && pos.y < fimg_height)
+                mouseCallback(pos.x, (fimg_height - 1) - pos.y);
 
 #ifdef __ANDROID__
             auto pre_pos = ImGui::GetCursorPos();
@@ -259,80 +189,14 @@ void ImageViewWidget::draw(ImVec2 win_size)
             ImGui::SetCursorPos(pre_pos);
 #endif
 
-            if (zoom_in_next)
-            {
-                addPlotScroll(*ImPlot::GetCurrentPlot(), 2);
-                zoom_in_next = false;
-            }
-
-            if (zoom_out_next)
-            {
-                addPlotScroll(*ImPlot::GetCurrentPlot(), -2);
-                zoom_out_next = false;
-            }
-
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right))
                 autoFitNextFrame = true;
-
-            if (select_crop_next && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
-            {
-                isSelectingCrop = true;
-                crop_initial_pos = ImVec2(ImPlot::GetPlotMousePos().x, ImPlot::GetPlotMousePos().y);
-                select_crop_next = false;
-            }
-
-            if (select_crop_next || isSelectingCrop)
-                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-
-            if (isSelectingCrop)
-            {
-
-                if (!ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-                {
-                    crop_end_pos = ImVec2(ImPlot::GetPlotMousePos().x, ImPlot::GetPlotMousePos().y);
-
-                    if (crop_initial_pos.x < 0)
-                        crop_initial_pos.x = 0;
-                    if (crop_initial_pos.y < 0)
-                        crop_initial_pos.y = 0;
-
-                    if (crop_initial_pos.x >= fimg_width)
-                        crop_initial_pos.x = fimg_width - 1;
-                    if (crop_initial_pos.y >= fimg_height)
-                        crop_initial_pos.y = fimg_height - 1;
-
-                    if (crop_end_pos.x < 0)
-                        crop_end_pos.x = 0;
-                    if (crop_end_pos.y < 0)
-                        crop_end_pos.y = 0;
-
-                    if (crop_end_pos.x >= fimg_width)
-                        crop_end_pos.x = fimg_width - 1;
-                    if (crop_end_pos.y >= fimg_height)
-                        crop_end_pos.y = fimg_height - 1;
-
-                    auto p1 = ImPlot::PlotToPixels(crop_initial_pos);
-                    auto p2 = ImPlot::PlotToPixels(crop_end_pos);
-                    ImPlot::GetPlotDrawList()->AddQuad(p1, {p2.x, p1.y}, p2, {p1.x, p2.y}, ImColor(255, 255, 255));
-                }
-                else
-                {
-                    logger->trace("Crop %d %d, %d %d\n", (int)crop_initial_pos.x, (fimg_height - 1) - (int)crop_initial_pos.y, (int)crop_end_pos.x, (fimg_height - 1) - (int)crop_end_pos.y);
-                    if (abs(crop_initial_pos.x - crop_end_pos.x) <= 0 || abs(((fimg_height - 1) - crop_initial_pos.y) - ((fimg_height - 1) - crop_end_pos.y)) <= 0)
-                        logger->error(_("Crop must be bigger than 0!"));
-                    else
-                        cropCallback(crop_initial_pos.x, (fimg_height - 1) - crop_initial_pos.y, crop_end_pos.x, (fimg_height - 1) - crop_end_pos.y);
-                    isSelectingCrop = false;
-                }
-            }
 
             ImPlot::EndPlot();
         }
         ImPlot::PopStyleVar();
         ImPlot::PopStyleVar();
     }
-
-    ImGui::Dummy(ImVec2(0.0f, 0.0f)); // To avoid triggerring a weird assertion
 
     ImGui::EndChild();
     image_mtx.unlock();

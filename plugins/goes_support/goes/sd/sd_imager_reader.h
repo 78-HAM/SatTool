@@ -2,10 +2,10 @@
 
 #include <cstdint>
 #include <vector>
-#include "image/image.h"
+#include "common/image/image.h"
 #include <string>
 
-#define FULL_BUF_SZ 10
+#define FULL_BUF_SZ 200
 
 namespace goes
 {
@@ -24,7 +24,7 @@ namespace goes
 
             std::vector<uint16_t> wip_scanline;
 
-            uint16_t last_status[FULL_BUF_SZ];
+            int last_status[FULL_BUF_SZ];
             int images_lines = 0;
 
             bool should_save = false;

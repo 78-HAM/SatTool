@@ -1,12 +1,13 @@
 #pragma once
 
+#include "core/module.h"
 #include "common/codings/deframing/bpsk_ccsds_deframer.h"
 #include "common/codings/viterbi/viterbi_3_4.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
+#include <fstream>
 
 namespace metop
 {
-    class MetOpAHRPTDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+    class MetOpAHRPTDecoderModule : public ProcessingModule
     {
     protected:
         int d_viterbi_outsync_after;
@@ -14,6 +15,11 @@ namespace metop
 
         uint8_t *viterbi_out;
         int8_t *soft_buffer;
+
+        std::ifstream data_in;
+        std::ofstream data_out;
+        std::atomic<uint64_t> filesize;
+        std::atomic<uint64_t> progress;
 
         viterbi::Viterbi3_4 viterbi;
         deframing::BPSK_CCSDS_Deframer deframer;
@@ -28,18 +34,13 @@ namespace metop
         ~MetOpAHRPTDecoderModule();
         void process();
         void drawUI(bool window);
-        nlohmann::json getModuleStats();
+        std::vector<ModuleDataType> getInputTypes();
+        std::vector<ModuleDataType> getOutputTypes();
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams()
-        {
-            nlohmann::json v; // TODOREWORk
-            v["viterbi_outsync_after"] = 10;
-            v["viterbi_ber_thresold"] = 0.28;
-            return v;
-        }
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
 } // namespace metop

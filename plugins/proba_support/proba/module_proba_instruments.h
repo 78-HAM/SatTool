@@ -1,20 +1,19 @@
 #pragma once
 
+#include "core/module.h"
 #include "instruments/chris/chris_reader.h"
 #include "instruments/hrc/hrc_reader.h"
 #include "instruments/swap/swap_reader.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
 
 #include "instruments/vegetation/vegs_reader.h"
 
 #include "instruments/gps_ascii/gps_ascii.h"
-#include "pipeline/modules/instrument_utils.h"
 
 namespace proba
 {
     namespace instruments
     {
-        class PROBAInstrumentsDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+        class PROBAInstrumentsDecoderModule : public ProcessingModule
         {
         protected:
             enum proba_sat_t
@@ -22,10 +21,12 @@ namespace proba
                 PROBA_1,
                 PROBA_2,
                 PROBA_V,
-                PROBA_3,
             };
 
             proba_sat_t d_satellite;
+
+            std::atomic<uint64_t> filesize;
+            std::atomic<uint64_t> progress;
 
             // Readers
             std::unique_ptr<chris::CHRISReader> chris_reader;
@@ -48,8 +49,8 @@ namespace proba
         public:
             static std::string getID();
             virtual std::string getIDM() { return getID(); };
-            static nlohmann::json getParams() { return {}; } // TODOREWORK
+            static std::vector<std::string> getParameters();
             static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         };
-    } // namespace instruments
-} // namespace proba
+    } // namespace amsu
+} // namespace metop

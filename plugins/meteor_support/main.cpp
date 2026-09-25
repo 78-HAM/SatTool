@@ -1,11 +1,12 @@
 #include "core/plugin.h"
 #include "logger.h"
+#include "core/module.h"
 
-#include "meteor/instruments/msumr/module_meteor_msumr_lrpt.h"
 #include "meteor/module_meteor_hrpt_decoder.h"
-#include "meteor/module_meteor_instruments.h"
 #include "meteor/module_meteor_lrpt_decoder.h"
 #include "meteor/module_meteor_xband_decoder.h"
+#include "meteor/instruments/msumr/module_meteor_msumr_lrpt.h"
+#include "meteor/module_meteor_instruments.h"
 #include "meteor/module_meteor_xband_instruments.h"
 
 #include "meteor/module_meteor_qpsk_kmss_decoder.h"
@@ -15,15 +16,18 @@
 class MeteorSupport : public satdump::Plugin
 {
 public:
-    std::string getID() { return "meteor_support"; }
+    std::string getID()
+    {
+        return "meteor_support";
+    }
 
     void init()
     {
-        satdump::eventBus->register_handler<satdump::pipeline::RegisterModulesEvent>(registerPluginsHandler);
-        satdump::eventBus->register_handler<satdump::products::RequestImageCalibratorEvent>(provideImageCalibratorHandler);
+        satdump::eventBus->register_handler<RegisterModulesEvent>(registerPluginsHandler);
+        satdump::eventBus->register_handler<satdump::ImageProducts::RequestCalibratorEvent>(provideImageCalibratorHandler);
     }
 
-    static void registerPluginsHandler(const satdump::pipeline::RegisterModulesEvent &evt)
+    static void registerPluginsHandler(const RegisterModulesEvent &evt)
     {
         REGISTER_MODULE_EXTERNAL(evt.modules_registry, meteor::METEORHRPTDecoderModule);
         REGISTER_MODULE_EXTERNAL(evt.modules_registry, meteor::METEORLRPTDecoderModule);
@@ -35,10 +39,10 @@ public:
         REGISTER_MODULE_EXTERNAL(evt.modules_registry, meteor::MeteorQPSKKmssDecoderModule);
     }
 
-    static void provideImageCalibratorHandler(const satdump::products::RequestImageCalibratorEvent &evt)
+    static void provideImageCalibratorHandler(const satdump::ImageProducts::RequestCalibratorEvent &evt)
     {
         if (evt.id == "meteor_msumr")
-            evt.calibrators.push_back(std::make_shared<meteor::MeteorMsuMrCalibrator>(evt.products, evt.calib));
+            evt.calibrators.push_back(std::make_shared<MeteorMsuMrCalibrator>(evt.calib, evt.products));
     }
 };
 

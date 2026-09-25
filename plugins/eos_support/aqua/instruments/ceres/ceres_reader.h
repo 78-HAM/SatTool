@@ -2,7 +2,7 @@
 
 #include "common/ccsds/ccsds.h"
 #include <cmath>
-#include "image/image.h"
+#include "common/image/image.h"
 
 namespace aqua
 {

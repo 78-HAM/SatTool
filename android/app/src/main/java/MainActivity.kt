@@ -1,4 +1,4 @@
-package com.sattool.app
+package com.altillimity.satdump
 
 import android.app.NativeActivity
 import android.os.Bundle
@@ -24,6 +24,7 @@ import android.content.pm.PackageManager;
 import android.provider.DocumentsContract;
 
 import android.content.BroadcastReceiver;
+import android.hardware.usb.*;
 import android.app.PendingIntent;
 import android.content.IntentFilter;
 
@@ -39,9 +40,6 @@ import android.text.InputType;
 
 import android.view.WindowManager;
 
-import org.woheller69.freeDroidWarn.FreeDroidWarn;
-import com.sattool.app.BuildConfig;
-
 // Extension on intent
 fun Intent?.getFilePath(context: Context): String {
     return this?.data?.let { data -> RealPathUtil.getRealPath(context, data) ?: "" } ?: ""
@@ -53,7 +51,15 @@ fun Intent?.getFilePathDir(context: Context): String {
 }
 
 class MainActivity : NativeActivity(), TextWatcher {
-    private val TAG : String = "SatTool";
+    private val TAG : String = "SatDump";
+
+    public var usbManager : UsbManager? = null;
+    public var SDR_device : UsbDevice? = null;
+    public var SDR_conn : UsbDeviceConnection? = null;
+    public var SDR_VID : Int = -1;
+    public var SDR_PID : Int = -1;
+    public var SDR_FD : Int = -1;
+    public var SDR_PATH : String = "";
 
     fun checkAndAsk(permission: String) {
         if (PermissionChecker.checkSelfPermission(this, permission) != PermissionChecker.PERMISSION_GRANTED) {
@@ -61,16 +67,27 @@ class MainActivity : NativeActivity(), TextWatcher {
         }
     }
 
-    // // Adapted from Ryzerth's implementation, a lot cleaner than my old Java crap!
-    private var ACTION_USB_PERMISSION = "libusb.android.USB_PERMISSION";
+    // Adapted from Ryzerth's implementation, a lot cleaner than my old Java crap!
+    private var ACTION_USB_PERMISSION = "org.satdump.satdump.USB_PERMISSION";
 
     private var usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (ACTION_USB_PERMISSION == intent.action) {
                 synchronized(this) {
                     var _this = context as MainActivity;
-                    Log.w(TAG, "Got Intent Reply USB!!!! Reset Activity (libusb bug?)");
-                    _this.recreate();
+                    _this.SDR_device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        _this.SDR_conn = _this.usbManager!!.openDevice(_this.SDR_device);
+                        
+                        _this.SDR_VID = _this.SDR_device!!.getVendorId();
+                        _this.SDR_PID = _this.SDR_device!!.getProductId();
+                        _this.SDR_FD = _this.SDR_conn!!.getFileDescriptor();
+                        _this.SDR_PATH = _this.SDR_device!!.getDeviceName();
+                    }
+                    
+                    context.unregisterReceiver(this);
+
+                    getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
                 }
             }
         }
@@ -89,16 +106,16 @@ class MainActivity : NativeActivity(), TextWatcher {
         checkAndAsk(Manifest.permission.INTERNET);
 
         // Register events
-        //        usbManager = getSystemService(Context.USB_SERVICE) as UsbManager;
-        //        val permissionIntent = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION), 0)
+        usbManager = getSystemService(Context.USB_SERVICE) as UsbManager;
+        val permissionIntent = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION), 0)
         val filter = IntentFilter(ACTION_USB_PERMISSION)
         registerReceiver(usbReceiver, filter)
 
         // Get permission for all USB devices
-        // val devList = usbManager!!.getDeviceList();
-        // for ((name, dev) in devList) {
-        //     usbManager!!.requestPermission(dev, permissionIntent);
-        // }
+        val devList = usbManager!!.getDeviceList();
+        for ((name, dev) in devList) {
+            usbManager!!.requestPermission(dev, permissionIntent);
+        }
 
         // Hide system bars
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -119,8 +136,6 @@ class MainActivity : NativeActivity(), TextWatcher {
         editText!!.addTextChangedListener(this);
 
         setContentView(mLayout);
-
-        FreeDroidWarn.showWarningOnUpgrade(this, BuildConfig.VERSION_CODE);
     }
 
 
@@ -129,9 +144,10 @@ class MainActivity : NativeActivity(), TextWatcher {
 
         // Extract all resources to the app directory
         val aman = getAssets();
+        extractDir(aman, fdir + "/pipelines", "pipelines");
         extractDir(aman, fdir + "/resources", "resources");
         // extractDir(aman, fdir + "/plugins", "plugins");
-        extractFile(aman, fdir + "/sattool_cfg.json", "sattool_cfg.json");
+        extractFile(aman, fdir + "/satdump_cfg.json", "satdump_cfg.json");
         //createIfDoesntExist(fdir + "/plugins");
 
         return fdir;
@@ -199,11 +215,14 @@ class MainActivity : NativeActivity(), TextWatcher {
         Log.w(TAG, "Extracting '" + rpath + "' to '" + lpath + "'");
 
         // This is a file, extract it
-        aman.open(rpath).use { input ->
-            FileOutputStream(lpath).use { output ->
-                input.copyTo(output)
-            }
-        }
+        val _os = FileOutputStream(lpath);
+        val _is = aman.open(rpath);
+        val ilen = _is.available();
+        var fbuf = ByteArray(ilen);
+        _is.read(fbuf, 0, ilen);
+        _os.write(fbuf);
+        _os.close();
+        _is.close();
 
         return 0;
     }
@@ -226,11 +245,14 @@ class MainActivity : NativeActivity(), TextWatcher {
             // Extract if file
             if (ext == 0) {
                 // This is a file, extract it
-                aman.open(rpath).use { input ->
-                    FileOutputStream(lpath).use { output ->
-                        input.copyTo(output)
-                    }
-                }
+                val _os = FileOutputStream(lpath);
+                val _is = aman.open(rpath);
+                val ilen = _is.available();
+                var fbuf = ByteArray(ilen);
+                _is.read(fbuf, 0, ilen);
+                _os.write(fbuf);
+                _os.close();
+                _is.close();
             }
 
             ecount++;
@@ -282,22 +304,6 @@ class MainActivity : NativeActivity(), TextWatcher {
         return tmp;
     }
 
-    // Handle savinf a file
-    var select_filesave_result : String = "";
-    public fun select_filesave(name: String) {
-        var file_intent = Intent(Intent.ACTION_CREATE_DOCUMENT);
-        file_intent.setType("*/*");
-        file_intent.putExtra(Intent.EXTRA_TITLE, name);
-        val final_intent = Intent.createChooser(file_intent, "Select Destination File");
-        startActivityForResult(final_intent, 3);
-    }
-
-    public fun select_filesave_get() : String {
-        var tmp = select_filesave_result;
-        select_filesave_result = "";
-        return tmp;
-    }
-
     public fun openURL(url: String) {
         val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url));
         startActivity(browserIntent);
@@ -307,29 +313,18 @@ class MainActivity : NativeActivity(), TextWatcher {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        try {
-            if (requestCode == 1) {
-                if(resultCode == RESULT_OK)
-                    select_file_result = data.getFilePath(getApplicationContext());
-                else if(resultCode == RESULT_CANCELED)
-                    select_file_result = "NO_PATH_SELECTED";
-            }
+        if (requestCode == 1) {
+            if(resultCode == RESULT_OK)
+                select_file_result = data.getFilePath(getApplicationContext());
+            else if(resultCode == RESULT_CANCELED)
+                select_file_result = "NO_PATH_SELECTED";
+        }
 
-            if (requestCode == 2) {
-                if(resultCode == RESULT_OK)
-                    select_directory_result = data.getFilePathDir(getApplicationContext());
-                else if(resultCode == RESULT_CANCELED)
-                    select_directory_result = "NO_PATH_SELECTED";
-            }
-
-            if (requestCode == 3) {
-                if(resultCode == RESULT_OK)
-                    select_filesave_result = data.getFilePath(getApplicationContext());
-                else if(resultCode == RESULT_CANCELED)
-                    select_filesave_result = "NO_PATH_SELECTED";
-            } 
-        } catch (e: java.lang.RuntimeException) {
-            Log.w(TAG, "Error! " + e.message);
+        if (requestCode == 2) {
+            if(resultCode == RESULT_OK)
+                select_directory_result = data.getFilePathDir(getApplicationContext());
+            else if(resultCode == RESULT_CANCELED)
+                select_directory_result = "NO_PATH_SELECTED";
         }
     }
 }

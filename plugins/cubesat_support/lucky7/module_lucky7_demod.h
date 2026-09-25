@@ -1,13 +1,14 @@
 #pragma once
 
-#include "common/codings/crc/crc_generic.h"
-#include "common/dsp/demod/quadrature_demod.h"
+#include "modules/demod/module_demod_base.h"
+#include "common/dsp/utils/random.h"
 #include "common/dsp/filter/fir.h"
-#include "pipeline/modules/demod/module_demod_base.h"
+#include "common/dsp/demod/quadrature_demod.h"
+#include "common/codings/crc/crc_generic.h"
 
 namespace lucky7
 {
-    class Lucky7DemodModule : public satdump::pipeline::demod::BaseDemodModule
+    class Lucky7DemodModule : public demod::BaseDemodModule
     {
     protected:
         std::shared_ptr<dsp::QuadratureDemodBlock> qua;
@@ -34,12 +35,11 @@ namespace lucky7
         void init();
         void stop();
         void process();
-        nlohmann::json getModuleStats();
 
     public:
         static std::string getID();
         virtual std::string getIDM() { return getID(); };
-        static nlohmann::json getParams() { return {}; } // TODOREWORK
+        static std::vector<std::string> getParameters();
         static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
     };
-} // namespace lucky7
+}

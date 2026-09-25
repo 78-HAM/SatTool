@@ -1,14 +1,13 @@
 #include "module_aero_parser.h"
-#include "common/audio/audio_sink.h"
-#include "common/dsp/io/wav_writer.h"
-#include "common/utils.h"
-#include "core/config.h"
-#include "decode_utils.h"
-#include "imgui/imgui.h"
-#include "logger.h"
-#include "satdump_vars.h"
-#include <filesystem>
 #include <fstream>
+#include "logger.h"
+#include <filesystem>
+#include "imgui/imgui.h"
+#include "core/config.h"
+#include "common/utils.h"
+#include "decode_utils.h"
+#include "common/dsp/io/wav_writer.h"
+#include "common/audio/audio_sink.h"
 
 #define SIGNAL_UNIT_SIZE_BYTES 12
 
@@ -16,8 +15,7 @@ namespace inmarsat
 {
     namespace aero
     {
-        AeroParserModule::AeroParserModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+        AeroParserModule::AeroParserModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters)
         {
             buffer = new uint8_t[SIGNAL_UNIT_SIZE_BYTES];
             memset(buffer, 0, SIGNAL_UNIT_SIZE_BYTES);
@@ -42,12 +40,23 @@ namespace inmarsat
             if (parameters.contains("station_id"))
                 d_station_id = parameters["station_id"].get<std::string>();
 
-            play_audio = satdump::satdump_cfg.shouldPlayAudio();
-
-            fsfsm_enable_output = false;
+            play_audio = satdump::config::main_cfg["user_interface"]["play_audio"]["value"].get<bool>();
         }
 
-        AeroParserModule::~AeroParserModule() { delete[] buffer; }
+        std::vector<ModuleDataType> AeroParserModule::getInputTypes()
+        {
+            return {DATA_FILE, DATA_STREAM};
+        }
+
+        std::vector<ModuleDataType> AeroParserModule::getOutputTypes()
+        {
+            return {DATA_FILE};
+        }
+
+        AeroParserModule::~AeroParserModule()
+        {
+            delete[] buffer;
+        }
 
         std::string timestampToTod(time_t time_v)
         {
@@ -75,13 +84,12 @@ namespace inmarsat
                     try
                     {
                         nlohmann::json msg2 = msg;
-                        if (d_station_id != "")
-                        {
+                        if (d_station_id != ""){
                             msg2["source"]["station_id"] = d_station_id;
-                            msg2["source"]["app"]["name"] = "SatTool";
-                            msg2["source"]["app"]["version"] = (std::string)satdump::SATDUMP_VERSION;
+                            msg2["source"]["app"]["name"] = "SatDump";
+                            msg2["source"]["app"]["version"] = (std::string)SATDUMP_VERSION;
                         }
-
+                        
                         std::string m = msg2.dump();
                         c->send((uint8_t *)m.data(), m.size());
                     }
@@ -172,7 +180,9 @@ namespace inmarsat
                                             if (!libac.empty())
                                                 final_pkt["libacars"] = libac;
                                             // logger->critical(final_pkt["libacars"].dump(4));
-                                            logger->info("ACARS message (%s) : \n%s", final_pkt["plane_reg"].get<std::string>().c_str(), final_pkt["message"].get<std::string>().c_str());
+                                            logger->info("ACARS message (%s) : \n%s",
+                                                         final_pkt["plane_reg"].get<std::string>().c_str(),
+                                                         final_pkt["message"].get<std::string>().c_str());
                                         }
                                     }
 
@@ -233,6 +243,14 @@ namespace inmarsat
 
         void AeroParserModule::process()
         {
+            if (input_data_type == DATA_FILE)
+                filesize = getFilesize(d_input_file);
+            else
+                filesize = 0;
+            if (input_data_type == DATA_FILE)
+                data_in = std::ifstream(d_input_file, std::ios::binary);
+
+            logger->info("Using input frames " + d_input_file);
 
             uint8_t *voice_data = nullptr;
             AmbeDecoder *ambed = nullptr;
@@ -252,7 +270,7 @@ namespace inmarsat
             }
 
             std::shared_ptr<audio::AudioSink> audio_sink;
-            if (input_data_type != satdump::pipeline::DATA_FILE && audio::has_sink() && is_c_channel)
+            if (input_data_type != DATA_FILE && audio::has_sink() && is_c_channel)
             {
                 enable_audio = true;
                 audio_sink = audio::get_default_sink();
@@ -260,20 +278,27 @@ namespace inmarsat
                 audio_sink->start();
             }
 
-            while (should_run())
+            time_t lastTime = 0;
+            while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
                 if (is_c_channel)
                 {
                     for (int i = 0; i < 3; i++)
                     {
                         // Read a buffer
-                        read_data((uint8_t *)buffer, SIGNAL_UNIT_SIZE_BYTES);
+                        if (input_data_type == DATA_FILE)
+                            data_in.read((char *)buffer, SIGNAL_UNIT_SIZE_BYTES);
+                        else
+                            input_fifo->read((uint8_t *)buffer, SIGNAL_UNIT_SIZE_BYTES);
 
                         process_pkt();
                     }
 
                     // Read a buffer
-                    read_data((uint8_t *)voice_data, 300);
+                    if (input_data_type == DATA_FILE)
+                        data_in.read((char *)voice_data, 300);
+                    else
+                        input_fifo->read((uint8_t *)voice_data, 300);
 
                     ambed->decode(voice_data, 25, audio_out);
 
@@ -286,9 +311,21 @@ namespace inmarsat
                 else
                 {
                     // Read a buffer
-                    read_data((uint8_t *)buffer, SIGNAL_UNIT_SIZE_BYTES);
+                    if (input_data_type == DATA_FILE)
+                        data_in.read((char *)buffer, SIGNAL_UNIT_SIZE_BYTES);
+                    else
+                        input_fifo->read((uint8_t *)buffer, SIGNAL_UNIT_SIZE_BYTES);
 
                     process_pkt();
+                }
+
+                if (input_data_type == DATA_FILE)
+                    progress = data_in.tellg();
+
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
                 }
             }
 
@@ -306,7 +343,8 @@ namespace inmarsat
                 delete wav_out;
             }
 
-            cleanup();
+            if (input_data_type == DATA_FILE)
+                data_in.close();
         }
 
         void AeroParserModule::drawUI(bool window)
@@ -347,11 +385,12 @@ namespace inmarsat
                 ImGui::TextUnformatted(label);
             }
 
-            drawProgressBar();
+            if (input_data_type == DATA_FILE)
+                ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
 
-            if (input_data_type != satdump::pipeline::DATA_FILE)
+            if (input_data_type != DATA_FILE)
             {
                 ImGui::Begin("Aero Packets", NULL, ImGuiWindowFlags_HorizontalScrollbar);
 
@@ -426,11 +465,19 @@ namespace inmarsat
             }
         }
 
-        std::string AeroParserModule::getID() { return "inmarsat_aero_parser"; }
+        std::string AeroParserModule::getID()
+        {
+            return "inmarsat_aero_parser";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> AeroParserModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> AeroParserModule::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> AeroParserModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<AeroParserModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace aero
-} // namespace inmarsat
+    }
+}

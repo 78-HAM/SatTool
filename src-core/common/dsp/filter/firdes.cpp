@@ -49,7 +49,8 @@ namespace dsp
                 if (fabs(x3) >= 0.000001)
                 { // Avoid Rounding errors...
                     if (i != ntaps / 2)
-                        num = cos((1 + alpha) * x1) + sin((1 - alpha) * x1) / (4 * alpha * xindx / spb);
+                        num = cos((1 + alpha) * x1) +
+                              sin((1 - alpha) * x1) / (4 * alpha * xindx / spb);
                     else
                         num = cos((1 + alpha) * x1) + (1 - alpha) * M_PI / (4 * alpha);
                     den = x3 * M_PI;
@@ -64,7 +65,9 @@ namespace dsp
                     }
                     x3 = (1 - alpha) * x1;
                     x2 = (1 + alpha) * x1;
-                    num = (sin(x2) * (1 + alpha) * M_PI - cos(x3) * ((1 - alpha) * M_PI * spb) / (4 * alpha * xindx) + sin(x3) * spb * spb / (4 * alpha * xindx * xindx));
+                    num = (sin(x2) * (1 + alpha) * M_PI -
+                           cos(x3) * ((1 - alpha) * M_PI * spb) / (4 * alpha * xindx) +
+                           sin(x3) * spb * spb / (4 * alpha * xindx * xindx));
                     den = -32 * M_PI * alpha * alpha * xindx / spb;
                 }
                 taps[i] = 4 * alpha * num / den;
@@ -138,8 +141,7 @@ namespace dsp
             {
                 if (n == 0)
                     taps[n + M] = (1 - (fwT0 / M_PI)) * w[n + M];
-                else
-                {
+                else {
                     // a little algebra gets this into the more familiar sin(x)/x form
                     taps[n + M] = -sin(n * fwT0) / (n * M_PI) * w[n + M];
                 }
@@ -160,8 +162,7 @@ namespace dsp
             return taps;
         }
 
-        std::vector<float> band_pass(double gain, double sampling_freq, double low_cutoff_freq, double high_cutoff_freq, double transition_width, fft::window::win_type window_type,
-                                     double beta) // used only with Kaiser);
+        std::vector<float> band_pass(double gain, double sampling_freq, double low_cutoff_freq, double high_cutoff_freq, double transition_width, fft::window::win_type window_type, double beta) // used only with Kaiser);
         {
             double a = fft::window::max_attenuation(static_cast<fft::window::win_type>(window_type), beta);
             int ntaps = (int)(a * sampling_freq / (22.0 * transition_width));
@@ -175,12 +176,10 @@ namespace dsp
             double fwT0 = 2 * M_PI * low_cutoff_freq / sampling_freq;
             double fwT1 = 2 * M_PI * high_cutoff_freq / sampling_freq;
 
-            for (int n = -M; n <= M; n++)
-            {
+            for (int n = -M; n <= M; n++) {
                 if (n == 0)
                     taps[n + M] = (fwT1 - fwT0) / M_PI * w[n + M];
-                else
-                {
+                else {
                     taps[n + M] = (sin(n * fwT1) - sin(n * fwT0)) / (n * M_PI) * w[n + M];
                 }
             }
@@ -196,79 +195,6 @@ namespace dsp
 
             for (int i = 0; i < ntaps; i++)
                 taps[i] *= gain;
-
-            return taps;
-        }
-
-        namespace
-        {
-            int compute_ntaps(double sampling_freq, double transition_width, fft::window::win_type window_type, double param)
-            {
-                double a = fft::window::max_attenuation(window_type, param);
-                int ntaps = (int)(a * sampling_freq / (22.0 * transition_width));
-                if ((ntaps & 1) == 0) // if even...
-                    ntaps++;          // ...make odd
-
-                return ntaps;
-            }
-
-            void sanity_check_2f_c(double sampling_freq,
-                                   double fa, // first cutoff freq
-                                   double fb, // second cutoff freq
-                                   double transition_width)
-            {
-                if (sampling_freq <= 0.0)
-                    throw std::out_of_range("firdes check failed: sampling_freq > 0");
-
-                if (fa < -sampling_freq / 2 || fa > sampling_freq / 2)
-                    throw std::out_of_range("firdes check failed: 0 < fa <= sampling_freq / 2");
-
-                if (fb < -sampling_freq / 2 || fb > sampling_freq / 2)
-                    throw std::out_of_range("firdes check failed: 0 < fb <= sampling_freq / 2");
-
-                if (fa > fb)
-                    throw std::out_of_range("firdes check failed: fa <= fb");
-
-                if (transition_width <= 0)
-                    throw std::out_of_range("firdes check failed: transition_width > 0");
-            }
-        } // namespace
-
-        std::vector<complex_t> complex_band_pass(double gain, double sampling_freq,
-                                                 double low_cutoff_freq,  // Hz center of transition band
-                                                 double high_cutoff_freq, // Hz center of transition band
-                                                 double transition_width, // Hz width of transition band
-                                                 fft::window::win_type window_type,
-                                                 double param) // used with Kaiser, Exp., Gaussian, Tukey
-        {
-            sanity_check_2f_c(sampling_freq, low_cutoff_freq, high_cutoff_freq, transition_width);
-
-            int ntaps = compute_ntaps(sampling_freq, transition_width, window_type, param);
-
-            // construct the truncated ideal impulse response times the window function
-
-            std::vector<complex_t> taps(ntaps);
-            std::vector<float> lptaps(ntaps);
-            std::vector<float> w = fft::window::build(window_type, ntaps, param);
-
-            lptaps = low_pass(gain, sampling_freq, (high_cutoff_freq - low_cutoff_freq) / 2, transition_width, window_type, param);
-
-            complex_t *optr = &taps[0];
-            float *iptr = &lptaps[0];
-            float freq = M_PI * (high_cutoff_freq + low_cutoff_freq) / sampling_freq;
-            float phase = 0;
-            if (lptaps.size() & 01)
-            {
-                phase = -freq * (lptaps.size() >> 1);
-            }
-            else
-                phase = -freq / 2.0 * ((1 + 2 * lptaps.size()) >> 1);
-
-            for (unsigned int i = 0; i < lptaps.size(); i++)
-            {
-                *optr++ = complex_t(*iptr * cos(phase), *iptr * sin(phase));
-                iptr++, phase += freq;
-            }
 
             return taps;
         }
@@ -293,11 +219,12 @@ namespace dsp
                 mid_transition_band = rate * halfband - trans_width / 2.0;
             }
 
-            return low_pass(interpolation,                  /* gain */
-                            interpolation,                  /* Fs */
-                            mid_transition_band,            /* trans mid point */
-                            trans_width,                    /* transition width */
-                            fft::window::WIN_KAISER, beta); /* beta*/
+            return low_pass(interpolation,       /* gain */
+                            interpolation,       /* Fs */
+                            mid_transition_band, /* trans mid point */
+                            trans_width,         /* transition width */
+                            fft::window::WIN_KAISER,
+                            beta); /* beta*/
         }
 
         std::vector<float> gaussian(double gain, double spb, double bt, int ntaps)
@@ -320,35 +247,7 @@ namespace dsp
 
             return taps;
         }
-
-        std::vector<float> hilbert(unsigned int ntaps, fft::window::win_type windowtype, double param)
-        {
-            if (!(ntaps & 1))
-                throw std::out_of_range("Hilbert:  Must have odd number of taps");
-
-            std::vector<float> taps(ntaps);
-            std::vector<float> w = fft::window::build(windowtype, ntaps, param);
-            unsigned int h = (ntaps - 1) / 2;
-            float gain = 0;
-            for (unsigned int i = 1; i <= h; i++)
-            {
-                if (i & 1)
-                {
-                    float x = 1 / (float)i;
-                    taps[h + i] = x * w[h + i];
-                    taps[h - i] = -x * w[h - i];
-                    gain = taps[h + i] - gain;
-                }
-                else
-                    taps[h + i] = taps[h - i] = 0;
-            }
-
-            gain = 2 * fabs(gain);
-            for (unsigned int i = 0; i < ntaps; i++)
-                taps[i] /= gain;
-            return taps;
-        }
-    }; // namespace firdes
+    };
 
     namespace fft
     {
@@ -378,7 +277,8 @@ namespace dsp
             float M = static_cast<float>(ntaps - 1);
 
             for (int n = 0; n < ntaps; n++)
-                taps[n] = c0 - c1 * cosf((2.0f * M_PI * n) / M) + c2 * cosf((4.0f * M_PI * n) / M);
+                taps[n] = c0 - c1 * cosf((2.0f * M_PI * n) / M) +
+                          c2 * cosf((4.0f * M_PI * n) / M);
             return taps;
         }
 
@@ -388,7 +288,9 @@ namespace dsp
             float M = static_cast<float>(ntaps - 1);
 
             for (int n = 0; n < ntaps; n++)
-                taps[n] = c0 - c1 * cosf((2.0f * M_PI * n) / M) + c2 * cosf((4.0f * M_PI * n) / M) - c3 * cosf((6.0f * M_PI * n) / M);
+                taps[n] = c0 - c1 * cosf((2.0f * M_PI * n) / M) +
+                          c2 * cosf((4.0f * M_PI * n) / M) -
+                          c3 * cosf((6.0f * M_PI * n) / M);
             return taps;
         }
 
@@ -398,7 +300,10 @@ namespace dsp
             float M = static_cast<float>(ntaps - 1);
 
             for (int n = 0; n < ntaps; n++)
-                taps[n] = c0 - c1 * cosf((2.0f * M_PI * n) / M) + c2 * cosf((4.0f * M_PI * n) / M) - c3 * cosf((6.0f * M_PI * n) / M) + c4 * cosf((8.0f * M_PI * n) / M);
+                taps[n] = c0 - c1 * cosf((2.0f * M_PI * n) / M) +
+                          c2 * cosf((4.0f * M_PI * n) / M) -
+                          c3 * cosf((6.0f * M_PI * n) / M) +
+                          c4 * cosf((8.0f * M_PI * n) / M);
             return taps;
         }
 
@@ -430,7 +335,10 @@ namespace dsp
             return taps;
         }
 
-        std::vector<float> window::blackman(int ntaps) { return coswindow(ntaps, 0.42, 0.5, 0.08); }
+        std::vector<float> window::blackman(int ntaps)
+        {
+            return coswindow(ntaps, 0.42, 0.5, 0.08);
+        }
 
         std::vector<float> window::blackman_harris(int ntaps, int atten)
         {
@@ -537,9 +445,15 @@ namespace dsp
             if (normalize)
             {
                 auto win = build(type, ntaps, beta, false);
-                const double pwr_acc = std::accumulate(win.cbegin(), win.cend(), 0.0, [](const double a, const double b) { return a + b * b; }) / win.size();
+                const double pwr_acc = std::accumulate(win.cbegin(),
+                                                       win.cend(),
+                                                       0.0,
+                                                       [](const double a, const double b)
+                                                       { return a + b * b; }) /
+                                       win.size();
                 const float norm_fac = static_cast<float>(std::sqrt(pwr_acc));
-                std::transform(win.begin(), win.end(), win.begin(), [norm_fac](const float tap) { return tap / norm_fac; });
+                std::transform(win.begin(), win.end(), win.begin(), [norm_fac](const float tap)
+                               { return tap / norm_fac; });
                 return win;
             }
 
@@ -566,5 +480,5 @@ namespace dsp
                 throw std::out_of_range("window::build: type out of range");
             }
         }
-    }; // namespace fft
-}; // namespace dsp
+    };
+};

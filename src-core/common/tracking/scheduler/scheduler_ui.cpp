@@ -1,21 +1,14 @@
-#include "init.h"
-#define NOMINMAX
-#include <cmath>
-
-#include "common/dsp_source_sink/format_notated.h"
-#include "common/widgets/frequency_input.h"
-#include "core/resources.h"
-#include "core/style.h"
-#include "image/text.h"
+#include "scheduler.h"
+#include "logger.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
 #include "imgui/imgui_stdlib.h"
-#include "logger.h"
-#include "scheduler.h"
-#include "utils/color.h"
-#include "utils/format.h"
-#include "utils/string.h"
-#include "utils/time.h"
+#include "core/style.h"
+#include "common/utils.h"
+#include "common/dsp_source_sink/format_notated.h"
+#include "common/widgets/frequency_input.h"
+#include "resources.h"
+#include "common/image/text.h"
 
 namespace satdump
 {
@@ -24,10 +17,7 @@ namespace satdump
         if (!has_tle)
             return;
 
-        // Thread Safety
         upcoming_satellite_passes_mtx.lock();
-        auto &tle_registry = db_keplers->all_;
-        int num_objects = std::min(tle_registry.size(), satoptions.size()); // These can temporarily get out of sync on update
 
         if (autotrack_engaged)
             style::beginDisabled();
@@ -40,18 +30,20 @@ namespace satdump
         ImGui::SetNextItemWidth(200 * ui_scale);
         if (ImGui::BeginListBox("##trackingavailablesatsbox"))
         {
-            for (int i = 0; i < num_objects; i++)
-                if (std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [i, &tle_registry](TrackedObject &c) { return c.norad == (tle_registry)[i].norad; }) == enabled_satellites.end())
-                    if (availablesatssearch.size() == 0 || satdump::isStringPresent(satoptions[i], availablesatssearch))
+            for (int i = 0; i < (int)satoptions.size(); i++)
+                if (std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [i](TrackedObject &c)
+                                 { return c.norad == general_tle_registry[i].norad; }) == enabled_satellites.end())
+                    if (availablesatssearch.size() == 0 || isStringPresent(satoptions[i], availablesatssearch))
                     {
                         if (ImGui::Selectable(satoptions[i].c_str(), i == tracking_sats_menu_selected_1))
                             tracking_sats_menu_selected_1 = i;
 
                         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
                         {
-                            auto it = std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [i, &tle_registry](TrackedObject &t) { return t.norad == (tle_registry)[i].norad; });
+                            auto it = std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [this, i](TrackedObject &t)
+                                                   { return t.norad == general_tle_registry[i].norad; });
                             if (it == enabled_satellites.end())
-                                enabled_satellites.push_back({(tle_registry)[i].norad});
+                                enabled_satellites.push_back({general_tle_registry[i].norad});
                         }
                     }
             ImGui::EndListBox();
@@ -61,38 +53,40 @@ namespace satdump
         ImGui::BeginGroup();
         if (ImGui::Button(">>>"))
         {
-            auto it =
-                std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [this, &tle_registry](TrackedObject &t) { return t.norad == (tle_registry)[tracking_sats_menu_selected_1].norad; });
+            auto it = std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [this](TrackedObject &t)
+                                   { return t.norad == general_tle_registry[tracking_sats_menu_selected_1].norad; });
             if (it == enabled_satellites.end())
-                enabled_satellites.push_back({(tle_registry)[tracking_sats_menu_selected_1].norad});
+                enabled_satellites.push_back({general_tle_registry[tracking_sats_menu_selected_1].norad});
         }
         if (ImGui::Button("<<<"))
         {
-            auto it =
-                std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [this, &tle_registry](TrackedObject &t) { return t.norad == (tle_registry)[tracking_sats_menu_selected_2].norad; });
+            auto it = std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [this](TrackedObject &t)
+                                   { return t.norad == general_tle_registry[tracking_sats_menu_selected_2].norad; });
             if (it != enabled_satellites.end())
                 enabled_satellites.erase(it);
         }
 
         ImGui::EndGroup();
         float selected_offset = 200 * ui_scale + ImGui::GetItemRectSize().x + imgui_style.ItemSpacing.x * 2;
-        ImGui::SetCursorPos({selected_offset, curpos});
+        ImGui::SetCursorPos({ selected_offset, curpos });
         ImGui::SetNextItemWidth(200 * ui_scale);
         ImGui::InputTextWithHint("##trackingselectedsatssearch", u8"\uf422   Search Selected", &selectedsatssearch);
         ImGui::SetCursorPosX(selected_offset);
         ImGui::SetNextItemWidth(200 * ui_scale);
         if (ImGui::BeginListBox("##trackingselectedsatsbox"))
         {
-            for (int i = 0; i < num_objects; i++)
-                if (std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [i, &tle_registry](TrackedObject &c) { return c.norad == (tle_registry)[i].norad; }) != enabled_satellites.end())
-                    if (selectedsatssearch.size() == 0 || satdump::isStringPresent(satoptions[i], selectedsatssearch))
+            for (int i = 0; i < (int)satoptions.size(); i++)
+                if (std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [i](TrackedObject &c)
+                                 { return c.norad == general_tle_registry[i].norad; }) != enabled_satellites.end())
+                    if (selectedsatssearch.size() == 0 || isStringPresent(satoptions[i], selectedsatssearch))
                     {
                         if (ImGui::Selectable(satoptions[i].c_str(), i == tracking_sats_menu_selected_2))
                             tracking_sats_menu_selected_2 = i;
 
                         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
                         {
-                            auto it = std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [i, &tle_registry](TrackedObject &t) { return t.norad == (tle_registry)[i].norad; });
+                            auto it = std::find_if(enabled_satellites.begin(), enabled_satellites.end(), [this, i](TrackedObject &t)
+                                                   { return t.norad == general_tle_registry[i].norad; });
                             if (it != enabled_satellites.end())
                                 enabled_satellites.erase(it);
                         }
@@ -104,7 +98,7 @@ namespace satdump
 
         float selection_box_bottom = ImGui::GetCursorPosY();
         float elev_width = selected_offset + 200 * ui_scale + imgui_style.ItemSpacing.x;
-        ImGui::SetCursorPos({elev_width, curpos});
+        ImGui::SetCursorPos({ elev_width, curpos });
         ImGui::BeginGroup();
         ImGui::SeparatorText("Scheduler Options");
         ImGui::Checkbox("Multi Mode", &autotrack_cfg.multi_mode);
@@ -136,7 +130,8 @@ namespace satdump
             int d_pplot_height = (enabled_satellites.size() * 20) * ui_scale;
             int d_pplot_size = ImGui::GetWindowContentRegionMax().x;
             ImDrawList *draw_list = ImGui::GetWindowDrawList();
-            draw_list->AddRectFilled(ImGui::GetCursorScreenPos(), ImVec2(ImGui::GetCursorScreenPos().x + d_pplot_size, ImGui::GetCursorScreenPos().y + d_pplot_height + 20 * ui_scale),
+            draw_list->AddRectFilled(ImGui::GetCursorScreenPos(),
+                                     ImVec2(ImGui::GetCursorScreenPos().x + d_pplot_size, ImGui::GetCursorScreenPos().y + d_pplot_height + 20 * ui_scale),
                                      style::theme.widget_bg);
 
             time_t tttime = curr_time;
@@ -166,10 +161,7 @@ namespace satdump
                         double cpass_xs = ((cpass.aos_time - curr_time) / (12.0 * 3600.0)) * d_pplot_size;
                         double cpass_xe = ((cpass.los_time - curr_time) / (12.0 * 3600.0)) * d_pplot_size;
 
-                        std::string name = "NORAD " + norad;
-                        std::optional<TLE> this_tle = db_keplers->get_from_norad(norad);
-                        if (this_tle.has_value())
-                            name = this_tle->name;
+                        std::string name = general_tle_registry.get_from_norad(norad)->name;
 
                         if (cpass_xs < 0)
                             cpass_xs = 0;
@@ -180,26 +172,33 @@ namespace satdump
 
                         auto color = ImColor::HSV(fmod(norad, 10) / 10.0, 1, 1);
                         draw_list->AddRectFilled(ImVec2(ImGui::GetCursorScreenPos().x + cpass_xs, ImGui::GetCursorScreenPos().y + thsat_ys + 1),
-                                                 ImVec2(ImGui::GetCursorScreenPos().x + cpass_xe, ImGui::GetCursorScreenPos().y + thsat_ye), color, 3);
+                                                 ImVec2(ImGui::GetCursorScreenPos().x + cpass_xe, ImGui::GetCursorScreenPos().y + thsat_ye),
+                                                 color, 3);
 
                         if (first_pass)
                         {
-                            draw_list->AddText(ImVec2(ImGui::GetCursorScreenPos().x + cpass_xe + 5 * ui_scale, ImGui::GetCursorScreenPos().y + thsat_ys + (sat_blk_height / 2) - 8 * ui_scale), color,
-                                               name.c_str());
+                            draw_list->AddText(ImVec2(ImGui::GetCursorScreenPos().x + cpass_xe + 5 * ui_scale,
+                                                      ImGui::GetCursorScreenPos().y + thsat_ys + (sat_blk_height / 2) - 8 * ui_scale),
+                                               color, name.c_str());
                             first_pass = false;
                         }
 
                         if (ImGui::IsMouseHoveringRect(ImVec2(ImGui::GetCursorScreenPos().x + cpass_xs, ImGui::GetCursorScreenPos().y + thsat_ys),
                                                        ImVec2(ImGui::GetCursorScreenPos().x + cpass_xe, ImGui::GetCursorScreenPos().y + thsat_ye)))
-                            ImGui::SetTooltip("%s\nAOS : %s\nLOS : %s\nEl : %.2f", name.c_str(), timestamp_to_string(cpass.aos_time, autotrack_cfg.use_localtime).c_str(),
-                                              timestamp_to_string(cpass.los_time, autotrack_cfg.use_localtime).c_str(), cpass.max_elevation);
+                            ImGui::SetTooltip("%s\nAOS : %s\nLOS : %s\nEl : %.2f",
+                                              name.c_str(),
+                                              timestamp_to_string(cpass.aos_time, autotrack_cfg.use_localtime).c_str(),
+                                              timestamp_to_string(cpass.los_time, autotrack_cfg.use_localtime).c_str(),
+                                              cpass.max_elevation);
                     }
                 }
 
                 draw_list->AddLine(ImVec2(ImGui::GetCursorScreenPos().x + 0, ImGui::GetCursorScreenPos().y + thsat_ys),
-                                   ImVec2(ImGui::GetCursorScreenPos().x + d_pplot_size, ImGui::GetCursorScreenPos().y + thsat_ys), ImColor(100, 100, 100, 255));
+                                   ImVec2(ImGui::GetCursorScreenPos().x + d_pplot_size, ImGui::GetCursorScreenPos().y + thsat_ys),
+                                   ImColor(100, 100, 100, 255));
                 draw_list->AddLine(ImVec2(ImGui::GetCursorScreenPos().x + 0, ImGui::GetCursorScreenPos().y + thsat_ye),
-                                   ImVec2(ImGui::GetCursorScreenPos().x + d_pplot_size, ImGui::GetCursorScreenPos().y + thsat_ye), ImColor(100, 100, 100, 255));
+                                   ImVec2(ImGui::GetCursorScreenPos().x + d_pplot_size, ImGui::GetCursorScreenPos().y + thsat_ye),
+                                   ImColor(100, 100, 100, 255));
 
                 if (autotrack_engaged)
                 {
@@ -219,7 +218,8 @@ namespace satdump
 
                             auto color = ImGui::ColorConvertFloat4ToU32(imgui_style.Colors[ImGuiCol_Text]);
                             draw_list->AddRect(ImVec2(ImGui::GetCursorScreenPos().x + cpass_xs, ImGui::GetCursorScreenPos().y + thsat_ys),
-                                               ImVec2(ImGui::GetCursorScreenPos().x + cpass_xe, ImGui::GetCursorScreenPos().y + thsat_ye), color, 3, 0, 2 * ui_scale);
+                                               ImVec2(ImGui::GetCursorScreenPos().x + cpass_xe, ImGui::GetCursorScreenPos().y + thsat_ye),
+                                               color, 3, 0, 2 * ui_scale);
                         }
                     }
                 }
@@ -236,11 +236,12 @@ namespace satdump
             int sat_row = 0, new_hovered = -1;
             bool is_hovered = false;
             ImVec2 min_el_size(ImGui::CalcTextSize("Min El.").x + imgui_style.ItemInnerSpacing.x + (60.0f * ui_scale), 0.0f);
-            float downlink_dd_width = (300 * ui_scale) - ImGui::CalcTextSize("Config").x - imgui_style.FramePadding.x * 2 - imgui_style.ItemSpacing.x;
+            float downlink_dd_width = (300 * ui_scale) -
+                ImGui::CalcTextSize("Config").x - imgui_style.FramePadding.x * 2 - imgui_style.ItemSpacing.x;
             for (auto &cpass : enabled_satellites)
             {
                 int dl_pos = 0;
-                std::optional<satdump::TLE> thisTLE = db_keplers->get_from_norad(cpass.norad);
+                std::optional<satdump::TLE> thisTLE = general_tle_registry.get_from_norad(cpass.norad);
                 std::string object_name = (thisTLE.has_value() ? thisTLE->name : "NORAD #" + std::to_string(cpass.norad));
                 for (auto &downlink : cpass.downlinks)
                 {
@@ -284,7 +285,8 @@ namespace satdump
                     else
                         ImGui::Dummy(min_el_size);
 
-                    std::string modal_title = "Configure " + object_name + " - " + downlink.pipeline_selector->selected_pipeline.name + " - " + format_notated(downlink.frequency, "Hz");
+                    std::string modal_title = "Configure " + object_name + " - " + downlink.pipeline_selector->selected_pipeline.readable_name +
+                        " - " + format_notated(downlink.frequency, "Hz");
 
                     ImGui::TableSetColumnIndex(1);
                     widgets::FrequencyInput(((std::string) "Hz##objcfgfreq1" + idpart).c_str(), &downlink.frequency, 0.75f, false);
@@ -307,7 +309,8 @@ namespace satdump
                     {
                         ImGui::SameLine();
                         ImGui::SetNextItemWidth(100 * ui_scale);
-                        if (ImGui::InputInt(((std::string) "Decim##recorddecim" + idpart).c_str(), &downlink.baseband_decimation) && downlink.baseband_decimation < 1)
+                        if (ImGui::InputInt(((std::string)"Decim##recorddecim" + idpart).c_str(), &downlink.baseband_decimation) &&
+                            downlink.baseband_decimation < 1)
                             downlink.baseband_decimation = 1;
                         ImGui::SetItemTooltip("IQ Decimation");
                     }
@@ -317,22 +320,24 @@ namespace satdump
                     if (!downlink.live)
                         ImGui::BeginDisabled();
                     ImGui::SetNextItemWidth(downlink_dd_width);
-                    if (ImGui::BeginCombo(((std::string) "##pipelinesel" + idpart).c_str(), downlink.pipeline_selector->selected_pipeline.name.c_str(), ImGuiComboFlags_HeightLarge))
+                    if (ImGui::BeginCombo(((std::string) "##pipelinesel" + idpart).c_str(),
+                        downlink.pipeline_selector->selected_pipeline.readable_name.c_str(), ImGuiComboFlags_HeightLarge))
                     {
                         downlink.pipeline_selector->renderSelectionBox(300 * ui_scale);
                         ImGui::EndCombo();
                     }
 
                     ImGui::SameLine();
-                    if (ImGui::Button(((std::string) "Config##" + idpart).c_str()))
+                    if (ImGui::Button(((std::string)"Config##" + idpart).c_str()))
                         ImGui::OpenPopup(modal_title.c_str());
                     if (!downlink.live)
                         ImGui::EndDisabled();
 
-                    if (ImGui::BeginPopupModal(modal_title.c_str()))
+                    if(ImGui::BeginPopupModal(modal_title.c_str()))
                     {
                         downlink.pipeline_selector->renderParamTable();
-                        ImGui::SetCursorPosX((ImGui::GetContentRegionMax().x / 2) - (ImGui::CalcTextSize("Save").x + imgui_style.FramePadding.x * 2) / 2);
+                        ImGui::SetCursorPosX((ImGui::GetContentRegionMax().x / 2) -
+                            (ImGui::CalcTextSize("Save").x + imgui_style.FramePadding.x * 2) / 2);
                         if (ImGui::Button("Save"))
                             ImGui::CloseCurrentPopup();
                         ImGui::EndPopup();
@@ -367,7 +372,7 @@ namespace satdump
             {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%s", tle_registry->get_from_norad(cpass.norad)->name.c_str());
+                ImGui::Text("%s", general_tle_registry.get_from_norad(cpass.norad)->name.c_str());
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%.2f", cpass.max_elevation);
             }
@@ -379,8 +384,6 @@ namespace satdump
         upcoming_satellite_passes_mtx.unlock();
         if (set_engaged)
             setEngaged(autotrack_engaged, curr_time);
-
-        ImGui::Dummy({0, 0});
     }
 
     image::Image AutoTrackScheduler::getScheduleImage(int width, double curr_time)
@@ -408,8 +411,7 @@ namespace satdump
             //              ImGui::Dummy(ImVec2(0, 0));
             for (int i = (timeReadable->tm_min < 30 ? 1 : 0); i < (timeReadable->tm_min < 30 ? 12 : 13); i++)
             {
-                text_drawer.draw_text(img, i * d_pplot_size / 12 - offset, 0, color_gray, 10,
-                                      satdump::svformat("%s%s%s", (curr_hour + i) % 24 < 10 ? "0" : "", std::to_string((curr_hour + i) % 24).c_str(), ":00"));
+                text_drawer.draw_text(img, i * d_pplot_size / 12 - offset, 0, color_gray, 10, svformat("%s%s%s", (curr_hour + i) % 24 < 10 ? "0" : "", std::to_string((curr_hour + i) % 24).c_str(), ":00"));
             }
             float sat_blk_height = ((float)d_pplot_height / (float)enabled_satellites.size());
             for (int i = 0; i < (int)enabled_satellites.size(); i++)
@@ -427,7 +429,7 @@ namespace satdump
                         double cpass_xs = ((cpass.aos_time - curr_time) / (12.0 * 3600.0)) * d_pplot_size;
                         double cpass_xe = ((cpass.los_time - curr_time) / (12.0 * 3600.0)) * d_pplot_size;
 
-                        std::string name = db_keplers->get_from_norad(norad)->name;
+                        std::string name = general_tle_registry.get_from_norad(norad)->name;
 
                         if (cpass_xs < 0)
                             cpass_xs = 0;
@@ -438,7 +440,9 @@ namespace satdump
 
                         uint8_t color[3];
                         hsv_to_rgb(fmod(norad, 10) / 10.0, 1, 1, color);
-                        img.draw_rectangle(cpass_xs, thsat_ys, cpass_xe, thsat_ye, {color[0] / 255.0, color[1] / 255.0, color[2] / 255.0}, true);
+                        img.draw_rectangle(cpass_xs, thsat_ys,
+                                           cpass_xe, thsat_ye,
+                                           {color[0] / 255.0, color[1] / 255.0, color[2] / 255.0}, true);
 
                         if (first_pass)
                         {
@@ -448,8 +452,12 @@ namespace satdump
                     }
                 }
 
-                img.draw_line(0, thsat_ys, d_pplot_size - 1, thsat_ys, color_gray);
-                img.draw_line(0, thsat_ye, d_pplot_size - 1, thsat_ye, color_gray);
+                img.draw_line(0, thsat_ys,
+                              d_pplot_size - 1, thsat_ys,
+                              color_gray);
+                img.draw_line(0, thsat_ye,
+                              d_pplot_size - 1, thsat_ye,
+                              color_gray);
 
                 if (autotrack_engaged)
                 {
@@ -467,7 +475,9 @@ namespace satdump
                             if (cpass_xs > d_pplot_size)
                                 cpass_xs = d_pplot_size;
 
-                            img.draw_rectangle(cpass_xs, thsat_ys, cpass_xe, thsat_ye - 1, color_white, false);
+                            img.draw_rectangle(cpass_xs, thsat_ys,
+                                               cpass_xe, thsat_ye - 1,
+                                               color_white, false);
                         }
                     }
                 }
@@ -476,4 +486,4 @@ namespace satdump
 
         return img;
     }
-} // namespace satdump
+}

@@ -1,4 +1,3 @@
-#include <algorithm>
 #define SATDUMP_DLL_EXPORT 1
 #include "plugin.h"
 #ifdef _WIN32
@@ -6,11 +5,10 @@
 #else
 #include <dlfcn.h>
 #endif
-#include "core/exception.h"
 #include "logger.h"
-#include "satdump_vars.h"
-#include <cstdlib>
 #include <filesystem>
+#include "satdump_vars.h"
+#include "core/exception.h"
 
 std::shared_ptr<satdump::Plugin> loadPlugin(std::string plugin)
 {
@@ -36,8 +34,7 @@ namespace satdump
 {
     SATDUMP_DLL std::map<std::string, std::shared_ptr<satdump::Plugin>> loaded_plugins;
     SATDUMP_DLL std::shared_ptr<EventBus> eventBus = std::make_shared<EventBus>();
-    SATDUMP_DLL std::shared_ptr<TaskScheduler> taskScheduler = std::make_shared<TaskScheduler>();
-}; // namespace satdump
+};
 
 #ifdef __ANDROID__
 std::string android_plugins_dir = "";
@@ -50,15 +47,10 @@ void loadPlugins(std::map<std::string, std::shared_ptr<satdump::Plugin>> &loaded
 #ifdef __ANDROID__
     plugins_paths.push_back(android_plugins_dir + "/");
 #else
-    if (std::filesystem::exists("plugins")) // Try local plugins directory first
-        plugins_paths.push_back("./plugins");
-    if (std::filesystem::exists(satdump::LIBPATH + "plugins") && // Followed by system
-        std::filesystem::absolute(satdump::LIBPATH + "plugins") != std::filesystem::absolute("./plugins"))
-        plugins_paths.push_back(satdump::LIBPATH + "plugins");
+    if (std::filesystem::exists("plugins"))
+        plugins_paths.push_back("./plugins");              // Try local plugins directory first
+    plugins_paths.push_back(satdump::LIBPATH + "plugins"); // Followed by system
 #endif
-
-    if (plugins_paths.size() == 0)
-        logger->critical("No valid plugin directory found!");
 
     // Get platform file extensions
 #if defined(_WIN32)
@@ -68,9 +60,6 @@ void loadPlugins(std::map<std::string, std::shared_ptr<satdump::Plugin>> &loaded
 #else
     std::filesystem::path extension = ".so";
 #endif
-
-    std::vector<std::string> failed_plugins;
-    std::vector<std::string> already_loaded_plugins;
 
     // Load all plugins
     for (std::string &plugins_path : plugins_paths)
@@ -82,30 +71,23 @@ void loadPlugins(std::map<std::string, std::shared_ptr<satdump::Plugin>> &loaded
         while (pluginIterator != std::filesystem::recursive_directory_iterator())
         {
             std::string path = pluginIterator->path().string();
-            std::string currfile = std::filesystem::path(path).stem().string();
             if (!std::filesystem::is_regular_file(pluginIterator->path()) || pluginIterator->path().extension() != extension)
                 goto skip_this;
 
 #ifdef __ANDROID__
-            if (path.find("libandroid_imgui.so") != std::string::npos || path.find("libsatdump_core.so") != std::string::npos || path.find("libsatdump_interface.so") != std::string::npos)
+            if (path.find("libandroid_imgui.so") != std::string::npos ||
+                path.find("libsatdump_core.so") != std::string::npos ||
+                path.find("libsatdump_interface.so") != std::string::npos)
                 goto skip_this;
 #endif
-
-            if (std::find_if(already_loaded_plugins.begin(), already_loaded_plugins.end(), [&](auto &v1) { return v1 == currfile; }) != already_loaded_plugins.end())
-            {
-                logger->warn("Skipping duplicate plugin : " + currfile);
-                goto skip_this;
-            }
-
             try
             {
                 std::shared_ptr<satdump::Plugin> pl = loadPlugin(path);
                 loaded_plugins.insert({pl->getID(), pl});
-                already_loaded_plugins.push_back(currfile);
             }
             catch (std::runtime_error &e)
             {
-                failed_plugins.push_back(path);
+                logger->error(e.what());
             }
 
         skip_this:
@@ -113,46 +95,15 @@ void loadPlugins(std::map<std::string, std::shared_ptr<satdump::Plugin>> &loaded
             if (iteratorError)
                 logger->critical(iteratorError.message());
         }
-    }
 
-    // Try to reload failed ones, just in case. This allows handling dependencies to
-    // some extent.
-    int dependencies_layers = 0;
-    const int max_dependencies_layers = 10;
-    while (failed_plugins.size() && dependencies_layers < max_dependencies_layers)
-    {
-        std::vector<std::string> really_failed;
-        for (auto &s : failed_plugins)
+        if (loaded_plugins.size() > 0)
         {
-            try
-            {
-                std::shared_ptr<satdump::Plugin> pl = loadPlugin(s);
-                loaded_plugins.insert({pl->getID(), pl});
-            }
-            catch (std::runtime_error &e)
-            {
-                if (dependencies_layers == (max_dependencies_layers - 1))
-                    logger->error(e.what());
-                really_failed.push_back(s);
-            }
+            logger->debug("Loaded plugins (" + std::to_string(loaded_plugins.size()) + ") : ");
+            for (std::pair<const std::string, std::shared_ptr<satdump::Plugin>> &it : loaded_plugins)
+                logger->debug(" - " + it.first);
+            break;
         }
-        failed_plugins = really_failed;
-        dependencies_layers++;
-    }
-
-    if (loaded_plugins.size() > 0)
-    {
-        logger->debug("Loaded plugins (" + std::to_string(loaded_plugins.size()) + ") : ");
-        for (std::pair<const std::string, std::shared_ptr<satdump::Plugin>> &it : loaded_plugins)
-            logger->debug(" - " + it.first);
-    }
-    else
-        logger->warn("No Plugins loaded!");
-
-    if (failed_plugins.size())
-    {
-        logger->warn("The following plugins failed to load :");
-        for (auto &s : failed_plugins)
-            logger->warn(" - " + std::filesystem::path(s).stem().string());
+        else
+            logger->warn("No Plugins in " + plugins_path + "!");
     }
 }

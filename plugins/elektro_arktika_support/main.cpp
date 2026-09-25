@@ -1,36 +1,39 @@
-#include "cli/ggak_ingestor.h"
-#include "cli/ggak_merger.h"
-#include "core/cli/cli.h"
 #include "core/plugin.h"
-#include "elektro_arktika/ggak/module_ggak_to_mqtt.h"
 #include "logger.h"
+#include "core/module.h"
 
 #include "elektro_arktika/instruments/msugs/module_msugs.h"
 #include "elektro_arktika/lrit/module_elektro_lrit_data_decoder.h"
 
+#include "msugs_natural_color.h"
+#include "msugs_color_ir_merge.h"
+
 class ElektroArktikaSupport : public satdump::Plugin
 {
 public:
-    std::string getID() { return "elektro_arktika_support"; }
+    std::string getID()
+    {
+        return "elektro_arktika_support";
+    }
 
     void init()
     {
-        satdump::eventBus->register_handler<satdump::pipeline::RegisterModulesEvent>(registerPluginsHandler);
-
-        satdump::eventBus->register_handler<satdump::cli::RegisterSubcommandEvent>(registerCliCommands);
+        satdump::eventBus->register_handler<RegisterModulesEvent>(registerPluginsHandler);
+        satdump::eventBus->register_handler<satdump::RequestCppCompositeEvent>(provideCppCompositeHandler);
     }
 
-    static void registerCliCommands(const satdump::cli::RegisterSubcommandEvent &evt)
-    {
-        evt.cmd_handlers.push_back(std::make_shared<satdump::GGAKMergerCmdHandler>());
-        evt.cmd_handlers.push_back(std::make_shared<satdump::GGAKIngestorCmdHandler>());
-    }
-
-    static void registerPluginsHandler(const satdump::pipeline::RegisterModulesEvent &evt)
+    static void registerPluginsHandler(const RegisterModulesEvent &evt)
     {
         REGISTER_MODULE_EXTERNAL(evt.modules_registry, elektro_arktika::msugs::MSUGSDecoderModule);
         REGISTER_MODULE_EXTERNAL(evt.modules_registry, elektro::lrit::ELEKTROLRITDataDecoderModule);
-        REGISTER_MODULE_EXTERNAL(evt.modules_registry, elektro_arktika::ggak::GGAKToMQTTModule);
+    }
+
+    static void provideCppCompositeHandler(const satdump::RequestCppCompositeEvent &evt)
+    {
+        if (evt.id == "msugs_natural_color")
+            evt.compositors.push_back(elektro::msuGsNaturalColorCompositor);
+        else if (evt.id == "msugs_color_ir_merge")
+            evt.compositors.push_back(elektro::msuGsFalseColorIRMergeCompositor);
     }
 };
 

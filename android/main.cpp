@@ -1,21 +1,18 @@
+#include <unistd.h>
+#include <android/log.h>
+#include <android/asset_manager.h>
 #include "backend.h"
-#include "core/config.h"
-#include "core/style.h"
-#include "core/ui_safety.h"
+#include "main_ui.h"
+#include "logger.h"
 #include "init.h"
 #include "loader/loader.h"
-#include "logger.h"
-#include "main_ui.h"
-#include <android/asset_manager.h>
-#include <android/log.h>
-#include <unistd.h>
 
 // Data
 EGLDisplay g_EglDisplay = EGL_NO_DISPLAY;
 EGLSurface g_EglSurface = EGL_NO_SURFACE;
 static EGLContext g_EglContext = EGL_NO_CONTEXT;
 static bool g_Initialized = false;
-static char g_LogTag[] = "SatTool";
+static char g_LogTag[] = "SatDump";
 extern struct android_app *g_App;
 extern std::string android_plugins_dir;
 bool was_init = false;
@@ -29,8 +26,6 @@ void bindImageTextureFunctions();
 
 void init(struct android_app *app)
 {
-    setenv("LIBUSB_ANDROID_JVM_PTR", std::to_string((size_t)app).c_str(), true);
-
     if (g_Initialized)
         return;
 
@@ -95,23 +90,25 @@ void init(struct android_app *app)
         // ImGui::StyleColorsClassic();
 
         initLogger();
-        ui_scale = satdump::ui_safety::effectiveScale(backend::device_scale, 1.0f);
-        style::setFonts();
+        style::setFonts(backend::device_scale);
         HideSoftKeyboardInput();
         eglSwapInterval(g_EglDisplay, 0);
         std::shared_ptr<satdump::LoadingScreenSink> loading_screen_sink = std::make_shared<satdump::LoadingScreenSink>();
         logger->add_sink(loading_screen_sink);
 
         satdump::tle_do_update_on_init = false;
-        satdump::initSatDump();
+        satdump::initSatdump();
         satdump::initMainUI();
 
-        // Shut down loading screen
+        //Shut down loading screen
         logger->del_sink(loading_screen_sink);
         loading_screen_sink.reset();
 
-        // Set font again to adjust for DPI
+        //Set font again to adjust for DPI
         eglSwapInterval(g_EglDisplay, 1);
+
+        // TLE
+        satdump::ui_thread_pool.push([&](int) { satdump::autoUpdateTLE(satdump::user_path + "/satdump_tles.txt"); });
 
         was_init = true;
     }
@@ -123,7 +120,7 @@ void init(struct android_app *app)
 
 void tick()
 {
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
     if (g_EglDisplay == EGL_NO_DISPLAY)
         return;
 
@@ -186,14 +183,17 @@ static void handleAppCmd(struct android_app *app, int32_t appCmd)
         shutdown();
         break;
     case APP_CMD_SAVE_STATE:
-        // satdump::recorder_app->save_settings(); // TODOREWORK!!!!
-        // satdump::explorer_app->save_settings(); // TODOREWORK!!!!
-        satdump::satdump_cfg.saveUser();
+        satdump::recorder_app->save_settings();
+        satdump::viewer_app->save_settings();
+        satdump::config::saveUserConfig();
         break;
     }
 }
 
-static int32_t handleInputEvent(struct android_app *app, AInputEvent *inputEvent) { return ImGui_ImplAndroid_HandleInputEvent(inputEvent); }
+static int32_t handleInputEvent(struct android_app *app, AInputEvent *inputEvent)
+{
+    return ImGui_ImplAndroid_HandleInputEvent(inputEvent);
+}
 
 std::string getAppFilesDir(struct android_app *app)
 {
@@ -303,8 +303,6 @@ void android_main(struct android_app *app)
         // Initiate a new frame
         tick();
     }
-
-    satdump::exitSatDump();
 }
 
 // Unfortunately, there is no way to show the on-screen input from native code.

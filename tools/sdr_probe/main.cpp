@@ -9,7 +9,7 @@ int main(/*int argc, char *argv[]*/)
 
     // We don't wanna spam with init this time around
     logger->set_level(slog::LOG_OFF);
-    satdump::initSatDump();
+    satdump::initSatdump();
     completeLoggerInit();
     logger->set_level(slog::LOG_TRACE);
 
@@ -26,6 +26,4 @@ int main(/*int argc, char *argv[]*/)
     logger->info("Found devices (sinks) :");
     for (dsp::SinkDescriptor src : sinks)
         logger->info("- " + src.name);
-
-    satdump::exitSatDump();
 }

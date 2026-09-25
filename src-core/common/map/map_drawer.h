@@ -1,7 +1,7 @@
 #pragma once
 
-#include "image/image.h"
-#include "image/text.h"
+#include "common/image/image.h"
+#include "common/image/text.h"
 #include <functional>
 #include <vector>
 #include <string>

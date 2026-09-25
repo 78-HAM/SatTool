@@ -1,5 +1,6 @@
 #include "core/plugin.h"
 #include "logger.h"
+#include "core/module.h"
 
 #include "saral/argos/module_saral_argos.h"
 
@@ -18,15 +19,18 @@
 class OthersSupport : public satdump::Plugin
 {
 public:
-    std::string getID() { return "others_support"; }
+    std::string getID()
+    {
+        return "others_support";
+    }
 
     void init()
     {
-        satdump::eventBus->register_handler<satdump::pipeline::RegisterModulesEvent>(registerPluginsHandler);
+        satdump::eventBus->register_handler<RegisterModulesEvent>(registerPluginsHandler);
         //        satdump::eventBus->register_handler<satdump::ImageProducts::RequestCalibratorEvent>(provideImageCalibratorHandler);
     }
 
-    static void registerPluginsHandler(const satdump::pipeline::RegisterModulesEvent &evt)
+    static void registerPluginsHandler(const RegisterModulesEvent &evt)
     {
         REGISTER_MODULE_EXTERNAL(evt.modules_registry, saral::argos::SaralArgosDecoderModule);
 

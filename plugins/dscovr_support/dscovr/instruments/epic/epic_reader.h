@@ -2,7 +2,7 @@
 
 #include <cstdint>
 #include <vector>
-#include "image/image.h"
+#include "common/image/image.h"
 #include <string>
 
 namespace dscovr

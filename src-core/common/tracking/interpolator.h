@@ -39,23 +39,14 @@ public:
 class LinearInterpolator
 {
 private:
-    std::vector<std::pair<double, double>> xy;
+    const std::vector<std::pair<double, double>> xy;
 
 public:
-    LinearInterpolator() {}
-
-    LinearInterpolator(std::vector<std::pair<double, double>> xy) { set_points(xy); }
-
-    void set_points(std::vector<std::pair<double, double>> p)
+    LinearInterpolator(std::vector<std::pair<double, double>> xy)
+        : xy(xy)
     {
-        std::sort(p.begin(), p.end(), [](auto &el1, auto &el2)
+        std::sort(xy.begin(), xy.end(), [](auto &el1, auto &el2)
                   { return el1.first < el2.first; });
-        this->xy = p;
-    }
-
-    std::vector<std::pair<double, double>> get_points() const
-    {
-        return xy;
     }
 
     double interpolate(double xvalue)
@@ -64,10 +55,8 @@ public:
         while (start_pos < (int)xy.size() && xvalue > xy[start_pos].first)
             start_pos++;
 
-        if (start_pos + 1 == (int)xy.size() )
+        if (start_pos + 1 == (int)xy.size())
             start_pos--;
-        if (start_pos >= (int)xy.size() )
-            start_pos = xy.size()-2;
         if (start_pos == 0)
             start_pos++;
 

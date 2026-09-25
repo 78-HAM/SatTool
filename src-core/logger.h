@@ -53,7 +53,6 @@ namespace slog
 
     public:
         void set_level(LogLevel lvl);
-        LogLevel get_level();
         void add_sink(std::shared_ptr<LoggerSink> sink);
         void del_sink(std::shared_ptr<LoggerSink> sink);
 

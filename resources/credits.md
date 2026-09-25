@@ -12,7 +12,7 @@ First time here? See the reference documents below to get started using SatDump.
 - [dlfcn-win32](https://github.com/dlfcn-win32/dlfcn-win32), to use the usual dlopen() functions on Windows
 - [ImGui](https://github.com/ocornut/imgui), for the user interface
 - [imgui_markdown](https://github.com/juliettef/imgui_markdown), to render composite info popups and this very file!
-- [implot](https://github.com/epezent/implot), to display images in the explorer
+- [implot](https://github.com/epezent/implot), to display images in the viewer
 - [libaec](https://gitlab.dkrz.de/k202009/libaec), with OpenSatelliteProject's path
 - [libcorrect](https://github.com/quiet/libcorrect), for Reed-Solomon decoding
 - [libjpeg](https://ijg.org/), from the Independent JPEG Group
@@ -82,7 +82,6 @@ First time here? See the reference documents below to get started using SatDump.
 - [Liberation Serif](https://www.fontsquirrel.com/fonts/liberation-serif), for Solaris Motif theme
 - [Perfect DOS VGA 437](https://www.dafont.com/perfect-dos-vga-437.font), for Phosphor theme
 - [PX Sans Nouveaux](https://www.dafont.com/px-sans-nouveaux.font), for Windows 98 theme
-- [Noto Sans SC](https://fonts.google.com/noto/specimen/Noto+Sans+SC) (SIL OFL 1.1 License), bundled as NotoSansSC-Regular.otf for the Simplified Chinese UI
 *3270 Nerd Font and Roboto have been merged into a single font.ttf*
 
 # Developers
@@ -96,21 +95,16 @@ First time here? See the reference documents below to get started using SatDump.
 
 ### Contributors
 - Arved MØKDS
-- Aria Horak (@aweeri)
 - Blobtoe
-- Bosslike5 (@tec_msat)
 - CO2ESP
 - Daniel Ekman (SA2KNG)
 - Digitelektro
 - Felix OK9UWU
 - Fred Jansen
-- Júlia M.
 - Jpjonte
 - LazzSnazz
 - Mark Pentier
-- Meti (@cpt_dingus)
 - MeteoOleg
-- MrFentazis (Andrew)
 - Oleg Kutkov
 - Peter Kooistra
 - Piefadase
@@ -119,7 +113,6 @@ First time here? See the reference documents below to get started using SatDump.
 - Sam (@sam210723)
 - Scott Tilley (VE7TIL)
 - Tomi HA6NAB
-- Thomas Douwes
 
 ### Special Thanks to
 - microp11 (Paul Maxan), for the reverse-engineering work & Scytale-C

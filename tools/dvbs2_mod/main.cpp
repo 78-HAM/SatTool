@@ -13,6 +13,7 @@
 #include "logger.h"
 #include <fstream>
 
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include "codings/dvb-s2/bbframe_descramble.h"
 #include "codings/dvb-s2/bbframe_bch.h"

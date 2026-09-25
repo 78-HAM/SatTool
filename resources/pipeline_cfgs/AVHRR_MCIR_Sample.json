@@ -1,5 +1,0 @@
-{
-    "name": "AVHRR MCIR Sample",
-    "processor": "flowgraph_processor",
-    "cfg": {}
-}

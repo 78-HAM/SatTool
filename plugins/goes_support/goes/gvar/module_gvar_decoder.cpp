@@ -1,9 +1,9 @@
 #include "module_gvar_decoder.h"
+#include "logger.h"
 #include "common/codings/differential/nrzs.h"
+#include "imgui/imgui.h"
 #include "gvar_deframer.h"
 #include "gvar_derand.h"
-#include "imgui/imgui.h"
-#include "logger.h"
 
 #define BUFFER_SIZE 8192
 
@@ -14,37 +14,68 @@ namespace goes
 {
     namespace gvar
     {
-        GVARDecoderModule::GVARDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+        GVARDecoderModule::GVARDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters)
         {
             buffer = new int8_t[BUFFER_SIZE];
-            fsfsm_file_ext = ".gvar";
         }
 
-        GVARDecoderModule::~GVARDecoderModule() { delete[] buffer; }
+        std::vector<ModuleDataType> GVARDecoderModule::getInputTypes()
+        {
+            return {DATA_FILE, DATA_STREAM};
+        }
+
+        std::vector<ModuleDataType> GVARDecoderModule::getOutputTypes()
+        {
+            return {DATA_FILE, DATA_STREAM};
+        }
+
+        GVARDecoderModule::~GVARDecoderModule()
+        {
+            delete[] buffer;
+        }
 
         void GVARDecoderModule::process()
         {
+            if (input_data_type == DATA_FILE)
+                filesize = getFilesize(d_input_file);
+            else
+                filesize = 0;
+            if (input_data_type == DATA_FILE)
+                data_in = std::ifstream(d_input_file, std::ios::binary);
+            if (output_data_type == DATA_FILE)
+            {
+                data_out = std::ofstream(d_output_file_hint + ".gvar", std::ios::binary);
+                d_output_files.push_back(d_output_file_hint + ".gvar");
+            }
+
+            logger->info("Using input symbols " + d_input_file);
+            logger->info("Decoding to " + d_output_file_hint + ".gvar");
+
+            time_t lastTime = 0;
+
             diff::NRZSDiff diff;
 
             // The deframer
-            GVARDeframer deframer;
+            GVARDeframer<uint64_t, 64, 262288, 0b0001101111100111110100000001111110111111100000001111111111111110> deframer;
 
             // Derand
             PNDerandomizer derand;
 
             // Final buffer after decoding
-            uint8_t finalBuffer[BUFFER_SIZE * 2];
+            uint8_t finalBuffer[BUFFER_SIZE];
 
             // Bits => Bytes stuff
             uint8_t byteShifter = 0;
             int inByteShifter = 0;
             int byteShifted = 0;
 
-            while (should_run())
+            while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
                 // Read a buffer
-                read_data((uint8_t *)buffer, BUFFER_SIZE);
+                if (input_data_type == DATA_FILE)
+                    data_in.read((char *)buffer, BUFFER_SIZE);
+                else
+                    input_fifo->read((uint8_t *)buffer, BUFFER_SIZE);
 
                 // Group symbols into bytes now, I channel
                 inByteShifter = 0;
@@ -75,12 +106,27 @@ namespace goes
                     {
                         derand.derandData(frame.data(), 32786);
 
-                        write_data(frame.data(), 32786);
+                        if (output_data_type == DATA_FILE)
+                            data_out.write((char *)frame.data(), 32786);
+                        else
+                            output_fifo->write(frame.data(), 32786);
                     }
+                }
+
+                if (input_data_type == DATA_FILE)
+                    progress = data_in.tellg();
+
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
                 }
             }
 
-            cleanup();
+            if (output_data_type == DATA_FILE)
+                data_out.close();
+            if (input_data_type == DATA_FILE)
+                data_in.close();
         }
 
         void GVARDecoderModule::drawUI(bool window)
@@ -93,7 +139,7 @@ namespace goes
                 {
                     ImDrawList *draw_list = ImGui::GetWindowDrawList();
                     ImVec2 rect_min = ImGui::GetCursorScreenPos();
-                    ImVec2 rect_max = {rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale};
+                    ImVec2 rect_max = { rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale };
                     draw_list->AddRectFilled(rect_min, rect_max, style::theme.widget_bg);
                     draw_list->PushClipRect(rect_min, rect_max);
 
@@ -101,7 +147,8 @@ namespace goes
                     {
                         draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (int)(100 * ui_scale + (buffer[i] / 127.0) * 130 * ui_scale) % int(200 * ui_scale),
                                                           ImGui::GetCursorScreenPos().y + (int)(100 * ui_scale + rng.gasdev() * 14 * ui_scale) % int(200 * ui_scale)),
-                                                   2 * ui_scale, style::theme.constellation);
+                                                   2 * ui_scale,
+                                                   style::theme.constellation);
                     }
 
                     draw_list->PopClipRect();
@@ -110,16 +157,25 @@ namespace goes
             }
             ImGui::EndGroup();
 
-            drawProgressBar();
+            if (!streamingInput)
+                ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string GVARDecoderModule::getID() { return "goes_gvar_decoder"; }
+        std::string GVARDecoderModule::getID()
+        {
+            return "goes_gvar_decoder";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> GVARDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> GVARDecoderModule::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> GVARDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<GVARDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace gvar
-} // namespace goes
+    } // namespace elektro
+}

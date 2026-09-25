@@ -3,7 +3,7 @@
 #include "common/ccsds/ccsds.h"
 #include <cmath>
 #include <map>
-#include "image/image.h"
+#include "common/image/image.h"
 
 namespace jason3
 {
@@ -20,9 +20,6 @@ namespace jason3
 
             int lines;
             std::vector<double> timestamps;
-
-            std::vector<double> timestamps_data;
-            std::vector<double> channels_data[3];
 
             void work(ccsds::CCSDSPacket &packet);
             image::Image getChannel(int channel);

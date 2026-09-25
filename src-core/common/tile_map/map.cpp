@@ -1,11 +1,11 @@
 #include "map.h"
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include "common/geodetic/geodetic_coordinates.h"
 #include "common/utils.h"
-#include "utils/http.h"
 #include "logger.h"
-#include "image/io.h"
-#include "image/meta.h"
+#include "common/image/io.h"
+#include "common/image/meta.h"
 
 std::pair<double, double> deg2num(double lat, double lon, int zoom)
 {
@@ -72,7 +72,7 @@ image::Image downloadTileMap(std::string url_source, double lat0, double lon0, d
             {
                 logger->debug("Downloading tile from: " + url);
 
-                satdump::perform_http_request(url, res);
+                perform_http_request(url, res);
 
                 image::Image tile;
                 image::load_img(tile, (uint8_t *)res.data(), res.size());

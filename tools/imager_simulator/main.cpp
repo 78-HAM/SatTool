@@ -13,7 +13,7 @@
 #include "logger.h"
 #include "init.h"
 
-#include "image/image.h"
+#include "common/image/image.h"
 #include "common/tracking/tracking.h"
 #include "common/tracking/tle.h"
 
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 
     // We don't wanna spam with init this time around
     logger->set_level(slog::LOG_OFF);
-    satdump::initSatDump();
+    satdump::initSatdump();
     completeLoggerInit();
     logger->set_level(slog::LOG_TRACE);
 
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 
     logger->debug("Start generation...");
 
-    auto tles = satdump::db_tle->get_from_norad(norad).value();
+    auto tles = satdump::general_tle_registry.get_from_norad(norad).value();
     satdump::SatelliteTracker sat_tracker(tles);
 
     logger->trace(tles.name);
@@ -156,6 +156,4 @@ int main(int argc, char *argv[])
         std::filesystem::create_directories(output_folder);
 
     imager_products.save(output_folder);
-
-    satdump::exitSatDump();
 }

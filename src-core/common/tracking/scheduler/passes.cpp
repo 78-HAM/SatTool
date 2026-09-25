@@ -1,6 +1,5 @@
 #include "passes.h"
 #include "common/geodetic/geodetic_coordinates.h"
-#include "init.h"
 #include "libs/predict/predict.h"
 #include "logger.h"
 
@@ -10,7 +9,7 @@ namespace satdump
     {
         std::vector<SatellitePass> passes;
         predict_observer_t *observer_station = predict_create_observer("Main", qth_lat * DEG_TO_RAD, qth_lon * DEG_TO_RAD, qth_alt * DEG_TO_RAD);
-        auto tle = db_keplers->get_from_norad(norad);
+        auto tle = general_tle_registry.get_from_norad(norad);
         if (!tle.has_value())
         {
             logger->warn("NORAD #%d is not available! Skipping pass calculation", norad);
@@ -19,23 +18,6 @@ namespace satdump
 
         predict_orbital_elements_t *satellite_object_ = predict_parse_tle(tle->line1.c_str(), tle->line2.c_str());
         double current_time = initial_time;
-
-        if (predict_is_geosynchronous(satellite_object_))
-        {
-            logger->debug("NORAD #%d is GEO!", norad);
-
-            predict_position satellite_orbit2;
-            predict_observation observation_pos2;
-            predict_orbit(satellite_object_, &satellite_orbit2, predict_to_julian_double(current_time));
-            predict_observe_orbit(observer_station, &satellite_orbit2, &observation_pos2);
-            if (observation_pos2.elevation * RAD_TO_DEG > 0)
-            {
-                // Assume it is visible constantly
-                logger->debug("NORAD #%d is visible to the QTH", norad);
-                passes.push_back({norad, initial_time, initial_time + timespan, (float)(observation_pos2.elevation * RAD_TO_DEG)});
-            }
-            return passes;
-        }
 
         if (premade_passes.size() == 0) // Normal algo, for normal LEOs
         {
@@ -181,7 +163,9 @@ namespace satdump
                 // if (picked_pass.aos_time < selectedPass.los_time)
                 //     continue;
 
-                if (picked_pass.norad != selectedPass.norad || picked_pass.aos_time != selectedPass.aos_time || picked_pass.los_time != selectedPass.los_time)
+                if (picked_pass.norad != selectedPass.norad ||
+                    picked_pass.aos_time != selectedPass.aos_time ||
+                    picked_pass.los_time != selectedPass.los_time)
                 {
                     selectedPass = picked_pass;
                     passes2.push_back(picked_pass);
@@ -193,4 +177,4 @@ namespace satdump
 
         return passes2;
     }
-} // namespace satdump
+}

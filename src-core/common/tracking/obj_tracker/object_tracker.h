@@ -7,7 +7,7 @@
 #include <thread>
 #include "common/tracking/rotator/rotator_handler.h"
 #include "common/geodetic/geodetic_coordinates.h"
-#include "image/image.h"
+#include "common/image/image.h"
 
 namespace satdump
 {
@@ -146,11 +146,6 @@ namespace satdump
 
         bool rotator_arrowkeys_enable = false;
         double rotator_arrowkeys_increment = 0.1;
-
-        double tracking_time_offset = 0;
-
-    public: // Handlers
-        std::function<void(double, double)> rotator_target_pos_updated_callback; //Todo: this calls from rotatorth_thread
 
     public: // Functions
         nlohmann::json getStatus();

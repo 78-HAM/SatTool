@@ -2,7 +2,7 @@
 
 #include "common/ccsds/ccsds.h"
 
-#include "image/image.h"
+#include "common/image/image.h"
 #include <string>
 #include <map>
 #include <memory>
@@ -59,10 +59,10 @@ namespace proba
         private:
             std::map<uint32_t, std::shared_ptr<CHRISImageParser>> imageParsers;
             std::string output_folder;
-            satdump::products::DataSet &dataset;
+            satdump::ProductDataSet &dataset;
 
         public:
-            CHRISReader(std::string &outputfolder, satdump::products::DataSet &dataset);
+            CHRISReader(std::string &outputfolder, satdump::ProductDataSet &dataset);
             void work(ccsds::CCSDSPacket &packet);
             void save();
             int cnt() { return imageParsers.size(); }

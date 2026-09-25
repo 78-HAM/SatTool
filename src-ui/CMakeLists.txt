@@ -3,42 +3,15 @@ cmake_minimum_required(VERSION 3.12)
 if(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:windows /ENTRY:mainCRTStartup")
     enable_language("RC")
-    set(WIN32_RESOURCES ../windows/resource.rc)
-endif()
-
-if(APPLE)
-    # Required for modern OpenGL
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -framework OpenGL")
-    add_compile_options(-DGL_SILENCE_DEPRECATION)
-
-    set(MACOSX_BUNDLE_EXECUTABLE_NAME "${PROJECT_NAME}")
-    set(MACOSX_BUNDLE_GUI_IDENTIFIER "${PROJECT_NAME}")
+    set (WIN32_RESOURCES ../windows/resource.rc)
 endif()
 
 file(GLOB_RECURSE SatDump_ui_CPPS *.cpp imgui/gl3w/gl3w.c)
-
-set(EXCLUDE_DIR "/nfd/")
-file(GLOB_RECURSE SatDump_ui_CPPS "*.cpp" "*.c")
-foreach(TMP_PATH ${SatDump_ui_CPPS})
-    string(FIND ${TMP_PATH} ${EXCLUDE_DIR} EXCLUDE_DIR_FOUND)
-    if(NOT ${EXCLUDE_DIR_FOUND} EQUAL -1)
-        list(REMOVE_ITEM SatDump_ui_CPPS ${TMP_PATH})
-    endif()
-endforeach(TMP_PATH)
-
 add_executable(satdump-ui ${SatDump_ui_CPPS} ${WIN32_RESOURCES})
-set_target_properties(satdump-ui PROPERTIES OUTPUT_NAME sattool-ui)
 target_include_directories(satdump-ui PUBLIC . ../src-core ../src-interface ../libsdr)
 
-# Natife File Dialogs
-add_subdirectory(nfd)
-
 # Link against the core
-target_link_libraries(satdump-ui PUBLIC satdump_core satdump_interface nfd::nfd)
-set_target_properties(satdump_core PROPERTIES SOVERSION "${PROJECT_VERSION}")
-set_target_properties(satdump_core PROPERTIES VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
-set_target_properties(satdump_interface PROPERTIES SOVERSION "${PROJECT_VERSION}")
-set_target_properties(satdump_interface PROPERTIES VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
+target_link_libraries(satdump-ui PUBLIC satdump_core satdump_interface)
 
 # OpenGL or OpenGL ES
 option(BUILD_GLES "Build the GUI with OpenGL ES" OFF)
@@ -64,9 +37,6 @@ if(MSVC)
 else()
     find_package(glfw3 CONFIG REQUIRED)
     target_link_libraries(satdump-ui PRIVATE glfw)
-#    if(NOT APPLE)
-#        target_link_libraries(satdump-ui PRIVATE X11)
-#    endif()
 endif()
 
 if(MSVC OR BUILD_MSVC)

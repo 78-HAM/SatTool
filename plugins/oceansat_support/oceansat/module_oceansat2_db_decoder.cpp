@@ -1,11 +1,10 @@
 #include "module_oceansat2_db_decoder.h"
-#include "common/codings/differential/generic.h"
-#include "common/utils.h"
-#include "imgui/imgui.h"
 #include "logger.h"
+#include "common/codings/differential/generic.h"
+#include "imgui/imgui.h"
 #include "oceansat2_deframer.h"
 #include "oceansat2_derand.h"
-#include <cstdint>
+#include "common/utils.h"
 
 #define BUFFER_SIZE 8192
 
@@ -39,18 +38,39 @@ namespace oceansat
         }
     };
 
-    Oceansat2DBDecoderModule::Oceansat2DBDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-        : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+    Oceansat2DBDecoderModule::Oceansat2DBDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters) : ProcessingModule(input_file, output_file_hint, parameters)
     {
         buffer = new int8_t[BUFFER_SIZE];
         frame_count = 0;
-        fsfsm_file_ext = ".ocm";
     }
 
-    Oceansat2DBDecoderModule::~Oceansat2DBDecoderModule() { delete[] buffer; }
+    std::vector<ModuleDataType> Oceansat2DBDecoderModule::getInputTypes()
+    {
+        return {DATA_FILE, DATA_STREAM};
+    }
+
+    std::vector<ModuleDataType> Oceansat2DBDecoderModule::getOutputTypes()
+    {
+        return {DATA_FILE};
+    }
+
+    Oceansat2DBDecoderModule::~Oceansat2DBDecoderModule()
+    {
+        delete[] buffer;
+    }
 
     void Oceansat2DBDecoderModule::process()
     {
+        filesize = getFilesize(d_input_file);
+        data_in = std::ifstream(d_input_file, std::ios::binary);
+        data_out = std::ofstream(d_output_file_hint + ".ocm", std::ios::binary);
+        d_output_files.push_back(d_output_file_hint + ".ocm");
+
+        logger->info("Using input symbols " + d_input_file);
+        logger->info("Decoding to " + d_output_file_hint + ".ocm");
+
+        time_t lastTime = 0;
+
         // I/Q Buffers
         uint8_t decodedBuffer1[BUFFER_SIZE], decodedBuffer2[BUFFER_SIZE];
         uint8_t diffedBuffer1[BUFFER_SIZE], diffedBuffer2[BUFFER_SIZE];
@@ -74,10 +94,13 @@ namespace oceansat
         // the OCM instrument is still alive on OceanSat-2
         // So I guess this is fine enough?
 
-        while (should_run())
+        while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
         {
             // Read buffer
-            read_data((uint8_t *)buffer, BUFFER_SIZE);
+            if (input_data_type == DATA_FILE)
+                data_in.read((char *)buffer, BUFFER_SIZE);
+            else
+                input_fifo->read((uint8_t *)buffer, BUFFER_SIZE);
 
             // Demodulate DQPSK... This is the crappy way but it works
             for (int i = 0; i < BUFFER_SIZE / 2; i++)
@@ -102,28 +125,30 @@ namespace oceansat
             for (std::vector<uint8_t> frame : frames1)
             {
                 derand.work(frame.data());
-                write_data((uint8_t *)frame.data(), 92220);
+                data_out.write((char *)frame.data(), 92220);
             }
 
             // Process inversed IQ
             for (std::vector<uint8_t> frame : frames2)
             {
                 derand.work(frame.data());
-                write_data((uint8_t *)frame.data(), 92220);
+                data_out.write((char *)frame.data(), 92220);
             }
 
             // This above, just processing without checking what frame came first is only fine because we are using a smaller
             // buffer size than frame size. First will get out first.
+
+            progress = data_in.tellg();
+
+            if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+            {
+                lastTime = time(NULL);
+                logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%, Frames : " + std::to_string(frame_count));
+            }
         }
 
-        cleanup();
-    }
-
-    nlohmann::json Oceansat2DBDecoderModule::getModuleStats()
-    {
-        auto v = satdump::pipeline::base::FileStreamToFileStreamModule::getModuleStats();
-        v["frame_count"] = frame_count;
-        return v;
+        data_out.close();
+        data_in.close();
     }
 
     void Oceansat2DBDecoderModule::drawUI(bool window)
@@ -136,7 +161,7 @@ namespace oceansat
             {
                 ImDrawList *draw_list = ImGui::GetWindowDrawList();
                 ImVec2 rect_min = ImGui::GetCursorScreenPos();
-                ImVec2 rect_max = {rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale};
+                ImVec2 rect_max = { rect_min.x + 200 * ui_scale, rect_min.y + 200 * ui_scale };
                 draw_list->AddRectFilled(rect_min, rect_max, style::theme.widget_bg);
                 draw_list->PushClipRect(rect_min, rect_max);
 
@@ -144,7 +169,8 @@ namespace oceansat
                 {
                     draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (int)(100 * ui_scale + (((int8_t *)buffer)[i * 2 + 0] / 127.0) * 100 * ui_scale) % int(200 * ui_scale),
                                                       ImGui::GetCursorScreenPos().y + (int)(100 * ui_scale + (((int8_t *)buffer)[i * 2 + 1] / 127.0) * 100 * ui_scale) % int(200 * ui_scale)),
-                                               2 * ui_scale, style::theme.constellation);
+                                               2 * ui_scale,
+                                               style::theme.constellation);
                 }
 
                 draw_list->PopClipRect();
@@ -166,15 +192,24 @@ namespace oceansat
         }
         ImGui::EndGroup();
 
-        drawProgressBar();
+        if (!streamingInput)
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
     }
 
-    std::string Oceansat2DBDecoderModule::getID() { return "oceansat2_db_decoder"; }
+    std::string Oceansat2DBDecoderModule::getID()
+    {
+        return "oceansat2_db_decoder";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> Oceansat2DBDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> Oceansat2DBDecoderModule::getParameters()
+    {
+        return {};
+    }
+
+    std::shared_ptr<ProcessingModule> Oceansat2DBDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<Oceansat2DBDecoderModule>(input_file, output_file_hint, parameters);
     }
-} // namespace oceansat
+} // namespace aqua

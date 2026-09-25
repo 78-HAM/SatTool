@@ -1,18 +1,21 @@
 #include "seviri_reader.h"
-#include "../../msg.h"
-#include "common/ccsds/ccsds_time.h"
 #include "common/repack.h"
-#include "init.h"
-#include "logger.h"
-#include "products/image_product.h"
-#include "utils/stats.h"
+#include "common/ccsds/ccsds_time.h"
 #include <cmath>
+#include "logger.h"
 #include <filesystem>
+#include "products/image_products.h"
+#include "../../msg.h"
+#include "common/utils.h"
 
-#include "common/tracking/tle.h"
 #include "core/config.h"
-#include "utils/thread_priority.h"
-// TODOREWORK BRING BACK #include "products/processor/image_processor.h"
+#include "common/thread_priority.h"
+#include "products/processor/image_processor.h"
+
+namespace lrit
+{
+    std::string timestamp_to_string2(double timestamp);
+}
 
 namespace meteosat
 {
@@ -27,7 +30,8 @@ namespace meteosat
             return double(offset) * 86400.0 + (days * 18.204444444 * 3600.0) + double(milliseconds_of_day) / double(ms_scale) + double(microseconds_of_millisecond) / us_of_ms_scale;
         }
 
-        SEVIRIReader::SEVIRIReader(bool d_mode_is_rss) : d_mode_is_rss(d_mode_is_rss)
+        SEVIRIReader::SEVIRIReader(bool d_mode_is_rss)
+            : d_mode_is_rss(d_mode_is_rss)
         {
             // Standard resolution channels
             for (int i = 0; i < 11; i++)
@@ -47,7 +51,8 @@ namespace meteosat
             not_channels_lines = 0;
 
             // Automatic composite generation
-            if (satdump::satdump_cfg.shouldAutoprocessProducts())
+            if (satdump::config::main_cfg["viewer"]["instruments"].contains("seviri") &&
+                satdump::config::main_cfg["satdump_general"]["auto_process_products"]["value"].get<bool>())
                 can_make_composites = true;
 
             if (can_make_composites)
@@ -76,33 +81,20 @@ namespace meteosat
             }
         }
 
-        inline std::string timestamp_to_string2(double timestamp)
-        {
-            if (timestamp < 0)
-                timestamp = 0;
-            time_t tttime = timestamp;
-            std::tm *timeReadable = gmtime(&tttime);
-            return std::to_string(timeReadable->tm_year + 1900) + "-" + (timeReadable->tm_mon + 1 > 9 ? std::to_string(timeReadable->tm_mon + 1) : "0" + std::to_string(timeReadable->tm_mon + 1)) +
-                   "-" + (timeReadable->tm_mday > 9 ? std::to_string(timeReadable->tm_mday) : "0" + std::to_string(timeReadable->tm_mday)) + "_" +
-                   (timeReadable->tm_hour > 9 ? std::to_string(timeReadable->tm_hour) : "0" + std::to_string(timeReadable->tm_hour)) + "-" +
-                   (timeReadable->tm_min > 9 ? std::to_string(timeReadable->tm_min) : "0" + std::to_string(timeReadable->tm_min)) + "-" +
-                   (timeReadable->tm_sec > 9 ? std::to_string(timeReadable->tm_sec) : "0" + std::to_string(timeReadable->tm_sec));
-        }
-
         void SEVIRIReader::saveImages()
         {
             is_saving = true;
 
-            std::string directory = d_directory + "/" + timestamp_to_string2(last_timestamp) + "/";
+            std::string directory = d_directory + "/" + lrit::timestamp_to_string2(last_timestamp) + "/";
 
             if (!std::filesystem::exists(directory))
                 std::filesystem::create_directories(directory);
 
-            satdump::products::ImageProduct *seviri_products = new satdump::products::ImageProduct();
+            satdump::ImageProducts *seviri_products = new satdump::ImageProducts();
 
             seviri_products->set_product_timestamp(last_timestamp);
 
-            int scid = satdump::most_common(all_scids.begin(), all_scids.end(), 0);
+            int scid = most_common(all_scids.begin(), all_scids.end(), 0);
 
             if (scid == METEOSAT_8_SCID)
                 seviri_products->set_product_source("MSG-1");
@@ -124,14 +116,19 @@ namespace meteosat
             else if (scid == METEOSAT_11_SCID)
                 norad = METEOSAT_11_NORAD;
 
-            std::optional<satdump::TLE> satellite_tle = satdump::db_keplers->get_from_norad_time(norad, last_timestamp);
+            std::optional<satdump::TLE> satellite_tle = satdump::general_tle_registry.get_from_norad_time(norad, last_timestamp);
 
             seviri_products->instrument_name = "seviri";
-            //           seviri_products->set_timestamps(timestamps_nrm);
-            //            seviri_products->set_tle(satellite_tle); TODOREWORK? Projection!
+            seviri_products->bit_depth = 10;
+            seviri_products->has_timestamps = true;
+            seviri_products->timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
+            seviri_products->set_timestamps(timestamps_nrm);
+            seviri_products->set_tle(satellite_tle);
 
             int ch_offsets[12] = {
-                0, -18, 18,
+                0,
+                -18,
+                18,
                 0, // TODO
                 0, // TODO
                 0, // TODO
@@ -146,8 +143,13 @@ namespace meteosat
             for (int i = 0; i < 11; i++)
             {
                 images_nrm[i].mirror(true, true);
-                seviri_products->images.push_back(
-                    {i, "SEVIRI-" + std::to_string(i + 1), std::to_string(i + 1), images_nrm[i], 10, satdump::ChannelTransform().init_affine(3, 3, ch_offsets[i] * 3, 0)});
+                seviri_products->images.push_back({"SEVIRI-" + std::to_string(i + 1),
+                                                   std::to_string(i + 1),
+                                                   images_nrm[i],
+                                                   {},
+                                                   -1,
+                                                   -1,
+                                                   ch_offsets[i]});
                 images_nrm[i].fill(0);
             }
 
@@ -155,7 +157,7 @@ namespace meteosat
                 v = -1;
 
             images_hrv.mirror(true, true);
-            seviri_products->images.push_back({11, "SEVIRI-12", "12", images_hrv, 10, satdump::ChannelTransform().init_affine(1, 1, ch_offsets[11], 0)});
+            seviri_products->images.push_back({"SEVIRI-12", "12", images_hrv, {}, -1, -1, ch_offsets[11]});
             images_hrv.fill(0);
 
             seviri_products->save(directory);
@@ -187,7 +189,7 @@ namespace meteosat
 
         void SEVIRIReader::compositeThreadFunc()
         {
-            satdump::setLowestThreadPriority(); // TODOREWORK namespace remove
+            setLowestThreadPriority();
             while (composite_th_should_run)
             {
                 compo_queue_mtx.lock();
@@ -201,15 +203,14 @@ namespace meteosat
                 }
 
                 compo_queue_mtx.lock();
-                satdump::products::ImageProduct *pro = (satdump::products::ImageProduct *)compo_queue[0].first;
+                satdump::ImageProducts *pro = (satdump::ImageProducts *)compo_queue[0].first;
                 std::string pro_path = compo_queue[0].second;
                 compo_queue.erase(compo_queue.begin());
                 compo_queue_mtx.unlock();
 
                 try
                 {
-                    // TODOREWORK satdump::process_image_products((satdump::Products *)pro, pro_path);
-                    logger->critical("PROCESSING TODOREWORK MUST BE IMPLEMENTED!!!");
+                    satdump::process_image_products((satdump::Products *)pro, pro_path);
                     delete pro;
                     pro = nullptr;
                 }
@@ -248,9 +249,18 @@ namespace meteosat
 
                     if (d_mode_is_rss)
                     {
-                        if (lines_since_last_end++ > 500 && (timeReadable.tm_min == 0 || timeReadable.tm_min == 5 || timeReadable.tm_min == 10 || timeReadable.tm_min == 15 ||
-                                                             timeReadable.tm_min == 20 || timeReadable.tm_min == 25 || timeReadable.tm_min == 30 || timeReadable.tm_min == 35 ||
-                                                             timeReadable.tm_min == 40 || timeReadable.tm_min == 45 || timeReadable.tm_min == 50 || timeReadable.tm_min == 55))
+                        if (lines_since_last_end++ > 500 && (timeReadable.tm_min == 0 ||
+                                                             timeReadable.tm_min == 5 ||
+                                                             timeReadable.tm_min == 10 ||
+                                                             timeReadable.tm_min == 15 ||
+                                                             timeReadable.tm_min == 20 ||
+                                                             timeReadable.tm_min == 25 ||
+                                                             timeReadable.tm_min == 30 ||
+                                                             timeReadable.tm_min == 35 ||
+                                                             timeReadable.tm_min == 40 ||
+                                                             timeReadable.tm_min == 45 ||
+                                                             timeReadable.tm_min == 50 ||
+                                                             timeReadable.tm_min == 55))
                         {
                             lines_since_last_end = 0;
                             saveImages();
@@ -266,7 +276,8 @@ namespace meteosat
                     }
                 }
 
-                size_t lines = d_mode_is_rss ? (fmod(scan_timestamp, 5 * 60) / (300 / 1494.0)) : (fmod(scan_timestamp, 15 * 60) / (300 / 1494.0));
+                size_t lines = d_mode_is_rss ? (fmod(scan_timestamp, 5 * 60) / (300 / 1494.0))
+                                          : (fmod(scan_timestamp, 15 * 60) / (300 / 1494.0));
 
                 // Timestamp, somewhat interpolated to have one on all lines,
                 // assuming the scan rate to be right
@@ -281,7 +292,11 @@ namespace meteosat
                 for (int c = 0; c < 3; c++)
                 {
                     // Some channels are swapped on the focal plane
-                    bool swap = scan_chunk_number == 3 || scan_chunk_number == 4 || scan_chunk_number == 8 || scan_chunk_number == 9 || scan_chunk_number == 10;
+                    bool swap = scan_chunk_number == 3 ||
+                                scan_chunk_number == 4 ||
+                                scan_chunk_number == 8 ||
+                                scan_chunk_number == 9 ||
+                                scan_chunk_number == 10;
                     for (int v = 0; v < 3834; v++)
                         if (lines < images_nrm[scan_chunk_number].height())
                             images_nrm[scan_chunk_number].set(lines * images_nrm[scan_chunk_number].width() + v, tmp_linebuf_nrm[(swap ? (2 - c) : c) * 3834 + v] << 6);
@@ -307,7 +322,8 @@ namespace meteosat
                 uint16_t *tmp_buf = new uint16_t[15000];
                 repackBytesTo10bits(&pkt.payload[8], pkt.payload.size() - 8, tmp_buf);
 
-                size_t lines = d_mode_is_rss ? (fmod(scan_timestamp, 5 * 60) / (100 / 1494.0)) : fmod(scan_timestamp, 15 * 60) / (100 / 1494.0);
+                size_t lines = d_mode_is_rss ? (fmod(scan_timestamp, 5 * 60) / (100 / 1494.0))
+                                          : fmod(scan_timestamp, 15 * 60) / (100 / 1494.0);
                 lines += (scan_chunk_number - 11) * 2;
 
                 if (not_channels_lines != lines)
@@ -331,7 +347,8 @@ namespace meteosat
                 uint16_t *tmp_buf = new uint16_t[15000];
                 repackBytesTo10bits(&pkt.payload[8], pkt.payload.size() - 8, tmp_buf);
 
-                size_t lines = d_mode_is_rss ? (fmod(scan_timestamp, 5 * 60) / (100 / 1494.0)) : fmod(scan_timestamp, 15 * 60) / (100 / 1494.0);
+                size_t lines = d_mode_is_rss ? (fmod(scan_timestamp, 5 * 60) / (100 / 1494.0))
+                                          : fmod(scan_timestamp, 15 * 60) / (100 / 1494.0);
                 lines += (scan_chunk_number - 11) * 2;
 
                 for (int v = 0; v < 5751; v++)
@@ -343,5 +360,5 @@ namespace meteosat
                 delete[] tmp_buf;
             }
         }
-    } // namespace msg
-} // namespace meteosat
+    }
+}

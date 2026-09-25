@@ -1,18 +1,18 @@
 #include "module_s2_ts_extractor.h"
+#include "logger.h"
+#include "imgui/imgui.h"
 #include "common/codings/dvb-s2/bbframe_ts_parser.h"
 #include "common/utils.h"
 #include "core/exception.h"
-#include "imgui/imgui.h"
-#include "logger.h"
 
 #if !(defined(__APPLE__) || defined(_WIN32))
 #include <netdb.h>
 #include <netinet/in.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <stdio.h>
 #include <unistd.h>
 #endif
 
@@ -52,27 +52,28 @@ namespace dvbs2
         }
     }
 
-    std::vector<satdump::pipeline::ModuleDataType> S2TStoTCPModule::getInputTypes() { return {satdump::pipeline::DATA_FILE, satdump::pipeline::DATA_STREAM}; }
+    std::vector<ModuleDataType> S2TStoTCPModule::getInputTypes()
+    {
+        return {DATA_FILE, DATA_STREAM};
+    }
 
-    // The extractor can be used as a live middle-stage before a network
-    // sink, where it writes transport stream packets to output_fifo.
-    std::vector<satdump::pipeline::ModuleDataType> S2TStoTCPModule::getOutputTypes() { return {satdump::pipeline::DATA_FILE, satdump::pipeline::DATA_STREAM}; }
+    std::vector<ModuleDataType> S2TStoTCPModule::getOutputTypes()
+    {
+        return {DATA_FILE};
+    }
 
-    S2TStoTCPModule::~S2TStoTCPModule() {}
+    S2TStoTCPModule::~S2TStoTCPModule()
+    {
+    }
 
     void S2TStoTCPModule::process()
     {
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
             filesize = getFilesize(d_input_file);
         else
             filesize = 0;
-        if (input_data_type == satdump::pipeline::DATA_FILE)
+        if (input_data_type == DATA_FILE)
             data_in = std::ifstream(d_input_file, std::ios::binary);
-        if (output_data_type == satdump::pipeline::DATA_FILE)
-        {
-            d_output_file = d_output_file_hint + ".ts";
-            data_out = std::ofstream(d_output_file, std::ios::binary);
-        }
 
         logger->info("Using input bbframes " + d_input_file);
 
@@ -83,10 +84,10 @@ namespace dvbs2
 
         dvbs2::BBFrameTSParser ts_extractor(bbframe_size);
 
-        while (input_data_type == satdump::pipeline::DATA_FILE ? !data_in.eof() : input_active.load())
+        while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
         {
             // Read buffer
-            if (input_data_type == satdump::pipeline::DATA_FILE)
+            if (input_data_type == DATA_FILE)
                 data_in.read((char *)bb_buffer, bbframe_size / 8);
             else
                 input_fifo->read((uint8_t *)bb_buffer, bbframe_size / 8);
@@ -95,13 +96,13 @@ namespace dvbs2
 
             for (int i = 0; i < ts_cnt; i++)
             {
-                if (output_data_type == satdump::pipeline::DATA_FILE)
+                if (output_data_type == DATA_FILE)
                     data_out.write((char *)&ts_frames[i * 188], 188);
                 else
                     output_fifo->write((uint8_t *)&ts_frames[i * 188], 188);
             }
 
-            if (input_data_type == satdump::pipeline::DATA_FILE)
+            if (input_data_type == DATA_FILE)
                 progress = data_in.tellg();
 
             if (time(NULL) % 10 == 0 && lastTime != time(NULL))
@@ -114,7 +115,7 @@ namespace dvbs2
         delete[] bb_buffer;
 
         data_out.close();
-        if (output_data_type == satdump::pipeline::DATA_FILE)
+        if (output_data_type == DATA_FILE)
             data_in.close();
     }
 
@@ -132,16 +133,24 @@ namespace dvbs2
         }
         ImGui::EndGroup();
 
-        if (!d_is_streaming_input)
+        if (!streamingInput)
             ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
     }
 
-    std::string S2TStoTCPModule::getID() { return "dvbs2_ts_extractor"; }
+    std::string S2TStoTCPModule::getID()
+    {
+        return "dvbs2_ts_extractor";
+    }
 
-    std::shared_ptr<satdump::pipeline::ProcessingModule> S2TStoTCPModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+    std::vector<std::string> S2TStoTCPModule::getParameters()
+    {
+        return {};
+    }
+
+    std::shared_ptr<ProcessingModule> S2TStoTCPModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
     {
         return std::make_shared<S2TStoTCPModule>(input_file, output_file_hint, parameters);
     }
-} // namespace dvbs2
+}

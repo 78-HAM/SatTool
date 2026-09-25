@@ -1,7 +1,7 @@
 #pragma once
 
-#include "common/dsp/complex.h"
 #include <vector>
+#include "common/dsp/complex.h"
 
 /*
 Window and FIR generating functions
@@ -45,7 +45,7 @@ namespace dsp
             static double max_attenuation(win_type type, double beta = 6.76);
             static std::vector<float> build(win_type type, int ntaps, double beta, const bool normalize = false);
         };
-    }; // namespace fft
+    };
 
     namespace firdes
     {
@@ -76,8 +76,7 @@ namespace dsp
          * \param window              one of fft::window::win_type
          * \param beta                parameter for Kaiser window
          */
-        std::vector<float> low_pass(double gain, double sampling_freq, double cutoff_freq, double transition_width, fft::window::win_type window = fft::window::win_type::WIN_HAMMING,
-                                    double beta = 6.76);
+        std::vector<float> low_pass(double gain, double sampling_freq, double cutoff_freq, double transition_width, fft::window::win_type window = fft::window::win_type::WIN_HAMMING, double beta = 6.76);
 
         /**
         * @brief Given the interpolation rate, decimation rate and a fractional bandwidth,
@@ -89,42 +88,19 @@ namespace dsp
         * @param decimation decimation factor (integer > 0)
         * @param fractional_bw fractional bandwidth in (0, 0.5)  0.4 works well. (float)
         */
-        std::vector<float> high_pass(double gain, double sampling_freq, double cutoff_freq, double transition_width, fft::window::win_type window = fft::window::win_type::WIN_HAMMING,
-                                     double beta = 6.76);
+        std::vector<float> high_pass(double gain, double sampling_freq, double cutoff_freq, double transition_width, fft::window::win_type window = fft::window::win_type::WIN_HAMMING, double beta = 6.76);
 
-        /*!
-         * \brief design a high-pass FIR filter.
-         *
-         * \param gain                overall gain of filter (typically 1.0)
-         * \param sampling_freq       sampling freq (Hz)
-         * \param cutoff_freq         center of transition band (Hz)
-         * \param transition_width    width of transition band (Hz).
-         */
-        std::vector<float> band_pass(double gain, double sampling_freq, double low_cutoff_freq, double high_cutoff_freq, double transition_width,
-                                     fft::window::win_type window = fft::window::win_type::WIN_HAMMING, double beta = 6.76);
-
-        /*!
-         * \brief Use the "window method" to design a complex band-pass FIR
-         * filter.  The normalized width of the transition band is what sets the
-         * number of taps required.  Narrow --> more taps. The window type
-         * determines maximum attenuation and passband ripple.
-         *
-         * \param gain                overall gain of filter (typically 1.0)
-         * \param sampling_freq       sampling freq (Hz)
-         * \param low_cutoff_freq     center of transition band (Hz)
-         * \param high_cutoff_freq    center of transition band (Hz)
-         * \param transition_width    width of transition band (Hz)
-         * \param window              one of fft::window::win_type
-         * \param param               parameter for Kaiser, Exp., Gaussian, Tukey windows
-         */
-        std::vector<complex_t> complex_band_pass(double gain, double sampling_freq,
-                                                 double low_cutoff_freq,  // Hz center of transition band
-                                                 double high_cutoff_freq, // Hz center of transition band
-                                                 double transition_width, // Hz width of transition band
-                                                 fft::window::win_type window = fft::window::win_type::WIN_HAMMING,
-                                                 double param = 6.76); // used for Kaiser, Exp., Gaussian, Tukey windows
-
-        /*!
+    /*!
+    * \brief design a high-pass FIR filter.
+    *
+        * \param gain                overall gain of filter (typically 1.0)
+        * \param sampling_freq       sampling freq (Hz)
+        * \param cutoff_freq         center of transition band (Hz)
+        * \param transition_width    width of transition band (Hz).
+        */
+    std::vector<float> band_pass(double gain, double sampling_freq, double low_cutoff_freq, double high_cutoff_freq, double transition_width, fft::window::win_type window = fft::window::win_type::WIN_HAMMING, double beta = 6.76);
+    
+    /*!
          * \brief design a band-pass FIR filter.
          *
          * \param gain                overall gain of filter (typically 1.0)
@@ -143,10 +119,9 @@ namespace dsp
          * \param bt      bandwidth to bitrate ratio
          * \param ntaps   number of taps
          */
-        std::vector<float> gaussian(double gain, double spb,
+        std::vector<float> gaussian(double gain,
+                                    double spb,
                                     double bt, // Bandwidth to bitrate ratio
                                     int ntaps);
-
-        std::vector<float> hilbert(unsigned int ntaps, fft::window::win_type windowtype, double param);
-    }; // namespace firdes
-}; // namespace dsp
+    };
+};

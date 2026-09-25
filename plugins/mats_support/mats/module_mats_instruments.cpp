@@ -1,25 +1,31 @@
 #include "module_mats_instruments.h"
-#include "common/ccsds/ccsds_tm/demuxer.h"
+#include <fstream>
 #include "common/ccsds/ccsds_tm/vcdu.h"
-#include "imgui/imgui.h"
 #include "logger.h"
-#include "products/dataset.h"
-#include "products/image_product.h"
-#include <cstdint>
 #include <filesystem>
+#include "imgui/imgui.h"
+#include "common/utils.h"
+#include "common/ccsds/ccsds_tm/demuxer.h"
+#include "products/image_products.h"
+#include "products/dataset.h"
 
 namespace mats
 {
     namespace instruments
     {
         MATSInstrumentsDecoderModule::MATSInstrumentsDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+            : ProcessingModule(input_file, output_file_hint, parameters)
         {
-            fsfsm_enable_output = false;
         }
 
         void MATSInstrumentsDecoderModule::process()
         {
+            filesize = getFilesize(d_input_file);
+            std::ifstream data_in(d_input_file, std::ios::binary);
+
+            logger->info("Using input frames " + d_input_file);
+
+            time_t lastTime = 0;
             uint8_t cadu[1279];
 
             // Demuxers
@@ -29,10 +35,10 @@ namespace mats
 
             std::string mats_directory = d_output_file_hint.substr(0, d_output_file_hint.rfind('/'));
 
-            while (should_run())
+            while (!data_in.eof())
             {
                 // Read buffer
-                read_data((uint8_t *)&cadu, 1279);
+                data_in.read((char *)&cadu, 1279);
 
                 // Parse this transport frame
                 ccsds::ccsds_tm::VCDU vcdu = ccsds::ccsds_tm::parseVCDU(cadu);
@@ -49,12 +55,19 @@ namespace mats
                             mats_reader.work(pkt, mats_directory);
                     }
                 }
+
+                progress = data_in.tellg();
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
+                }
             }
 
-            cleanup();
+            data_in.close();
 
             // Products dataset
-            satdump::products::DataSet dataset;
+            satdump::ProductDataSet dataset;
             dataset.satellite_name = "MATS";
             dataset.timestamp = time(0); // avg_overflowless(avhrr_reader.timestamps);
 
@@ -69,14 +82,17 @@ namespace mats
                 logger->info("----------- MATS Nadir");
                 logger->info("Lines : " + std::to_string(mats_reader.nadir_lines));
 
-                satdump::products::ImageProduct mats_nadir_products;
+                satdump::ImageProducts mats_nadir_products;
                 mats_nadir_products.instrument_name = "mats_nadir";
+                mats_nadir_products.has_timestamps = false;
                 // mats_nadir_products.set_tle(satellite_tle);
+                mats_nadir_products.bit_depth = 12;
+                mats_nadir_products.set_wavenumber(0, 1311.99);
+                // mats_nadir_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
                 // mats_nadir_products.set_timestamps(mhs_reader.timestamps);
                 // mats_nadir_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/metop_abc_mhs.json")));
 
-                mats_nadir_products.images.push_back({0, "MATS-Nadir", "1", mats_reader.getNadirImage(), 12});
-                mats_nadir_products.set_channel_wavenumber(0, 1311.99);
+                mats_nadir_products.images.push_back({"MATS-Nadir", "1", mats_reader.getNadirImage()});
 
                 mats_nadir_products.save(directory);
                 dataset.products_list.push_back("Nadir");
@@ -115,16 +131,24 @@ namespace mats
                 ImGui::EndTable();
             }
 
-            drawProgressBar();
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string MATSInstrumentsDecoderModule::getID() { return "mats_instruments"; }
+        std::string MATSInstrumentsDecoderModule::getID()
+        {
+            return "mats_instruments";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> MATSInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> MATSInstrumentsDecoderModule::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> MATSInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<MATSInstrumentsDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace instruments
-} // namespace mats
+    } // namespace amsu
+} // namespace metop

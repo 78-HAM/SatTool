@@ -1,14 +1,13 @@
 #include "module_ldcm_instruments.h"
-#include "common/ccsds/ccsds_aos/demuxer.h"
-#include "common/ccsds/ccsds_aos/vcdu.h"
-#include "common/utils.h"
-#include "imgui/imgui.h"
-#include "logger.h"
-#include "products/dataset.h"
-#include "products/image_product.h"
-#include <cstdint>
-#include <filesystem>
 #include <fstream>
+#include "common/ccsds/ccsds_aos/vcdu.h"
+#include "logger.h"
+#include <filesystem>
+#include "imgui/imgui.h"
+#include "common/utils.h"
+#include "common/ccsds/ccsds_aos/demuxer.h"
+#include "products/image_products.h"
+#include "products/dataset.h"
 
 extern "C"
 {
@@ -20,13 +19,18 @@ namespace ldcm
     namespace instruments
     {
         LDCMInstrumentsDecoderModule::LDCMInstrumentsDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
-            : satdump::pipeline::base::FileStreamToFileStreamModule(input_file, output_file_hint, parameters)
+            : ProcessingModule(input_file, output_file_hint, parameters)
         {
-            fsfsm_enable_output = false;
         }
 
         void LDCMInstrumentsDecoderModule::process()
         {
+            filesize = getFilesize(d_input_file);
+            std::ifstream data_in(d_input_file, std::ios::binary);
+
+            logger->info("Using input frames " + d_input_file);
+
+            time_t lastTime = 0;
             uint8_t cadu[1034];
 
             // Demuxers
@@ -37,10 +41,10 @@ namespace ldcm
 
             //  std::ofstream idk_test_out(d_output_file_hint.substr(0, d_output_file_hint.rfind('/')) + "/test_idk.bin", std::ios::binary);
 
-            while (should_run())
+            while (!data_in.eof())
             {
                 // Read buffer
-                read_data((uint8_t *)cadu, 1034);
+                data_in.read((char *)cadu, 1034);
 
                 // Parse this transport frame
                 ccsds::ccsds_aos::VCDU vcdu = ccsds::ccsds_aos::parseVCDU(cadu);
@@ -94,12 +98,19 @@ namespace ldcm
                     }
                 }
 #endif
+
+                progress = data_in.tellg();
+                if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+                {
+                    lastTime = time(NULL);
+                    logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
+                }
             }
 
-            cleanup();
+            data_in.close();
 
             // Products dataset
-            satdump::products::DataSet dataset;
+            satdump::ProductDataSet dataset;
             dataset.satellite_name = "LandSat-8/9";
             dataset.timestamp = time(0); // avg_overflowless(avhrr_reader.timestamps);
 
@@ -116,19 +127,22 @@ namespace ldcm
                 logger->info("Lines 2 : " + std::to_string(tirs_reader2.lines));
                 logger->info("Lines 3 : " + std::to_string(tirs_reader3.lines));
 
-                satdump::products::ImageProduct tirs_products;
+                satdump::ImageProducts tirs_products;
                 tirs_products.instrument_name = "tirs";
+                tirs_products.has_timestamps = false;
                 // tirs_products.set_tle(satellite_tle);
+                tirs_products.bit_depth = 12;
                 // tirs_products.set_wavenumber(0, 1311.99);
+                // tirs_products.timestamp_type = satdump::ImageProducts::TIMESTAMP_LINE;
                 // tirs_products.set_timestamps(mhs_reader.timestamps);
                 // tirs_products.set_proj_cfg(loadJsonFile(resources::getResourcePath("projections_settings/metop_abc_mhs.json")));
 
                 for (int i = 0; i < 3; i++)
-                    tirs_products.images.push_back({i, "TIRS-" + std::to_string(i + 1), std::to_string(i + 1), tirs_reader1.getChannel(i), 12});
+                    tirs_products.images.push_back({"TIRS-" + std::to_string(i + 1), std::to_string(i + 1), tirs_reader1.getChannel(i)});
                 for (int i = 0; i < 3; i++)
-                    tirs_products.images.push_back({i + 3, "TIRS-" + std::to_string(i + 4), std::to_string(i + 4), tirs_reader2.getChannel(i), 12});
+                    tirs_products.images.push_back({"TIRS-" + std::to_string(i + 4), std::to_string(i + 4), tirs_reader2.getChannel(i)});
                 for (int i = 0; i < 3; i++)
-                    tirs_products.images.push_back({i + 6, "TIRS-" + std::to_string(i + 7), std::to_string(i + 7), tirs_reader3.getChannel(i), 12});
+                    tirs_products.images.push_back({"TIRS-" + std::to_string(i + 7), std::to_string(i + 7), tirs_reader3.getChannel(i)});
 
                 tirs_products.save(directory);
                 dataset.products_list.push_back("TIRS");
@@ -180,16 +194,24 @@ namespace ldcm
                 ImGui::EndTable();
             }
 
-            drawProgressBar();
+            ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
             ImGui::End();
         }
 
-        std::string LDCMInstrumentsDecoderModule::getID() { return "ldcm_instruments"; }
+        std::string LDCMInstrumentsDecoderModule::getID()
+        {
+            return "ldcm_instruments";
+        }
 
-        std::shared_ptr<satdump::pipeline::ProcessingModule> LDCMInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
+        std::vector<std::string> LDCMInstrumentsDecoderModule::getParameters()
+        {
+            return {};
+        }
+
+        std::shared_ptr<ProcessingModule> LDCMInstrumentsDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)
         {
             return std::make_shared<LDCMInstrumentsDecoderModule>(input_file, output_file_hint, parameters);
         }
-    } // namespace instruments
-} // namespace ldcm
+    } // namespace amsu
+} // namespace metop

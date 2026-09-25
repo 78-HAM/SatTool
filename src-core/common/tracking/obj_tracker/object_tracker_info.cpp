@@ -1,6 +1,5 @@
-#include "common/utils.h"
 #include "object_tracker.h"
-#include "utils/time.h"
+#include "common/utils.h"
 
 namespace satdump
 {
@@ -61,12 +60,19 @@ namespace satdump
         std::vector<double> color_orange = {1, 165.0 / 255.0, 0};
         std::vector<double> color_cyan = {0, 237.0 / 255.0, 1};
 
-        img.draw_circle(plot_size / 2, plot_size / 2, radius1, color_green, false);
-        img.draw_circle(plot_size / 2, plot_size / 2, radius2, color_green, false);
-        img.draw_circle(plot_size / 2, plot_size / 2, radius3, color_green, false);
+        img.draw_circle(plot_size / 2, plot_size / 2,
+                        radius1, color_green, false);
+        img.draw_circle(plot_size / 2, plot_size / 2,
+                        radius2, color_green, false);
+        img.draw_circle(plot_size / 2, plot_size / 2,
+                        radius3, color_green, false);
 
-        img.draw_line(plot_size / 2, 0, plot_size / 2, plot_size - 1, color_green);
-        img.draw_line(0, plot_size / 2, plot_size - 1, plot_size / 2, color_green);
+        img.draw_line(plot_size / 2, 0,
+                      plot_size / 2, plot_size - 1,
+                      color_green);
+        img.draw_line(0, plot_size / 2,
+                      plot_size - 1, plot_size / 2,
+                      color_green);
 
         // Draw the satellite's trace
         if (upcoming_pass_points.size() > 1)
@@ -87,7 +93,9 @@ namespace satdump
                 point_x2 += az_el_to_plot_x(plot_size, radius, p2.az, p2.el);
                 point_y2 -= az_el_to_plot_y(plot_size, radius, p2.az, p2.el);
 
-                img.draw_line(point_x1, point_y1, point_x2, point_y2, color_orange);
+                img.draw_line(point_x1, point_y1,
+                              point_x2, point_y2,
+                              color_orange);
             }
             upcoming_passes_mtx.unlock();
         }
@@ -133,4 +141,4 @@ namespace satdump
 
         return img;
     }
-} // namespace satdump
+}

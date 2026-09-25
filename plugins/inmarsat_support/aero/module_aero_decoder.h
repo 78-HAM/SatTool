@@ -1,16 +1,16 @@
 #pragma once
 
+#include "core/module.h"
 #include "common/codings/generic_correlator.h"
 #include "common/codings/viterbi/viterbi27.h"
 #include "decode_utils.h"
-#include "pipeline/modules/base/filestream_to_filestream.h"
 #include <fstream>
 
 namespace inmarsat
 {
     namespace aero
     {
-        class AeroDecoderModule : public satdump::pipeline::base::FileStreamToFileStreamModule
+        class AeroDecoderModule : public ProcessingModule
         {
         protected:
             bool is_c_channel = false;
@@ -32,6 +32,11 @@ namespace inmarsat
             int8_t *buffer_deinterleaved;
             uint8_t *buffer_vitdecoded;
 
+            std::ifstream data_in;
+            std::ofstream data_out;
+            std::atomic<uint64_t> filesize;
+            std::atomic<uint64_t> progress;
+
             std::unique_ptr<CorrelatorGeneric> correlator;
             std::unique_ptr<viterbi::Viterbi27> viterbi;
             std::vector<uint8_t> randomization_seq;
@@ -48,13 +53,14 @@ namespace inmarsat
             ~AeroDecoderModule();
             void process();
             void drawUI(bool window);
-            nlohmann::json getModuleStats();
+            std::vector<ModuleDataType> getInputTypes();
+            std::vector<ModuleDataType> getOutputTypes();
 
         public:
             static std::string getID();
             virtual std::string getIDM() { return getID(); };
-            static nlohmann::json getParams() { return {}; } // TODOREWORK
+            static std::vector<std::string> getParameters();
             static std::shared_ptr<ProcessingModule> getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         };
-    } // namespace aero
-} // namespace inmarsat
+    }
+}

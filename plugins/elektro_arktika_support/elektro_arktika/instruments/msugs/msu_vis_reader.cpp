@@ -1,7 +1,4 @@
 #include "msu_vis_reader.h"
-#include "logger.h"
-#include "utils/binary.h"
-#include <string>
 
 namespace elektro_arktika
 {
@@ -9,66 +6,19 @@ namespace elektro_arktika
     {
         MSUVISReader::MSUVISReader()
         {
-            imageBuffer1 = new unsigned short[17200 * 6004];
-            imageBuffer2 = new unsigned short[17200 * 6004];
-            timestamps.resize(17200, -1);
+            imageBuffer = new unsigned short[17200 * 12008];
             frames = 0;
         }
 
         MSUVISReader::~MSUVISReader()
         {
-            delete[] imageBuffer1;
-            delete[] imageBuffer2;
+            delete[] imageBuffer;
         }
 
-        void MSUVISReader::pushFrame(uint8_t *data, bool apply_correction)
+        void MSUVISReader::pushFrame(uint8_t *data, int offset)
         {
+            int counter = (data[8] << 8 | data[9]) + offset;
 
-            // First bit is never set, mask it
-            int counter = (data[8] << 8 | data[9]) & 0x7fff;
-
-            // Does correction logic if specified by the user
-            if (apply_correction)
-            {
-                // Unlocks if we are fstarting a new image
-                // Not implemented in RDAS!
-                /*
-                if (counter_locked) && (counter == 1 || counter == 2)) {
-                    counter_locked = false;
-
-                } else*/
-
-                if (!counter_locked)
-                {
-                    if (counter == global_counter + 1)
-                    {
-                        // LOCKED!
-                        logger->debug("Counter correction LOCKED! Counter: " + std::to_string(counter));
-                        counter_locked = true;
-                    }
-                    else
-                    {
-                        // We can't lock, save this counter for a check on the next one
-                        global_counter = counter;
-                    }
-                }
-                if (counter_locked)
-                {
-                    // Makes sure dropped frames don't throw us off, a few skipped lines are fine
-                    // Corrector therefore doesn't fix three LSB flips, but this improves reliability
-                    // with projections and such
-                    if (abs(counter - global_counter) > 7)
-                    {
-                        counter = global_counter + 1;
-                    }
-
-                    global_counter = counter;
-                }
-            }
-            // Warning: The above code MUST have an unlock in the FD end! Since the code doesn't have
-            // handling for more than one FD at a time right now, I didn't add this. Just keep it in mind!
-
-            // Sanity check
             if (counter >= 17200)
                 return;
 
@@ -88,38 +38,16 @@ namespace elektro_arktika
             // Deinterleave and load into our image buffer
             for (int i = 0; i < 6004; i++)
             {
-                imageBuffer1[counter * 6004 + i] = msuLineBuffer[i * 2 + 0] << 6;
-                imageBuffer2[counter * 6004 + i] = msuLineBuffer[i * 2 + 1] << 6;
-            }
-
-            uint64_t data_time = data[10] << 32 | data[11] << 24 | data[12] << 16 | data[13] << 8 | data[14];
-            //  data_time = 0;
-            double timestamp = data_time / 256.0; //.56570155902006;
-            timestamp += 1735204808.2837029;
-            timestamp -= 1800 + 88;
-            timestamps[counter] = timestamp;
-
-            uint8_t vals[7];
-            for (int i = 0; i < 7; i++)
-                vals[6 - i] = satdump::reverseBits(data[15200 + i]);
-            for (int i = 0; i < 7; i++)
-                data[15200 + i] = vals[i];
-
-            data[15208] = satdump::reverseBits(data[15208]);
-
-            double val = (uint64_t)data[12] << 16 | (uint64_t)data[13] << 8 | (uint64_t)data[14]; // (uint64_t)data[15202] << 16 | (uint64_t)data[15203] << 8 | (uint64_t)data[15204];
-            // val = (val / 16777215.0) * 360;
-
-            if (val > 1)
-            {
-                angle_points.push_back({counter, val});
+                imageBuffer[counter * 12008 + i] = msuLineBuffer[i * 2 + 0] << 6;
+                imageBuffer[counter * 12008 + 6000 + i] = msuLineBuffer[i * 2 + 1] << 6;
             }
 
             frames++;
         }
 
-        image::Image MSUVISReader::getImage1() { return image::Image(&imageBuffer1[0], 16, 6004, 17200, 1); }
-
-        image::Image MSUVISReader::getImage2() { return image::Image(&imageBuffer2[0], 16, 6004, 17200, 1); }
+        image::Image MSUVISReader::getImage()
+        {
+            return image::Image(&imageBuffer[0], 16, 12008, 17200, 1);
+        }
     } // namespace msugs
 } // namespace elektro_arktika

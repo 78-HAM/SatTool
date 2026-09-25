@@ -1,7 +1,8 @@
-ARG DEBIAN_IMAGE_TAG=trixie
+ARG DEBIAN_IMAGE_TAG=bookworm
 FROM debian:${DEBIAN_IMAGE_TAG} AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG CMAKE_BUILD_PARALLEL_LEVEL
 ENV TZ=Etc/UTC
 
 WORKDIR /usr/local/src/
@@ -13,7 +14,6 @@ RUN apt -y update && \
 WORKDIR /usr/local/src/satdump
 COPY . .
 
-ARG CMAKE_BUILD_PARALLEL_LEVEL
 RUN cmake -B build \
           -DCMAKE_BUILD_TYPE=Release \
           -DBUILD_GUI=ON \
@@ -22,7 +22,7 @@ RUN cmake -B build \
     cmake --build build --target package
 
 
-ARG DEBIAN_IMAGE_TAG=trixie
+ARG DEBIAN_IMAGE_TAG=bookworm
 FROM debian:${DEBIAN_IMAGE_TAG} AS runner
 
 ARG DEBIAN_FRONTEND=noninteractive

@@ -2,8 +2,6 @@
 #include "imgui/imgui_stdlib.h"
 #include "logger.h"
 #include "params.h"
-#include "core/ui_safety.h"
-#include "i18n.h"
 
 namespace satdump
 {
@@ -71,8 +69,6 @@ namespace satdump
                 d_options_str = "";
                 for (std::string &opt : d_options)
                     d_options_str += opt + '\0';
-                if (d_options.empty())
-                    d_options_str += std::string("<Empty>") + '\0';
 
                 if (hasValue)
                 {
@@ -114,14 +110,9 @@ namespace satdump
             {
                 d_type = PARAM_COLOR;
                 std::vector<float> color = p_json["value"].get<std::vector<float>>();
-                if (color.size() >= 3)
-                {
-                    p_color[0] = color[0];
-                    p_color[1] = color[1];
-                    p_color[2] = color[2];
-                }
-                else
-                    logger->error("Color parameter \"%s\" must contain at least three components", d_name.c_str());
+                p_color[0] = color[0];
+                p_color[1] = color[1];
+                p_color[2] = color[2];
             }
             else if (type_str == "baseband_type")
             {
@@ -138,10 +129,8 @@ namespace satdump
                 d_options_str = "";
                 for (std::pair<std::string, std::string> &opt : d_labeled_opts)
                     d_options_str += opt.second + '\0';
-                if (d_labeled_opts.empty())
-                    d_options_str += std::string("<Empty>") + '\0';
 
-                if (p_bool) // Allow manual
+                if(p_bool) // Allow manual
                     d_options_str += std::string("Custom") + '\0';
 
                 if (hasValue)
@@ -159,7 +148,7 @@ namespace satdump
                     }
                     if (i == d_labeled_opts.size())
                     {
-                        if (p_bool) // Allow Manual
+                        if(p_bool) // Allow Manual
                             d_option = i;
                         else
                             d_option = 0;
@@ -168,7 +157,7 @@ namespace satdump
                 else
                 {
                     d_option = 0;
-                    p_string = d_labeled_opts.empty() ? "" : d_labeled_opts[0].first;
+                    p_string = d_labeled_opts[0].first;
                 }
             }
             else
@@ -181,42 +170,23 @@ namespace satdump
         {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%s", _(d_name.c_str()));
+            ImGui::Text("%s", d_name.c_str());
             if (ImGui::IsItemHovered() && d_description.size() > 0)
-                ImGui::SetTooltip("%s", _(d_description.c_str()));
+                ImGui::SetTooltip("%s", d_description.c_str());
             ImGui::TableSetColumnIndex(1);
 
             if (d_type == PARAM_STRING)
-            {
-                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                 ImGui::InputText(d_id.c_str(), &p_string);
-            }
             else if (d_type == PARAM_PASSWORD)
-            {
-                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                 ImGui::InputText(d_id.c_str(), &p_string, ImGuiInputTextFlags_Password);
-            }
             else if (d_type == PARAM_INT)
-            {
-                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                 ImGui::InputInt(d_id.c_str(), &p_int, 0);
-            }
             else if (d_type == PARAM_FLOAT)
-            {
-                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                 ImGui::InputDouble(d_id.c_str(), &p_float);
-            }
             else if (d_type == PARAM_BOOL)
                 ImGui::Checkbox(d_id.c_str(), &p_bool);
             else if (d_type == PARAM_OPTIONS)
-            {
-                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-                if (d_options.empty())
-                    ImGui::BeginDisabled();
                 ImGui::Combo(d_id.c_str(), &d_option, d_options_str.c_str());
-                if (d_options.empty())
-                    ImGui::EndDisabled();
-            }
             else if (d_type == PARAM_PATH)
                 file_select->draw();
             else if (d_type == PARAM_TIMESTAMP)
@@ -229,25 +199,21 @@ namespace satdump
                 baseband_type.draw_playback_combo(d_id.c_str());
             else if (d_type == PARAM_LABELED_OPTIONS)
             {
-                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-                if (ImGui::Combo(d_id.c_str(), &d_option, d_options_str.c_str()) &&
-                    ui_safety::validIndex(d_option, d_labeled_opts.size()))
+                if (ImGui::Combo(d_id.c_str(), &d_option, d_options_str.c_str()) && d_option != (int)d_labeled_opts.size())
                     p_string = d_labeled_opts[d_option].first;
 
                 if (p_bool) // Allow Manual
                 {
-                    const bool custom_value = d_option == static_cast<int>(d_labeled_opts.size());
-                    if (!custom_value)
+                    if (d_option != (int)d_labeled_opts.size())
                         ImGui::BeginDisabled();
-                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                     ImGui::InputText(std::string(d_id + "_custom").c_str(), &p_string);
-                    if (!custom_value)
+                    if (d_option != (int)d_labeled_opts.size())
                         ImGui::EndDisabled();
                 }
             }
         }
 
-        nlohmann::json EditableParameter::getValue() const
+        nlohmann::json EditableParameter::getValue()
         {
             nlohmann::json v;
             if (d_type == PARAM_STRING || d_type == PARAM_PASSWORD || d_type == PARAM_LABELED_OPTIONS)
@@ -259,7 +225,7 @@ namespace satdump
             else if (d_type == PARAM_BOOL)
                 v = p_bool;
             else if (d_type == PARAM_OPTIONS)
-                v = ui_safety::validIndex(d_option, d_options.size()) ? d_options[d_option] : std::string();
+                v = d_options[d_option];
             else if (d_type == PARAM_PATH)
                 return file_select->getPath();
             else if (d_type == PARAM_TIMESTAMP)
@@ -300,12 +266,9 @@ namespace satdump
             else if (d_type == PARAM_COLOR)
             {
                 std::vector<float> color = v.get<std::vector<float>>();
-                if (color.size() >= 3)
-                {
-                    p_color[0] = color[0];
-                    p_color[1] = color[1];
-                    p_color[2] = color[2];
-                }
+                p_color[0] = color[0];
+                p_color[1] = color[1];
+                p_color[2] = color[2];
             }
             else if (d_type == PARAM_BASEBAND_TYPE)
                 baseband_type = v.get<std::string>();

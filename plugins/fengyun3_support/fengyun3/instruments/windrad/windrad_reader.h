@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cstdint>
-#include "image/image.h"
+#include "common/image/image.h"
 #include <vector>
+#include "common/resizeable_buffer.h"
 #include <string>
 
 namespace fengyun3
@@ -15,7 +16,7 @@ namespace fengyun3
             const int width;
             const std::string band;
             const std::string directory;
-            std::vector<unsigned short> channels[2];
+            ResizeableBuffer<unsigned short> channels[2];
             int lastMarker = 0, lastMarker2 = 0;
 
         public:

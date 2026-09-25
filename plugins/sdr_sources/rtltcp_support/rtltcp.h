@@ -14,14 +14,13 @@ protected:
     bool is_open = false, is_started = false;
     RTLTCPClient client;
 
-    satdump::widgets::DoubleList samplerate_widget;
-    satdump::widgets::NotatedNum<int> ppm_widget;
+    widgets::DoubleList samplerate_widget;
+    widgets::NotatedNum<int> ppm_widget;
 
     std::string ip_address = "0.0.0.0";
     int port = 1234;
     int gain = 10;
     bool lna_agc_enabled = false;
-    bool tuner_agc_enabled = false;
     bool bias = false;
 
     void set_gains();

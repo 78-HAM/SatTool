@@ -12,8 +12,8 @@ protected:
     bool is_open = false, is_started = false;
     librfnm *rfnm_dev_obj;
 
-    satdump::widgets::DoubleList samplerate_widget;
-    satdump::widgets::DoubleList bandwidth_widget;
+    widgets::DoubleList samplerate_widget;
+    widgets::DoubleList bandwidth_widget;
 
     int min_gain = 0;
     int max_gain = 0;

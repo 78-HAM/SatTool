@@ -1,18 +1,9 @@
 PROJECT_NAME           = SatDump
 OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@/documentation/
-PROJECT_NUMBER         = @SATDUMP_VERSION@
-INPUT                  = README.md @DOXYGEN_FILES@
-EXCLUDE                = src-core/image/font_lib src-core/image/font 
+INPUT                  = src-core/common/image \
+                         src-core/common/geodetic \
+                         src-core/common/ccsds \
+                         src-core/common/lrit \
+                         src-core/common/mpeg_ts
+EXCLUDE                = src-core/common/image/font_lib src-core/common/image/font
 RECURSIVE              = YES
-
-PROJECT_LOGO           = docs/favicon.ico
-IMAGE_PATH             = docs/images
-
-GENERATE_TREEVIEW      = YES
-DISABLE_INDEX = NO
-FULL_SIDEBAR = NO
-HTML_COLORSTYLE_SAT = 0
-HTML_COLORSTYLE_GAMMA = 30
-HTML_COLORSTYLE        = AUTO_LIGHT
-
-USE_MDFILE_AS_MAINPAGE = README.md

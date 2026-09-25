@@ -1,13 +1,10 @@
 #pragma once
 #include "nlohmann/json.hpp"
 
-namespace satdump
+namespace widgets
 {
-    namespace widgets
-    {
-        template <typename T>
-        void JSONTreeEditor(T &json, const char *id, bool allow_add = true);
+	template <typename T>
+	void JSONTreeEditor(T &json, const char *id, bool allow_add = true);
 
-        bool JSONTableEditor(nlohmann::json &json, const char *id);
-    } // namespace widgets
-} // namespace satdump
+	bool JSONTableEditor(nlohmann::json &json, const char* id);
+}
