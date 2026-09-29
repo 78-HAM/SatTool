@@ -66,7 +66,7 @@ cd vcpkg
 .\bootstrap-vcpkg.bat
 
 # Core packages. libxml2 is for libiio
-.\vcpkg install --triplet $platform pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd armadillo opencl curl[schannel] hdf5
+.\vcpkg install --triplet $platform pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd armadillo opencl curl[ssl] hdf5
 if($LASTEXITCODE -ne 0)
 {
     throw "vcpkg core dependency installation failed with exit code $LASTEXITCODE"
