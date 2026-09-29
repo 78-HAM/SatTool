@@ -61,13 +61,16 @@ if($env:PROCESSOR_ARCHITECTURE -ne $arch)
 #Setup vcpkg
 Write-Output "Configuring vcpkg..."
 cd "$(Split-Path -Parent $MyInvocation.MyCommand.Path)\.."
-git clone https://github.com/microsoft/vcpkg
+git clone https://github.com/microsoft/vcpkg -b 2025.01.13
 cd vcpkg
-git checkout 68d3499
 .\bootstrap-vcpkg.bat
 
 # Core packages. libxml2 is for libiio
 .\vcpkg install --triplet $platform pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd armadillo opencl curl[schannel] hdf5
+if($LASTEXITCODE -ne 0)
+{
+    throw "vcpkg core dependency installation failed with exit code $LASTEXITCODE"
+}
 
 # Entirely for UHD...
 if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
@@ -75,6 +78,10 @@ if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
     .\vcpkg install --triplet $platform boost-chrono boost-date-time boost-filesystem boost-program-options boost-system boost-serialization boost-thread `
                                         boost-test boost-format boost-asio boost-math boost-graph boost-units boost-lockfree boost-circular-buffer        `
                                         boost-assign boost-dll
+    if($LASTEXITCODE -ne 0)
+    {
+        throw "vcpkg Boost dependency installation failed with exit code $LASTEXITCODE"
+    }
 }
 
 #Start Building Dependencies
