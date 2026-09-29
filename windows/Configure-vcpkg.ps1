@@ -61,8 +61,17 @@ if($env:PROCESSOR_ARCHITECTURE -ne $arch)
 #Setup vcpkg
 Write-Output "Configuring vcpkg..."
 cd "$(Split-Path -Parent $MyInvocation.MyCommand.Path)\.."
-git clone https://github.com/microsoft/vcpkg -b 2026.07.29
+git clone https://github.com/microsoft/vcpkg -b 2025.01.13
 cd vcpkg
+
+# The 2025.01.13 OpenBLAS port fetches this UWP-only patch for every Windows
+# triplet. SatDump does not build a UWP target, so omit the unnecessary download.
+$openblas_port = "ports\openblas\portfile.cmake"
+$openblas_port_contents = Get-Content -Raw $openblas_port
+$openblas_port_contents = $openblas_port_contents -replace '(?ms)^vcpkg_download_distfile\(ARM64_WINDOWS_UWP_PATCH.*?^\)\r?\n\r?\n', ''
+$openblas_port_contents = $openblas_port_contents -replace '\r?\n        \$\{ARM64_WINDOWS_UWP_PATCH\}', ''
+Set-Content -Path $openblas_port -Value $openblas_port_contents -Encoding ASCII
+
 .\bootstrap-vcpkg.bat
 
 # Core packages. libxml2 is for libiio
