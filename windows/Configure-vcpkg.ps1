@@ -2,6 +2,45 @@
 $ErrorActionPreference = "Stop"
 $PSDefaultParameterValues['*:ErrorAction']='Stop'
 
+function Remove-DirectoryWithRetry
+{
+    param(
+        [Parameter(Mandatory=$true)][string]$Path,
+        [int]$Attempts = 6,
+        [int]$DelaySeconds = 5
+    )
+
+    if(-not (Test-Path -LiteralPath $Path))
+    {
+        return
+    }
+
+    for($attempt = 1; $attempt -le $Attempts; $attempt++)
+    {
+        try
+        {
+            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+        }
+        catch
+        {
+            if($attempt -eq $Attempts)
+            {
+                Write-Warning "Unable to remove '$Path' after $Attempts attempts; continuing. $($_.Exception.Message)"
+                return
+            }
+        }
+
+        if(-not (Test-Path -LiteralPath $Path))
+        {
+            return
+        }
+
+        Start-Sleep -Seconds $DelaySeconds
+    }
+
+    Write-Warning "Unable to remove '$Path' after $Attempts attempts; continuing."
+}
+
 if(!!(Get-Command 'tf' -ErrorAction SilentlyContinue) -eq $false -and $Env:GITHUB_WORKSPACE -eq $null)
 {
     Write-Error "You must run this script within Developer Powershell for Visual Studio"
@@ -127,7 +166,7 @@ cp -Force ..\build\$toolset_used\$generator\Debug\dll\libusb-1.0.pdb ..\..\..\in
 cp -Force ..\build\$toolset_used\$generator\Debug\dll\libusb-1.0.lib ..\..\..\installed\$platform\Debug\lib
 cp -force ..\libusb\libusb.h ..\..\..\installed\$platform\include
 cd ..\..
-rm -recurse -force libusb
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "libusb")
 
 Write-Output "Building cpu_features..."
 git clone https://github.com/google/cpu_features # -b 0.9.1 (not released as of this writing)
@@ -139,7 +178,7 @@ cmake $build_args -DBUILD_TESTING=OFF -DBUILD_EXECUTABLE=OFF ..
 cmake --build . --config Release
 cmake --install .
 cd ..\..
-rm -recurse -force cpu_features
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "cpu_features")
 
 Write-Output "Building Volk..."
 #git clone https://github.com/gnuradio/volk --depth 1 -b v3.1.2
@@ -151,7 +190,7 @@ cmake $build_args -DENABLE_TESTING=OFF -DENABLE_MODTOOL=OFF ..
 cmake --build . --config Release
 cmake --install .
 cd ..\..
-rm -recurse -force volk
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "volk")
 
 Write-Output "Building Airspy..."
 #git clone https://github.com/airspy/airspyone_host --depth 1 #-b v1.0.10
@@ -163,7 +202,7 @@ cmake $build_args -DLIBUSB_INCLUDE_DIR="$($libusb_include)" -DLIBUSB_LIBRARIES="
 cmake --build . --config Release
 cmake --install .
 cd ..\..\..
-rm -recurse -force airspyone_host
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "airspyone_host")
 
 Write-Output "Building Airspy HF..."
 #git clone https://github.com/airspy/airspyhf --depth 1 #-b 1.6.8
@@ -175,7 +214,7 @@ cmake $build_args -DLIBUSB_INCLUDE_DIR="$($libusb_include)" -DLIBUSB_LIBRARIES="
 cmake --build . --config Release
 cmake --install .
 cd ..\..\..
-rm -recurse -force airspyhf
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "airspyhf")
 
 Write-Output "Building RTL-SDR..."
 #git clone https://github.com/osmocom/rtl-sdr --depth 1 -b v2.0.2
@@ -187,7 +226,7 @@ cmake $build_args -DLIBUSB_INCLUDE_DIRS="$($libusb_include)" -DLIBUSB_LIBRARIES=
 cmake --build . --config Release
 cmake --install .
 cd ..\..
-rm -recurse -force librtlsdr
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "librtlsdr")
 
 Write-Output "Building HackRF..."
 #git clone https://github.com/greatscottgadgets/hackrf --depth 1 -b v2024.02.1
@@ -199,7 +238,7 @@ cmake $build_args -DLIBUSB_INCLUDE_DIR="$($libusb_include)" -DLIBUSB_LIBRARIES="
 cmake --build . --config Release
 cmake --install .
 cd ..\..\..\..
-rm -recurse -force hackrf
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "hackrf")
 
 Write-Output "Building libiio..."
 git clone https://github.com/analogdevicesinc/libiio --depth 1 -b v0.25
@@ -211,7 +250,7 @@ cmake $build_args -DWITH_IIOD=OFF -DWITH_TESTS=OFF -DWITH_ZSTD=ON -DLIBUSB_INCLU
 cmake --build . --config Release
 cmake --install .
 cd ..\..
-rm -recurse -force libiio
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "libiio")
 
 Write-Output "Building libad9361-iio..."
 git clone https://github.com/analogdevicesinc/libad9361-iio --depth 1 -b v0.3
@@ -222,7 +261,7 @@ cmake $build_args -DLIBIIO_LIBRARIES="$($(Get-Item ..\..\..\installed\$platform\
 cmake --build . --config Release
 cmake --install .
 cd ..\..
-rm -recurse -force libad9361-iio
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "libad9361-iio")
 
 # Not compatible with ARM at this time
 if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
@@ -239,7 +278,7 @@ if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
     cmake --build . --config Release
     cmake --install .
     cd ..\..
-    rm -recurse -force LimeSuite
+    Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "LimeSuite")
 }
 
 Write-Output "Building bladeRF..."
@@ -254,12 +293,13 @@ cmake $build_args $fx3_arg -DTREAT_WARNINGS_AS_ERRORS=OFF -DLIBPTHREADSWIN32_INC
 cmake --build . --config Release
 cmake --install .
 cd ..\..\..
-rm -recurse -force bladeRF
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "bladeRF")
 
 # Not compatible with ARM at this time
 if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
 {
-    rm -recurse -force FX3-SDK, FX3-SDK.zip
+    Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "FX3-SDK")
+    Remove-Item -LiteralPath (Join-Path (Get-Location) "FX3-SDK.zip") -Force -ErrorAction SilentlyContinue
     Write-Output "Building UHD..."
     git clone https://github.com/EttusResearch/uhd --depth 1 -b v4.7.0.0
     cd uhd\host
@@ -269,11 +309,11 @@ if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
     cmake --build . --config Release
     cmake --install .
     cd ..\..\..
-    rm -recurse -force uhd
+    Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "uhd")
 }
 
 cd ..
-rm -recurse -force build
+Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "build")
 
 #Install SDRPlay API
 Invoke-WebRequest -Uri "https://www.satdump.org/SDRPlay.zip" -OutFile sdrplay.zip
