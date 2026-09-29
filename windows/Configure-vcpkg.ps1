@@ -61,36 +61,40 @@ if($env:PROCESSOR_ARCHITECTURE -ne $arch)
 #Setup vcpkg
 Write-Output "Configuring vcpkg..."
 cd "$(Split-Path -Parent $MyInvocation.MyCommand.Path)\.."
-git clone https://github.com/microsoft/vcpkg -b 2025.01.13
+git clone https://github.com/microsoft/vcpkg -b 2026.07.29
 cd vcpkg
-
-# The 2025.01.13 OpenBLAS port fetches this UWP-only patch for every Windows
-# triplet. SatDump does not build a UWP target, so omit the unnecessary download.
-$openblas_port = "ports\openblas\portfile.cmake"
-$openblas_port_contents = Get-Content -Raw $openblas_port
-$openblas_port_contents = $openblas_port_contents -replace '(?ms)^vcpkg_download_distfile\(ARM64_WINDOWS_UWP_PATCH.*?^\)\r?\n\r?\n', ''
-$openblas_port_contents = $openblas_port_contents -replace '\r?\n        \$\{ARM64_WINDOWS_UWP_PATCH\}', ''
-Set-Content -Path $openblas_port -Value $openblas_port_contents -Encoding ASCII
-
 .\bootstrap-vcpkg.bat
 
-# Core packages. libxml2 is for libiio
-.\vcpkg install --triplet $platform pthreads libjpeg-turbo tiff libpng glfw3 libusb fftw3 libxml2 portaudio nng zstd armadillo opencl curl[ssl] hdf5
-if($LASTEXITCODE -ne 0)
+function Invoke-VcpkgInstall
 {
-    throw "vcpkg core dependency installation failed with exit code $LASTEXITCODE"
+    param([string[]]$Arguments)
+
+    for($attempt = 1; $attempt -le 3; $attempt++)
+    {
+        & .\vcpkg @Arguments
+        $exit_code = $LASTEXITCODE
+        if($exit_code -eq 0)
+        {
+            return
+        }
+
+        if($attempt -lt 3)
+        {
+            Write-Warning "vcpkg failed with exit code $exit_code; retrying in 15 seconds ($attempt/3)"
+            Start-Sleep -Seconds 15
+        }
+    }
+
+    throw "vcpkg install failed after 3 attempts (last exit code $exit_code)"
 }
+
+# Core packages. libxml2 is for libiio
+Invoke-VcpkgInstall -Arguments @("install", "--triplet", $platform, "pthreads", "libjpeg-turbo", "tiff", "libpng", "glfw3", "libusb", "fftw3", "libxml2", "portaudio", "nng", "zstd", "armadillo", "opencl", "curl[ssl]", "hdf5")
 
 # Entirely for UHD...
 if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
 {
-    .\vcpkg install --triplet $platform boost-chrono boost-date-time boost-filesystem boost-program-options boost-system boost-serialization boost-thread `
-                                        boost-test boost-format boost-asio boost-math boost-graph boost-units boost-lockfree boost-circular-buffer        `
-                                        boost-assign boost-dll
-    if($LASTEXITCODE -ne 0)
-    {
-        throw "vcpkg Boost dependency installation failed with exit code $LASTEXITCODE"
-    }
+    Invoke-VcpkgInstall -Arguments @("install", "--triplet", $platform, "boost-chrono", "boost-date-time", "boost-filesystem", "boost-program-options", "boost-system", "boost-serialization", "boost-thread", "boost-test", "boost-format", "boost-asio", "boost-math", "boost-graph", "boost-units", "boost-lockfree", "boost-circular-buffer", "boost-assign", "boost-dll")
 }
 
 #Start Building Dependencies
