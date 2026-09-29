@@ -115,6 +115,7 @@ if($env:PROCESSOR_ARCHITECTURE -ne $arch)
 Write-Output "Building libusb..."
 git clone https://github.com/HannesFranke-smartoptics/libusb -b raw_io_v2
 cd libusb\msvc
+(Get-Content -raw Base.props) -replace "<TreatWarningAsError>true</TreatWarningAsError>", "<TreatWarningAsError>false</TreatWarningAsError>" | Set-Content -Encoding ASCII Base.props
 msbuild -m -v:m -p:Platform=$generator,Configuration=Release .\libusb.sln
 msbuild -m -v:m -p:Platform=$generator,Configuration=Debug .\libusb.sln
 $toolset_used=$(get-childitem ..\build\)[0].Name
