@@ -300,7 +300,34 @@ $null = mkdir build
 cd build
 cmake $build_args -DENABLE_MAN_PAGES=OFF -DENABLE_MANUAL=OFF -DENABLE_PYTHON_API=OFF -DENABLE_EXAMPLES=OFF -DENABLE_UTILS=OFF -DENABLE_TESTS=OFF -DPYTHON_EXECUTABLE="$((Get-Command python3).Source)" ..
 cmake --build . --config Release
-cmake --install .
+# CMake 4.4 on the hosted Windows runner can report a spurious non-zero exit
+# after installing UHD (the install output is complete, but PowerShell only
+# reports `OperationStopped`). Keep the strict native-command handling for all
+# other steps and accept this case only when the two UHD runtime artifacts are
+# present.
+$native_command_strict = $false
+if(Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue)
+{
+    $native_command_strict = $PSNativeCommandUseErrorActionPreference
+    $PSNativeCommandUseErrorActionPreference = $false
+}
+cmake --install . --config Release
+$uhd_install_exit = $LASTEXITCODE
+if(Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue)
+{
+    $PSNativeCommandUseErrorActionPreference = $native_command_strict
+}
+$uhd_install_root = (Get-Item ..\..\..\installed\$platform).FullName
+$uhd_runtime = Join-Path $uhd_install_root "bin\uhd.dll"
+$uhd_import = Join-Path $uhd_install_root "lib\uhd.lib"
+if($uhd_install_exit -ne 0 -and (!(Test-Path $uhd_runtime) -or !(Test-Path $uhd_import)))
+{
+    throw "UHD install failed with exit code $uhd_install_exit and did not produce the expected runtime artifacts"
+}
+if($uhd_install_exit -ne 0)
+{
+    Write-Warning "UHD install returned exit code $uhd_install_exit after producing the expected runtime artifacts; continuing"
+}
 cd ..\..\..
 rm -recurse -force uhd
 
