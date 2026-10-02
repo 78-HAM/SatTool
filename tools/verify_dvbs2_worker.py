@@ -30,11 +30,14 @@ assert "estimate_frame_carrier(input_stream->readBuf, expected, nsamples)" in pl
 )
 
 module_source = MODULE_SOURCE.read_text(encoding="utf-8")
-assert "current_freq -= pll_freq * freq_propagation_factor" in module_source, (
-    "the improved PLL feedback must stay in radians per recovered symbol"
+assert "current_freq -= (pll_freq / final_sps) * freq_propagation_factor" in module_source, (
+    "the improved PLL feedback must convert radians per symbol to input-sample units"
 )
-assert "rad_to_hz(current_freq, d_improved_decoder ? d_symbolrate : final_samplerate)" in module_source, (
-    "the improved displayed frequency must use the recovered symbol rate"
+assert "display_freq = dsp::rad_to_hz(current_freq, final_samplerate)" in module_source, (
+    "the improved displayed frequency must use the input samplerate"
+)
+assert "S2PLSyncBlockV2>(freq_sh->output_stream, frame_slot_count, d_pilots, final_sps)" in module_source, (
+    "the improved synchronizer must receive the oversampled symbol rate"
 )
 
 print("Improved DVB-S2 worker and carrier acquisition lifecycles verified")

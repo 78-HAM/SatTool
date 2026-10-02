@@ -68,7 +68,10 @@ namespace satdump
                     d_sof_thresold = parameters["sof_thresold"].get<float>();
 
                 if (parameters.count("ldpc_trials") > 0)
+                {
                     d_max_ldpc_trials = parameters["ldpc_trials"].get<int>();
+                    d_ldpc_trials_explicit = true;
+                }
 
                 if (parameters.count("mt_bch") > 0)
                     d_multithread_bch = parameters["mt_bch"].get<bool>();
@@ -91,6 +94,12 @@ namespace satdump
             {
                 BaseDemodModule::initb();
 
+                // The improved soft receiver benefits from the same trial
+                // budget used by SDRangel's internal LDPC path.  Keep the
+                // legacy default and any explicit user setting untouched.
+                if (d_improved_decoder && !d_ldpc_trials_explicit)
+                    d_max_ldpc_trials = 25;
+
                 float g1 = 0, g2 = 0;
 
                 // Parse modcod number
@@ -107,17 +116,16 @@ namespace satdump
                 // RRC
                 rrc = std::make_shared<dsp::FIRBlock<complex_t>>(agc->output_stream, dsp::firdes::root_raised_cosine(1, final_samplerate, d_symbolrate, d_rrc_alpha, d_rrc_taps));
 
-                // Clock recovery. Keep M&M in the legacy chain and use the
-                // Gardner detector for improved DVB-S2 symbol timing.
-                const float timing_gain_mu = d_improved_decoder ? std::max(d_clock_gain_mu, 1.0e-3f) : d_clock_gain_mu;
-                const float timing_gain_omega = d_improved_decoder ? std::max(d_clock_gain_omega, timing_gain_mu * timing_gain_mu / 4.0f) : d_clock_gain_omega;
-                if (d_improved_decoder)
-                    rec_v2 = std::make_shared<dsp::GardnerClockRecoveryBlock<complex_t>>(rrc->output_stream, final_sps, timing_gain_omega, d_clock_mu, timing_gain_mu, d_clock_omega_relative_limit);
-                else
+                // Keep M&M in the legacy chain.  The improved decoder keeps
+                // the RRC output oversampled and lets its frame synchronizer
+                // perform SDRangel-style fractional timing using both SOFs.
+                if (!d_improved_decoder)
+                {
                     rec = std::make_shared<dsp::MMClockRecoveryBlock<complex_t>>(rrc->output_stream, final_sps, d_clock_gain_omega, d_clock_mu, d_clock_gain_mu, d_clock_omega_relative_limit);
-
-                // Freq correction
-                freq_sh = std::make_shared<dsp::FreqShiftBlock>(d_improved_decoder ? rec_v2->output_stream : rec->output_stream, 1, 0);
+                    freq_sh = std::make_shared<dsp::FreqShiftBlock>(rec->output_stream, 1, 0);
+                }
+                else
+                    freq_sh = std::make_shared<dsp::FreqShiftBlock>(rrc->output_stream, final_samplerate, 0);
 
                 const int pls_code = d_modcod << 2 | d_shortframes << 1 | d_pilots;
                 if (!d_improved_decoder)
@@ -145,7 +153,7 @@ namespace satdump
                 {
                     // Improved chain: correct pilot geometry, pilot-aided PLL,
                     // and noise-aware soft decisions.
-                    pl_sync_v2 = std::make_shared<dvbs2::S2PLSyncBlockV2>(freq_sh->output_stream, frame_slot_count, d_pilots);
+                    pl_sync_v2 = std::make_shared<dvbs2::S2PLSyncBlockV2>(freq_sh->output_stream, frame_slot_count, d_pilots, final_sps);
                     pl_sync_v2->thresold = d_sof_thresold;
                     s2_pll_v2 = std::make_shared<dvbs2::S2PLLBlockV2>(pl_sync_v2->output_stream, d_loop_bw);
                     s2_pll_v2->pilots = d_pilots;
@@ -199,9 +207,7 @@ namespace satdump
                 // Start
                 BaseDemodModule::start();
                 rrc->start();
-                if (d_improved_decoder)
-                    rec_v2->start();
-                else
+                if (!d_improved_decoder)
                     rec->start();
                 freq_sh->start();
                 if (!d_improved_decoder)
@@ -247,11 +253,10 @@ namespace satdump
                     if (snr > peak_snr)
                         peak_snr = snr;
 
-                    // Get freq
-                    // Improved PLL and FreqShiftBlock both run at one sample
-                    // per recovered symbol. Keep the legacy display unit and
-                    // feedback behavior unchanged for compatibility.
-                    display_freq = dsp::rad_to_hz(current_freq, d_improved_decoder ? d_symbolrate : final_samplerate);
+                    // The improved rotator runs before fractional timing, so
+                    // its phase increment is radians per input sample.  The
+                    // legacy rotator remains on the recovered symbol stream.
+                    display_freq = dsp::rad_to_hz(current_freq, final_samplerate);
 
                     if (!d_improved_decoder)
                     {
@@ -273,7 +278,7 @@ namespace satdump
                     // Propagate frequency to an earlier rotator, slowly
                     const float pll_freq = d_improved_decoder ? s2_pll_v2->getFreq() : s2_pll->getFreq();
                     if (d_improved_decoder)
-                        current_freq -= pll_freq * freq_propagation_factor;
+                        current_freq -= (pll_freq / final_sps) * freq_propagation_factor;
                     else
                         current_freq -= (pll_freq / final_sps) * freq_propagation_factor;
                     freq_sh->set_freq_raw(current_freq);
@@ -399,9 +404,7 @@ namespace satdump
                 BaseDemodModule::stop();
 
                 rrc->stop();
-                if (d_improved_decoder)
-                    rec_v2->stop();
-                else
+                if (!d_improved_decoder)
                     rec->stop();
                 freq_sh->stop();
                 if (!d_improved_decoder)

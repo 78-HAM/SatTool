@@ -67,6 +67,7 @@ namespace satdump
                 bool d_pilots = false;
                 float d_sof_thresold = 0.6;
                 int d_max_ldpc_trials = 10;
+                bool d_ldpc_trials_explicit = false;
                 bool d_multithread_bch = false;
                 bool d_improved_decoder = false;
                 float d_decoder_noise_sigma = 0.45f;

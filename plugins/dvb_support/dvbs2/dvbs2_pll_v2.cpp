@@ -123,7 +123,11 @@ namespace dvbs2
             return 0.0f;
         const float slope = (last_phase - first_phase) / (last_center - first_center);
         float error = 0.0f;
-        const int stride = pilots ? 12 : std::max(1, (end - start) / 2048);
+        // LeanDVB's match_frame scores the complete first 16-slot block when
+        // pilots are present.  Sampling every twelfth symbol makes the result
+        // depend on the scrambler phase and is too noisy for the small integer
+        // cycle ambiguity we are resolving here.
+        const int stride = 1;
         S2Scrambling match_scrambler;
         match_scrambler.reset();
         for (int i = 90; i < end; ++i)
@@ -156,7 +160,6 @@ namespace dvbs2
         const float previous_frequency = freq;
         if (acquiring)
             freq = acquire_header_frequency(samples);
-        const float frequency_prior = coarse_acquired ? previous_frequency : freq;
 
         complex_t header = correlate_known(samples, 0, 90, 44.5f, freq);
         anchors.push_back({44.5f, header.arg()});
@@ -190,23 +193,52 @@ namespace dvbs2
             // LeanDVB's match_frame does, before applying corrections.
             const float span = anchors[1].center - anchors[0].center;
             const float base_phase = unwrap_near(anchors[1].phase, anchors[0].phase + freq * span);
+            const float base_frequency = (base_phase - anchors[0].phase) / span;
+            // A pilot block repeats every 16 slots plus its 36 pilot symbols.
+            // Use that physical period for the ambiguity spacing, as
+            // LeanDVB does.  The PLH-to-pilot center distance is 1503 symbols
+            // and is therefore not the correct wrap period.
+            const int nwrap = pilots ? (16 * 90 + 36) : (frame_slot_count * 90 + 26);
             const int end = anchors[1].center > count ? count : static_cast<int>(anchors[1].center - 17.5f);
             const int slip_range = pilots ? 10 : 50;
             float best_error = std::numeric_limits<float>::max();
             float best_phase = base_phase;
+            float best_frequency = base_frequency;
+            float prior_error = std::numeric_limits<float>::max();
+            float prior_frequency = base_frequency;
             for (int slip = -slip_range; slip <= slip_range; ++slip)
             {
-                const float candidate = base_phase + slip * two_pi;
+                const float candidate_frequency = base_frequency + slip * two_pi / nwrap;
+                const float candidate = anchors[0].phase + candidate_frequency * span;
                 const float error = data_match(samples, anchors[0].phase, candidate, anchors[0].center, anchors[1].center, 90, end);
-                const float candidate_frequency = (candidate - anchors[0].phase) / span;
-                const float continuity_penalty = 2.0e6f * (candidate_frequency - frequency_prior) * (candidate_frequency - frequency_prior);
-                if (error + continuity_penalty < best_error)
+                if (error < best_error)
                 {
-                    best_error = error + continuity_penalty;
+                    best_error = error;
                     best_phase = candidate;
+                    best_frequency = candidate_frequency;
+                }
+
+                // A weak frame can make two integer-cycle hypotheses look
+                // almost identical.  Keep the branch close to the tracked
+                // frequency in that case, while still allowing a genuine
+                // frequency step when the data metric clearly prefers it.
+                if (coarse_acquired && std::abs(candidate_frequency - previous_frequency) < two_pi / (2.0f * nwrap))
+                {
+                    prior_error = error;
+                    prior_frequency = candidate_frequency;
                 }
             }
-            freq = (best_phase - anchors[0].phase) / span;
+            if (coarse_acquired && prior_error < std::numeric_limits<float>::max() &&
+                prior_error <= best_error * 1.20f)
+            {
+                best_frequency = prior_frequency;
+                best_phase = anchors[0].phase + best_frequency * span;
+            }
+            freq = best_frequency;
+            // Preserve the selected branch explicitly.  Unwrapping the raw
+            // correlation again can otherwise discard the selected integer
+            // cycle when the candidate is close to a modulo boundary.
+            anchors[1].phase = best_phase;
             for (size_t i = 1; i < anchors.size(); ++i)
             {
                 PhaseAnchor &current = anchors[i];
@@ -250,6 +282,22 @@ namespace dvbs2
         }
         estimate_frame_carrier(input_stream->readBuf, expected, nsamples);
         const bool pilot_aided = pilots && anchors.size() >= 2;
+        // Normalize the frame with the known PLHEADER.  SDRangel's receiver
+        // carries this gain estimate through its sampler; leaving the small
+        // AGC drift in place makes distance-based soft metrics overconfident.
+        float amplitude = 0.0f;
+        if (!anchors.empty())
+        {
+            complex_t correlation(0.0f, 0.0f);
+            for (int i = 0; i < 90; ++i)
+            {
+                complex_t aligned = input_stream->readBuf[i] * rotation(-phase_at(i));
+                complex_t expected_symbol = reference[i];
+                correlation += aligned * expected_symbol.conj();
+            }
+            amplitude = correlation.norm() / 90.0f;
+        }
+        const float gain = std::isfinite(amplitude) && amplitude > 0.1f ? 1.0f / amplitude : 1.0f;
         scrambling.reset();
         for (int i = 0; i < expected; ++i)
         {
@@ -258,7 +306,7 @@ namespace dvbs2
             if (pilot_aided)
                 phase = phase_at(i);
             complex_t sample = input_stream->readBuf[i];
-            complex_t rotated = sample * rotation(-phase);
+            complex_t rotated = sample * rotation(-phase) * gain;
             float error = 0.0f;
             if (i < 90)
             {
