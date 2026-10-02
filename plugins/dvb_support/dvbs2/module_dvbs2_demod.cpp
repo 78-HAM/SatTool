@@ -174,7 +174,10 @@ namespace satdump
                 }
 
                 // Init the rest
-                ldpc_decoder = std::make_unique<dvbs2::BBFrameLDPC>(s2_framesize, s2_coderate);
+                if (d_improved_decoder)
+                    ldpc_decoder = std::make_unique<dvbs2::BBFrameLDPCImproved>(s2_framesize, s2_coderate);
+                else
+                    ldpc_decoder = std::make_unique<dvbs2::BBFrameLDPC>(s2_framesize, s2_coderate);
                 bch_decoder = std::make_unique<dvbs2::BBFrameBCH>(s2_framesize, s2_coderate);
                 descramber = std::make_unique<dvbs2::BBFrameDescrambler>(s2_framesize, s2_coderate);
 

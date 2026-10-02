@@ -97,7 +97,7 @@ namespace satdump
                 dvbs2::dvbs2_framesize_t s2_framesize;
                 dvbs2::dvbs2_code_rate_t s2_coderate;
 
-                std::unique_ptr<dvbs2::BBFrameLDPC> ldpc_decoder;
+                std::unique_ptr<dvbs2::BBFrameLDPCInterface> ldpc_decoder;
                 std::unique_ptr<dvbs2::BBFrameBCH> bch_decoder;
                 std::unique_ptr<dvbs2::BBFrameDescrambler> descramber;
 
