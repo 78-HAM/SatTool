@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/dsp/clock_recovery/clock_recovery_mm.h"
+#include "common/dsp/clock_recovery/clock_recovery_gardner.h"
 #include "common/dsp/filter/fir.h"
 #include "pipeline/modules/demod/module_demod_base.h"
 
@@ -33,6 +34,7 @@ namespace satdump
             protected:
                 std::shared_ptr<dsp::FIRBlock<complex_t>> rrc;
                 std::shared_ptr<dsp::MMClockRecoveryBlock<complex_t>> rec;
+                std::shared_ptr<dsp::GardnerClockRecoveryBlock<complex_t>> rec_v2;
 
                 std::shared_ptr<dsp::FreqShiftBlock> freq_sh;
 

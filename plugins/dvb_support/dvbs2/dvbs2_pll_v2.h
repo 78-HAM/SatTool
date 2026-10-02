@@ -5,6 +5,7 @@
 #include "common/dsp/demod/constellation.h"
 #include "codings/dvb-s2/s2_scrambling.h"
 #include <algorithm>
+#include <atomic>
 #include <limits>
 #include <vector>
 
@@ -19,12 +20,24 @@ namespace dvbs2
         float beta;
         float loop_bw;
         bool coarse_acquired = false;
+        std::atomic<float> reported_freq{0.0f};
+        struct PhaseAnchor
+        {
+            float center;
+            float phase;
+        };
+        std::vector<PhaseAnchor> anchors;
+        std::vector<complex_t> reference;
+        std::vector<complex_t> constellation_points;
         s2_sof sof;
         s2_plscodes pls;
         S2Scrambling scrambling;
         void work();
-        void coarse_lock_header(const complex_t *samples);
-        void estimate_frame_carrier(const complex_t *samples, int count);
+        float acquire_header_frequency(const complex_t *samples);
+        complex_t correlate_known(const complex_t *samples, int start, int length, float center, float frequency);
+        void estimate_frame_carrier(const complex_t *samples, int count, int available);
+        float phase_at(int symbol) const;
+        float data_match(const complex_t *samples, float first_phase, float last_phase, float first_center, float last_center, int start, int end);
         int pilot_cnt = 0;
 
         void update_loop(float error)
@@ -47,6 +60,6 @@ namespace dvbs2
         S2PLLBlockV2(std::shared_ptr<dsp::stream<complex_t>> input, float loop_bw);
         ~S2PLLBlockV2();
         void update();
-        float getFreq() { return freq; }
+        float getFreq() { return reported_freq.load(); }
     };
 }

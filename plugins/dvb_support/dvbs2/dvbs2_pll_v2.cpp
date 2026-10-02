@@ -1,9 +1,29 @@
 #include "dvbs2_pll_v2.h"
 
-#include <limits>
+#include <cmath>
 
 namespace dvbs2
 {
+    namespace
+    {
+        constexpr float two_pi = 2.0f * static_cast<float>(M_PI);
+
+        float unwrap_near(float angle, float predicted)
+        {
+            return predicted + std::remainder(angle - predicted, two_pi);
+        }
+
+        complex_t rotation(float angle)
+        {
+            return complex_t(cosf(angle), sinf(angle));
+        }
+
+        float power(complex_t value)
+        {
+            return value.real * value.real + value.imag * value.imag;
+        }
+    }
+
     S2PLLBlockV2::S2PLLBlockV2(std::shared_ptr<dsp::stream<complex_t>> input, float bw)
         : Block(input), loop_bw(std::max(1.0e-5f, bw))
     {
@@ -18,164 +38,199 @@ namespace dvbs2
     void S2PLLBlockV2::update()
     {
         pilot_cnt = pilots ? (frame_slot_count - 1) / 16 : 0;
-    }
-
-    void S2PLLBlockV2::coarse_lock_header(const complex_t *samples)
-    {
-        complex_t expected[90];
+        const int count = (frame_slot_count + 1) * 90 + pilot_cnt * 36;
+        reference.assign(count + 90, complex_t(0, 0));
         for (int i = 0; i < 26; ++i)
-            expected[i] = sof.symbols[i];
-        for (int i = 0; i < 64; ++i)
-            expected[26 + i] = pls.symbols[pls_code][i];
-
-        // Differential correlation removes the unknown initial phase and
-        // estimates the carrier rotation per symbol over the known header.
-        complex_t freq_corr = 0;
-        for (int i = 0; i < 89; ++i)
-        {
-            complex_t e0 = expected[i];
-            complex_t e1 = expected[i + 1];
-            complex_t r0 = samples[i];
-            complex_t r1 = samples[i + 1];
-            complex_t expected_step = e0.conj() * e1;
-            complex_t received_step = r0.conj() * r1;
-            freq_corr += expected_step.conj() * received_step;
-        }
-
-        const float coarse_freq = freq_corr.arg();
-        if (std::isfinite(coarse_freq))
-            freq = std::max(-0.5f, std::min(0.5f, coarse_freq));
-
-        // Remove the estimated ramp and correlate once more for the phase at
-        // the first header symbol.  This gives the narrow tracking loop a
-        // stable starting point instead of asking it to acquire from zero.
-        complex_t phase_corr = 0;
-        for (int i = 0; i < 90; ++i)
-        {
-            complex_t raw = samples[i];
-            complex_t received = raw * complex_t(cosf(-freq * i), sinf(-freq * i));
-            phase_corr += received * expected[i].conj();
-        }
-        const float coarse_phase = phase_corr.arg();
-        if (std::isfinite(coarse_phase))
-            phase = coarse_phase;
-    }
-
-    void S2PLLBlockV2::estimate_frame_carrier(const complex_t *samples, int count)
-    {
-        // The header gives an absolute phase and a coarse frequency.  Pilot
-        // blocks then refine the frequency over the complete frame.  This is
-        // the look-ahead part of the SDRangel carrier recovery: all symbols
-        // in the current frame start with the best available frequency
-        // estimate instead of waiting for the next pilot.
-        complex_t expected[90];
+            reference[i] = sof.symbols[i];
         for (int i = 0; i < 26; ++i)
-            expected[i] = sof.symbols[i];
+            reference[count + i] = sof.symbols[i];
         for (int i = 0; i < 64; ++i)
-            expected[26 + i] = pls.symbols[pls_code][i];
-
-        complex_t freq_corr = 0;
-        for (int i = 0; i < 89 && i + 1 < count; ++i)
         {
-            const complex_t expected_step = expected[i].conj() * expected[i + 1];
-            const complex_t received_step = samples[i].conj() * samples[i + 1];
-            freq_corr += expected_step.conj() * received_step;
+            reference[26 + i] = pls.symbols[pls_code][i];
+            reference[count + 26 + i] = pls.symbols[pls_code][i];
         }
-
-        float frame_freq = freq;
-        if (freq_corr.norm() > 1.0e-4f)
-            frame_freq = std::max(-0.5f, std::min(0.5f, freq_corr.arg()));
-
-        struct PilotMeasurement
+        scrambling.reset();
+        int physical = 90;
+        for (int slot = 0; slot < frame_slot_count; ++slot)
         {
-            int center;
-            complex_t correlation;
-        };
-        std::vector<PilotMeasurement> measurements;
-
-        if (pilots && count > 90)
-        {
-            // Re-run the physical scrambler so pilot correlations use the
-            // same phase rotation as the normal soft-demodulation pass.
-            scrambling.reset();
-            int data_seen = 0;
-            int next_pilot_data = 16 * 90;
-            int physical = 90;
-            const complex_t pilot_symbol(0.70710678f, 0.70710678f);
-
-            while (physical < count)
-            {
-                if (data_seen == next_pilot_data)
+            if (pilots && slot > 0 && slot % 16 == 0)
+                for (int p = 0; p < 36; ++p)
                 {
-                    complex_t correlation = 0;
-                    int used = 0;
-                    for (int p = 0; p < 36 && physical + p < count; ++p)
-                    {
-                        complex_t sample = samples[physical + p];
-                        complex_t descrambled = scrambling.descramble(sample);
-                        correlation += descrambled * pilot_symbol.conj();
-                        ++used;
-                    }
-                    if (used >= 24 && correlation.norm() > 4.0f)
-                        measurements.push_back({physical + 17, correlation});
-                    physical += 36;
-                    next_pilot_data += 16 * 90;
-                    continue;
+                    complex_t symbol(0.70710678f, 0.70710678f);
+                    reference[physical++] = scrambling.scramble(symbol);
                 }
-
-                complex_t sample = samples[physical++];
-                (void)scrambling.descramble(sample);
-                ++data_seen;
-            }
-        }
-
-        if (measurements.size() >= 2)
-        {
-            float previous_phase = measurements.front().correlation.arg();
-            int previous_center = measurements.front().center;
-            float slope_sum = 0.0f;
-            int slope_count = 0;
-
-            for (size_t i = 1; i < measurements.size(); ++i)
+            for (int i = 0; i < 90; ++i)
             {
-                const int span = measurements[i].center - previous_center;
-                if (span <= 0)
-                    continue;
-
-                float phase_delta = measurements[i].correlation.arg() - previous_phase;
-                // Unwrap around the expected phase advance from the current
-                // frequency estimate before averaging pilot intervals.
-                const float expected_delta = frame_freq * static_cast<float>(span);
-                while (phase_delta - expected_delta > static_cast<float>(M_PI))
-                    phase_delta -= 2.0f * static_cast<float>(M_PI);
-                while (phase_delta - expected_delta < -static_cast<float>(M_PI))
-                    phase_delta += 2.0f * static_cast<float>(M_PI);
-
-                slope_sum += phase_delta / static_cast<float>(span);
-                ++slope_count;
-                previous_phase = measurements[i].correlation.arg();
-                previous_center = measurements[i].center;
+                complex_t symbol(0, 0);
+                (void)scrambling.scramble(symbol);
+                ++physical;
             }
-
-            if (slope_count > 0)
-                frame_freq = slope_sum / static_cast<float>(slope_count);
         }
+        constellation_points.clear();
+        if (constellation)
+            for (int state = 0; state < (1 << constellation->getBitsCnt()); ++state)
+                constellation_points.push_back(constellation->mod(state));
+        coarse_acquired = false;
+    }
 
-        // Estimate the phase at the first header symbol using the refined
-        // frequency.  This makes the correction retroactive for the whole
-        // frame while retaining the existing decision-directed PLL below.
-        complex_t phase_corr = 0;
-        for (int i = 0; i < 90 && i < count; ++i)
+    complex_t S2PLLBlockV2::correlate_known(const complex_t *samples, int start, int length, float center, float frequency)
+    {
+        complex_t correlation = 0;
+        for (int i = start; i < start + length; ++i)
         {
-            complex_t raw = samples[i];
-            complex_t dechirped = raw * complex_t(cosf(-frame_freq * i), sinf(-frame_freq * i));
-            phase_corr += dechirped * expected[i].conj();
+            complex_t sample = samples[i];
+            correlation += sample * reference[i].conj() * rotation(-frequency * (i - center));
+        }
+        return correlation;
+    }
+
+    float S2PLLBlockV2::acquire_header_frequency(const complex_t *samples)
+    {
+        // Coherent header matching is far less noisy than adjacent-symbol
+        // frequency estimation. Only acquisition replaces the tracked prior.
+        float best_frequency = freq;
+        float best_match = -1.0f;
+        for (int step = -50; step <= 50; ++step)
+        {
+            const float candidate = step * 0.01f;
+            const float match = power(correlate_known(samples, 0, 90, 44.5f, candidate));
+            if (match > best_match)
+            {
+                best_match = match;
+                best_frequency = candidate;
+            }
+        }
+        for (float resolution : {0.001f, 0.0001f})
+        {
+            const float center = best_frequency;
+            for (int step = -10; step <= 10; ++step)
+            {
+                const float candidate = center + step * resolution;
+                const float match = power(correlate_known(samples, 0, 90, 44.5f, candidate));
+                if (match > best_match)
+                {
+                    best_match = match;
+                    best_frequency = candidate;
+                }
+            }
+        }
+        return best_frequency;
+    }
+
+    float S2PLLBlockV2::data_match(const complex_t *samples, float first_phase, float last_phase, float first_center, float last_center, int start, int end)
+    {
+        if (constellation_points.empty())
+            return 0.0f;
+        const float slope = (last_phase - first_phase) / (last_center - first_center);
+        float error = 0.0f;
+        const int stride = pilots ? 12 : std::max(1, (end - start) / 2048);
+        S2Scrambling match_scrambler;
+        match_scrambler.reset();
+        for (int i = 90; i < end; ++i)
+        {
+            complex_t sample = samples[i];
+            complex_t descrambled = match_scrambler.descramble(sample);
+            const int data_position = i - 90;
+            const int pilot_period = 16 * 90 + 36;
+            const bool is_pilot = pilots && data_position >= 16 * 90 && (data_position % pilot_period) >= 16 * 90;
+            if (i < start || is_pilot || ((i - start) % stride) != 0)
+                continue;
+
+            descrambled = descrambled * rotation(-first_phase - slope * (i - first_center));
+            float nearest = std::numeric_limits<float>::max();
+            for (complex_t point : constellation_points)
+                nearest = std::min(nearest, power(descrambled - point));
+            error += nearest;
+        }
+        return error;
+    }
+
+    void S2PLLBlockV2::estimate_frame_carrier(const complex_t *samples, int count, int available)
+    {
+        anchors.clear();
+        float energy = 0.0f;
+        for (int i = 0; i < 90; ++i)
+            energy += power(samples[i]);
+        const float tracked_match = power(correlate_known(samples, 0, 90, 44.5f, freq)) / std::max(90.0f * energy, 1.0e-9f);
+        const bool acquiring = !coarse_acquired || tracked_match < 0.5f;
+        const float previous_frequency = freq;
+        if (acquiring)
+            freq = acquire_header_frequency(samples);
+        const float frequency_prior = coarse_acquired ? previous_frequency : freq;
+
+        complex_t header = correlate_known(samples, 0, 90, 44.5f, freq);
+        anchors.push_back({44.5f, header.arg()});
+        if (pilots)
+            for (int p = 0; p < pilot_cnt; ++p)
+            {
+                const int start = 90 + (p + 1) * 16 * 90 + p * 36;
+                if (start + 36 <= count)
+                {
+                    const float center = start + 17.5f;
+                    complex_t correlation = correlate_known(samples, start, 36, center, freq);
+                    if (power(correlation) > 1.0e-6f)
+                        anchors.push_back({center, correlation.arg()});
+                }
+            }
+        if (available >= count + 90)
+        {
+            const float center = count + 44.5f;
+            complex_t next = correlate_known(samples, count, 90, center, freq);
+            float next_energy = 0.0f;
+            for (int i = count; i < count + 90; ++i)
+                next_energy += power(samples[i]);
+            if (power(next) / std::max(90.0f * next_energy, 1.0e-9f) > 0.4f)
+                anchors.push_back({center, next.arg()});
         }
 
-        if (std::isfinite(frame_freq))
-            freq = frame_freq;
-        if (phase_corr.norm() > 1.0e-4f && std::isfinite(phase_corr.arg()))
-            phase = phase_corr.arg();
+        if (anchors.size() >= 2)
+        {
+            // Pilots constrain phase modulo 2*pi, not frequency uniquely.
+            // Resolve integer-cycle slips using the data constellation, as
+            // LeanDVB's match_frame does, before applying corrections.
+            const float span = anchors[1].center - anchors[0].center;
+            const float base_phase = unwrap_near(anchors[1].phase, anchors[0].phase + freq * span);
+            const int end = anchors[1].center > count ? count : static_cast<int>(anchors[1].center - 17.5f);
+            const int slip_range = pilots ? 10 : 50;
+            float best_error = std::numeric_limits<float>::max();
+            float best_phase = base_phase;
+            for (int slip = -slip_range; slip <= slip_range; ++slip)
+            {
+                const float candidate = base_phase + slip * two_pi;
+                const float error = data_match(samples, anchors[0].phase, candidate, anchors[0].center, anchors[1].center, 90, end);
+                const float candidate_frequency = (candidate - anchors[0].phase) / span;
+                const float continuity_penalty = 2.0e6f * (candidate_frequency - frequency_prior) * (candidate_frequency - frequency_prior);
+                if (error + continuity_penalty < best_error)
+                {
+                    best_error = error + continuity_penalty;
+                    best_phase = candidate;
+                }
+            }
+            freq = (best_phase - anchors[0].phase) / span;
+            for (size_t i = 1; i < anchors.size(); ++i)
+            {
+                PhaseAnchor &current = anchors[i];
+                const PhaseAnchor &previous = anchors[i - 1];
+                current.phase = unwrap_near(current.phase, previous.phase + freq * (current.center - previous.center));
+            }
+            const PhaseAnchor &first = anchors.front();
+            const PhaseAnchor &last = anchors.back();
+            freq = (last.phase - first.phase) / (last.center - first.center);
+        }
+        phase = anchors[0].phase - freq * anchors[0].center;
+        coarse_acquired = true;
+    }
+
+    float S2PLLBlockV2::phase_at(int symbol) const
+    {
+        if (anchors.size() < 2)
+            return anchors.front().phase + freq * (symbol - anchors.front().center);
+        size_t right = 1;
+        while (right + 1 < anchors.size() && symbol > anchors[right].center)
+            ++right;
+        const PhaseAnchor &a = anchors[right - 1];
+        const PhaseAnchor &b = anchors[right];
+        return a.phase + (b.phase - a.phase) * (symbol - a.center) / (b.center - a.center);
     }
 
     void S2PLLBlockV2::work()
@@ -186,65 +241,47 @@ namespace dvbs2
             input_stream->flush();
             return;
         }
-
         const int expected = (frame_slot_count + 1) * 90 + pilot_cnt * 36;
-        const int count = std::min(nsamples, expected);
-        if (count >= 90)
+        if (nsamples < expected || expected < 90)
         {
-            estimate_frame_carrier(input_stream->readBuf, count);
-            coarse_acquired = true;
+            input_stream->flush();
+            coarse_acquired = false;
+            return;
         }
+        estimate_frame_carrier(input_stream->readBuf, expected, nsamples);
+        const bool pilot_aided = pilots && anchors.size() >= 2;
         scrambling.reset();
-        int data_seen = 0;
-        int next_pilot_data = pilots ? 16 * 90 : std::numeric_limits<int>::max();
-
-        for (int i = 0; i < count; ++i)
+        for (int i = 0; i < expected; ++i)
         {
-            complex_t rotated = input_stream->readBuf[i] * complex_t(cosf(-phase), sinf(-phase));
-            complex_t phase_sample = rotated;
+            // Pilot-aided interpolation is retroactive across each data block;
+            // noisy data decisions must not perturb those known-symbol anchors.
+            if (pilot_aided)
+                phase = phase_at(i);
+            complex_t sample = input_stream->readBuf[i];
+            complex_t rotated = sample * rotation(-phase);
             float error = 0.0f;
-
-            if (i < 26)
+            if (i < 90)
             {
-                error = (rotated * sof.symbols[i].conj()).arg();
-                output_stream->writeBuf[i] = (i & 1) ? complex_t(-rotated.real, rotated.imag) : complex_t(rotated.imag, rotated.real);
-            }
-            else if (i < 90)
-            {
-                error = (rotated * pls.symbols[pls_code][i - 26].conj()).arg();
+                error = (rotated * reference[i].conj()).arg();
                 output_stream->writeBuf[i] = (i & 1) ? complex_t(-rotated.real, rotated.imag) : complex_t(rotated.imag, rotated.real);
             }
             else
             {
-                const bool is_pilot = data_seen == next_pilot_data;
-                if (is_pilot)
+                complex_t descrambled = scrambling.descramble(rotated);
+                if (!pilot_aided)
                 {
-                    // Pilots are part of the physical scrambling sequence but
-                    // are not part of the soft-symbol output.
-                    for (int p = 0; p < 36 && i + p < count; ++p)
-                    {
-                        complex_t pilot_rotated = input_stream->readBuf[i + p] * complex_t(cosf(-phase), sinf(-phase));
-                        complex_t pilot_sample = pilot_rotated;
-                        complex_t pilot_descrambled = scrambling.descramble(pilot_sample);
-                        error = (pilot_descrambled * complex_t(0.70710678f, 0.70710678f).conj()).arg();
-                        output_stream->writeBuf[i + p] = pilot_rotated;
-                        update_loop(error);
-                    }
-                    i += 35;
-                    next_pilot_data += 16 * 90;
-                    continue;
+                    if (power(reference[i]) > 0.0f)
+                        error = (rotated * reference[i].conj()).arg();
+                    else if (constellation)
+                        constellation->demod_soft_improved(descrambled, nullptr, 0.45f, 1.0f, &error);
                 }
-
-                complex_t descrambled = scrambling.descramble(phase_sample);
-                if (constellation)
-                    constellation->demod_soft_improved(descrambled, nullptr, 0.45f, 1.0f, &error);
                 output_stream->writeBuf[i] = rotated;
-                ++data_seen;
             }
-            update_loop(error);
+            if (!pilot_aided)
+                update_loop(error);
         }
-
+        reported_freq = freq;
         input_stream->flush();
-        output_stream->swap(count);
+        output_stream->swap(expected);
     }
 }

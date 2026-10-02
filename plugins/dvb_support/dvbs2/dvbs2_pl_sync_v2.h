@@ -15,6 +15,7 @@ namespace dvbs2
         std::thread d_thread2;
         std::atomic<bool> should_run2{false};
         complex_t *correlation_buffer = nullptr;
+        int buffered = 0;
         s2_sof sof;
         s2_plscodes pls;
 
@@ -48,10 +49,10 @@ namespace dvbs2
         }
         void stop()
         {
-            Block::stop();
             should_run2 = false;
             ring_buffer.stopReader();
             ring_buffer.stopWriter();
+            Block::stop();
             if (d_thread2.joinable())
                 d_thread2.join();
         }

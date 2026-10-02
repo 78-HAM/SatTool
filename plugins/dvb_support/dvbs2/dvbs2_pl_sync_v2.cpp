@@ -10,7 +10,7 @@ namespace dvbs2
         ring_buffer.init(10000000);
         const int pilot_count = pilots ? (slot_number - 1) / 16 : 0;
         raw_frame_size = (slot_number + 1) * 90 + pilot_count * 36;
-        correlation_buffer = new complex_t[raw_frame_size];
+        correlation_buffer = new complex_t[raw_frame_size + 90];
     }
 
     S2PLSyncBlockV2::~S2PLSyncBlockV2()
@@ -32,7 +32,8 @@ namespace dvbs2
 
     void S2PLSyncBlockV2::work2()
     {
-        if (ring_buffer.read(correlation_buffer, raw_frame_size) <= 0)
+        const int window_size = raw_frame_size + 90;
+        if (ring_buffer.read(&correlation_buffer[buffered], window_size - buffered) <= 0)
             return;
 
         complex_t plheader_symbols[sof.LENGTH + pls.LENGTH];
@@ -51,8 +52,12 @@ namespace dvbs2
             complex_t c0 = csof + cplsc;
             complex_t c1 = csof - cplsc;
             complex_t c = c0.norm() > c1.norm() ? c0 : c1;
-            complex_t d = c * (1.0f / (26 - 1 + 64 / 2));
-            return d.norm();
+            float energy = 0.0f;
+            for (int i = 1; i < sof.LENGTH; ++i)
+                energy += plheader_symbols[i].norm();
+            for (int i = sof.LENGTH + 1; i < sof.LENGTH + pls.LENGTH; i += 2)
+                energy += plheader_symbols[i].norm();
+            return static_cast<double>(c.norm() / std::max(energy, 1.0e-9f));
         };
 
         // Once acquired, the previous output ends exactly where the next
@@ -88,13 +93,18 @@ namespace dvbs2
         current_position = best_pos;
         if (best_pos > 0 && best_pos < raw_frame_size)
         {
-            memmove(correlation_buffer, &correlation_buffer[best_pos], (raw_frame_size - best_pos) * sizeof(complex_t));
-            ring_buffer.read(&correlation_buffer[raw_frame_size - best_pos], best_pos);
+            memmove(correlation_buffer, &correlation_buffer[best_pos], (window_size - best_pos) * sizeof(complex_t));
+            if (ring_buffer.read(&correlation_buffer[window_size - best_pos], best_pos) <= 0)
+                return;
         }
 
-        memcpy(output_stream->writeBuf, correlation_buffer, raw_frame_size * sizeof(complex_t));
+        // Look ahead without consuming the next frame's header. The PLL uses
+        // its SOF to constrain the last data block and non-pilot frames.
+        memcpy(output_stream->writeBuf, correlation_buffer, window_size * sizeof(complex_t));
+        memmove(correlation_buffer, &correlation_buffer[raw_frame_size], 90 * sizeof(complex_t));
+        buffered = 90;
         ++processed_frames;
-        output_stream->swap(raw_frame_size);
+        output_stream->swap(window_size);
     }
 
     complex_t S2PLSyncBlockV2::correlate_sof_diff(complex_t *diffs)

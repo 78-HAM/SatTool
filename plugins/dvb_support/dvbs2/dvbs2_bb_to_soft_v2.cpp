@@ -8,7 +8,10 @@ namespace dvbs2
     S2BBToSoftV2::S2BBToSoftV2(std::shared_ptr<dsp::stream<complex_t>> input)
         : Block(input)
     {
-        soft_slots_buffer = new int8_t[64800];
+        // A normal frame has 64800 symbols; 32-APSK can produce five soft
+        // bits per symbol. Keep the buffer sized for the largest supported
+        // constellation instead of overflowing on QPSK/APSK frames.
+        soft_slots_buffer = new int8_t[64800 * 5];
     }
 
     S2BBToSoftV2::~S2BBToSoftV2()

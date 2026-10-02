@@ -4,6 +4,8 @@
 #include "imgui/imgui.h"
 #include "logger.h"
 
+#include <algorithm>
+
 namespace satdump
 {
     namespace pipeline
@@ -105,11 +107,17 @@ namespace satdump
                 // RRC
                 rrc = std::make_shared<dsp::FIRBlock<complex_t>>(agc->output_stream, dsp::firdes::root_raised_cosine(1, final_samplerate, d_symbolrate, d_rrc_alpha, d_rrc_taps));
 
-                // Clock recovery
-                rec = std::make_shared<dsp::MMClockRecoveryBlock<complex_t>>(rrc->output_stream, final_sps, d_clock_gain_omega, d_clock_mu, d_clock_gain_mu, d_clock_omega_relative_limit);
+                // Clock recovery. Keep M&M in the legacy chain and use the
+                // Gardner detector for improved DVB-S2 symbol timing.
+                const float timing_gain_mu = d_improved_decoder ? std::max(d_clock_gain_mu, 1.0e-3f) : d_clock_gain_mu;
+                const float timing_gain_omega = d_improved_decoder ? std::max(d_clock_gain_omega, timing_gain_mu * timing_gain_mu / 4.0f) : d_clock_gain_omega;
+                if (d_improved_decoder)
+                    rec_v2 = std::make_shared<dsp::GardnerClockRecoveryBlock<complex_t>>(rrc->output_stream, final_sps, timing_gain_omega, d_clock_mu, timing_gain_mu, d_clock_omega_relative_limit);
+                else
+                    rec = std::make_shared<dsp::MMClockRecoveryBlock<complex_t>>(rrc->output_stream, final_sps, d_clock_gain_omega, d_clock_mu, d_clock_gain_mu, d_clock_omega_relative_limit);
 
                 // Freq correction
-                freq_sh = std::make_shared<dsp::FreqShiftBlock>(rec->output_stream, 1, 0);
+                freq_sh = std::make_shared<dsp::FreqShiftBlock>(d_improved_decoder ? rec_v2->output_stream : rec->output_stream, 1, 0);
 
                 const int pls_code = d_modcod << 2 | d_shortframes << 1 | d_pilots;
                 if (!d_improved_decoder)
@@ -191,7 +199,10 @@ namespace satdump
                 // Start
                 BaseDemodModule::start();
                 rrc->start();
-                rec->start();
+                if (d_improved_decoder)
+                    rec_v2->start();
+                else
+                    rec->start();
                 freq_sh->start();
                 if (!d_improved_decoder)
                 {
@@ -237,9 +248,10 @@ namespace satdump
                         peak_snr = snr;
 
                     // Get freq
-                    // PLL frequency is measured per recovered symbol while
-                    // FreqShiftBlock expects radians per input sample.
-                    display_freq = dsp::rad_to_hz(current_freq, final_samplerate);
+                    // Improved PLL and FreqShiftBlock both run at one sample
+                    // per recovered symbol. Keep the legacy display unit and
+                    // feedback behavior unchanged for compatibility.
+                    display_freq = dsp::rad_to_hz(current_freq, d_improved_decoder ? d_symbolrate : final_samplerate);
 
                     if (!d_improved_decoder)
                     {
@@ -260,7 +272,10 @@ namespace satdump
 
                     // Propagate frequency to an earlier rotator, slowly
                     const float pll_freq = d_improved_decoder ? s2_pll_v2->getFreq() : s2_pll->getFreq();
-                    current_freq -= (pll_freq / final_sps) * freq_propagation_factor;
+                    if (d_improved_decoder)
+                        current_freq -= pll_freq * freq_propagation_factor;
+                    else
+                        current_freq -= (pll_freq / final_sps) * freq_propagation_factor;
                     freq_sh->set_freq_raw(current_freq);
                     // logger->info("Freq %f, PLFreq %f", current_freq, s2_pll->getFreq());
 
@@ -384,7 +399,10 @@ namespace satdump
                 BaseDemodModule::stop();
 
                 rrc->stop();
-                rec->stop();
+                if (d_improved_decoder)
+                    rec_v2->stop();
+                else
+                    rec->stop();
                 freq_sh->stop();
                 if (!d_improved_decoder)
                 {

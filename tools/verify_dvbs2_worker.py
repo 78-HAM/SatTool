@@ -25,16 +25,16 @@ assert "bool coarse_acquired = false" in pll_header, (
 assert "void S2PLLBlockV2::estimate_frame_carrier" in pll_source, (
     "the improved DVB-S2 PLL must provide frame-level carrier estimation"
 )
-assert "estimate_frame_carrier(input_stream->readBuf, count)" in pll_source, (
+assert "estimate_frame_carrier(input_stream->readBuf, expected, nsamples)" in pll_source, (
     "the improved DVB-S2 PLL must apply look-ahead carrier estimation per frame"
 )
 
 module_source = MODULE_SOURCE.read_text(encoding="utf-8")
-assert "pll_freq / final_sps" in module_source, (
-    "PLL frequency must be converted from radians per symbol to radians per sample"
+assert "current_freq -= pll_freq * freq_propagation_factor" in module_source, (
+    "the improved PLL feedback must stay in radians per recovered symbol"
 )
-assert "rad_to_hz(current_freq, final_samplerate)" in module_source, (
-    "displayed frequency must use the same per-sample unit as FreqShiftBlock"
+assert "rad_to_hz(current_freq, d_improved_decoder ? d_symbolrate : final_samplerate)" in module_source, (
+    "the improved displayed frequency must use the recovered symbol rate"
 )
 
 print("Improved DVB-S2 worker and carrier acquisition lifecycles verified")
