@@ -78,9 +78,10 @@ cd vcpkg
                                     boost-assign boost-dll
 
 #Start Building Dependencies
+$dependency_install_root = (Get-Item "installed\$platform").FullName
 $null = mkdir build
 cd build
-$build_args="-DCMAKE_TOOLCHAIN_FILE=$($(Get-Item ..\scripts\buildsystems\vcpkg.cmake).FullName)", "-DVCPKG_TARGET_TRIPLET=$platform", "-DCMAKE_INSTALL_PREFIX=$($(Get-Item ..\installed\$platform).FullName)", "-DCMAKE_BUILD_TYPE=Release", "-A", $generator
+$build_args="-DCMAKE_TOOLCHAIN_FILE=$($(Get-Item ..\scripts\buildsystems\vcpkg.cmake).FullName)", "-DVCPKG_TARGET_TRIPLET=$platform", "-DCMAKE_INSTALL_PREFIX=$dependency_install_root", "-DCMAKE_BUILD_TYPE=Release", "-A", $generator
 $standard_include=$(Get-Item ..\installed\$platform\include).FullName
 $standard_lib=$(Get-Item ..\installed\$platform\lib).FullName
 $pthread_candidates = @(Get-ChildItem ..\installed\$platform\lib -Filter "pthread*.lib" | Where-Object { $_.Name -notmatch "\.dll\.lib$" })
@@ -317,10 +318,9 @@ if(Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction Silen
 {
     $PSNativeCommandUseErrorActionPreference = $native_command_strict
 }
-$uhd_install_root = (Get-Item ..\..\..\installed\$platform).FullName
-$uhd_runtime = Join-Path $uhd_install_root "bin\uhd.dll"
-$uhd_import = Join-Path $uhd_install_root "lib\uhd.lib"
-if($uhd_install_exit -ne 0 -and (!(Test-Path $uhd_runtime) -or !(Test-Path $uhd_import)))
+$uhd_runtime = Join-Path $dependency_install_root "bin\uhd.dll"
+$uhd_import = Join-Path $dependency_install_root "lib\uhd.lib"
+if(!(Test-Path $uhd_runtime) -or !(Test-Path $uhd_import))
 {
     throw "UHD install failed with exit code $uhd_install_exit and did not produce the expected runtime artifacts"
 }
