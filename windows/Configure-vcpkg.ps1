@@ -301,32 +301,16 @@ $null = mkdir build
 cd build
 cmake $build_args -DENABLE_MAN_PAGES=OFF -DENABLE_MANUAL=OFF -DENABLE_PYTHON_API=OFF -DENABLE_EXAMPLES=OFF -DENABLE_UTILS=OFF -DENABLE_TESTS=OFF -DPYTHON_EXECUTABLE="$((Get-Command python3).Source)" ..
 cmake --build . --config Release
-# CMake 4.4 on the hosted Windows runner can report a spurious non-zero exit
-# after installing UHD (the install output is complete, but PowerShell only
-# reports `OperationStopped`). Keep the strict native-command handling for all
-# other steps and accept this case only when the two UHD runtime artifacts are
-# present.
-$native_command_strict = $false
-if(Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue)
-{
-    $native_command_strict = $PSNativeCommandUseErrorActionPreference
-    $PSNativeCommandUseErrorActionPreference = $false
-}
 cmake --install . --config Release
-$uhd_install_exit = $LASTEXITCODE
-if(Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue)
+if($LASTEXITCODE -ne 0)
 {
-    $PSNativeCommandUseErrorActionPreference = $native_command_strict
+    throw "UHD install failed with exit code $LASTEXITCODE"
 }
 $uhd_runtime = Join-Path $dependency_install_root "bin\uhd.dll"
 $uhd_import = Join-Path $dependency_install_root "lib\uhd.lib"
 if(!(Test-Path $uhd_runtime) -or !(Test-Path $uhd_import))
 {
-    throw "UHD install failed with exit code $uhd_install_exit and did not produce the expected runtime artifacts"
-}
-if($uhd_install_exit -ne 0)
-{
-    Write-Warning "UHD install returned exit code $uhd_install_exit after producing the expected runtime artifacts; continuing"
+    throw "UHD install did not produce the expected runtime artifacts under $dependency_install_root"
 }
 cd ..\..\..
 rm -recurse -force uhd
@@ -335,9 +319,14 @@ cd ..
 rm -recurse -force build
 
 #Install SDRPlay API
-Invoke-WebRequest -Uri "https://www.satdump.org/SDRPlay.zip" -OutFile sdrplay.zip
-mkdir sdrplay | Out-Null
-Expand-Archive sdrplay.zip .
+# Use the SDK archive used by SDR++ CI. The old SatDump URL now serves HTML.
+Invoke-WebRequest -Uri "https://www.sdrpp.org/SDRplay.zip" -OutFile sdrplay.zip
+$sdrplay_archive = (Get-Item sdrplay.zip).FullName
+if((Get-FileHash -LiteralPath $sdrplay_archive -Algorithm SHA256).Hash -ne "DDB9810B4708B9F53DD7DAD235A7C5AD6990D8D0A0C8A141548D01F80C8C92D0")
+{
+    throw "SDRPlay SDK archive checksum mismatch; refusing to extract an unexpected download"
+}
+[System.IO.Compression.ZipFile]::ExtractToDirectory($sdrplay_archive, (Get-Location).Path)
 cp sdrplay\API\inc\*.h installed\$platform\include
 cp sdrplay\API\$sdrplay_arch\sdrplay_api.dll installed\$platform\bin
 cp sdrplay\API\$sdrplay_arch\sdrplay_api.lib installed\$platform\lib
