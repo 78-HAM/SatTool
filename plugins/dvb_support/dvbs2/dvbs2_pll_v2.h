@@ -6,6 +6,7 @@
 #include "codings/dvb-s2/s2_scrambling.h"
 #include <algorithm>
 #include <atomic>
+#include <functional>
 #include <limits>
 #include <vector>
 
@@ -35,7 +36,7 @@ namespace dvbs2
         void work();
         float acquire_header_frequency(const complex_t *samples);
         complex_t correlate_known(const complex_t *samples, int start, int length, float center, float frequency);
-        void estimate_frame_carrier(const complex_t *samples, int count, int available);
+        bool estimate_frame_carrier(const complex_t *samples, int count, int available);
         float phase_at(int symbol) const;
         float data_match(const complex_t *samples, float first_phase, float last_phase, float first_center, float last_center, int start, int end);
         int pilot_cnt = 0;
@@ -51,6 +52,10 @@ namespace dvbs2
         }
 
     public:
+        std::atomic<bool> header_locked{false};
+        // Observe a completed frame while this worker still owns its buffer.
+        // The frequency and samples belong to the same frame.
+        std::function<void(complex_t *, int, float)> on_frame;
         int pls_code = 0;
         int frame_slot_count = 0;
         bool pilots = false;

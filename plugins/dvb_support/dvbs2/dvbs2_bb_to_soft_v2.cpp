@@ -37,6 +37,8 @@ namespace dvbs2
         if (nsamples <= 0)
         {
             input_stream->flush();
+            if (nsamples == 0)
+                output_stream->swap(0);
             return;
         }
 

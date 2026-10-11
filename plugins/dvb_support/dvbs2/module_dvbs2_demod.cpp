@@ -162,6 +162,19 @@ namespace satdump
                     s2_pll_v2->frame_slot_count = frame_slot_count;
                     s2_pll_v2->pls_code = pls_code;
                     s2_pll_v2->update();
+                    s2_pll_v2->on_frame = [this](complex_t *samples, int, float)
+                    {
+                        std::lock_guard<std::mutex> lock(signal_mutex);
+                        // Read the frame before the PLL publishes/releases its
+                        // buffer. Reading readBuf after BBToSoft has flushed it
+                        // races the next frame's swap and writes.
+                        constellation_s2.pushComplexPL(samples, 90);
+                        constellation_s2.pushComplexSlots(samples + 90, frame_slot_count * 90);
+                        snr_estimator.update(samples + 90, frame_slot_count * 90);
+                        snr = snr_estimator.snr();
+                        peak_snr = std::max(peak_snr, snr);
+                        display_freq = dsp::rad_to_hz(current_freq, final_samplerate);
+                    };
                     s2_bb_to_soft_v2 = std::make_shared<dvbs2::S2BBToSoftV2>(s2_pll_v2->output_stream);
                     s2_bb_to_soft_v2->pilots = d_pilots;
                     s2_bb_to_soft_v2->noise_sigma = d_decoder_noise_sigma;
@@ -201,6 +214,7 @@ namespace satdump
                 }
 
                 logger->info("MODCOD : %d", d_modcod);
+                logger->info("DVB-S2 frame type: %s, pilots: %s", d_shortframes ? "Short" : "Normal", d_pilots ? "ON" : "OFF");
                 logger->info("Using input baseband " + d_input_file);
                 logger->info("Demodulating to " + d_output_file_hint + ".bbframe");
                 logger->info("Buffer size : %d", d_buffer_size);
@@ -242,33 +256,27 @@ namespace satdump
                     if (dat_size <= 0)
                     {
                         bb_output_stream->flush();
+                        if (input_data_type == DATA_FILE)
+                            progress = file_source->getPosition();
                         continue;
                     }
 
-                    // Push into constellation
-                    constellation_s2.pushComplexPL(&pll_output_stream->readBuf[0], 90);
-                    constellation_s2.pushComplexSlots(&pll_output_stream->readBuf[90], frame_slot_count * 90);
-
-                    // Estimate SNR over slots
-                    snr_estimator.update(&pll_output_stream->readBuf[90], frame_slot_count * 90);
-                    snr = snr_estimator.snr();
-
-                    if (snr > peak_snr)
-                        peak_snr = snr;
-
-                    // The improved rotator runs before fractional timing, so
-                    // its phase increment is radians per input sample.  The
-                    // legacy rotator remains on the recovered symbol stream.
-                    display_freq = dsp::rad_to_hz(current_freq, final_samplerate);
-
                     if (!d_improved_decoder)
                     {
+                        std::lock_guard<std::mutex> lock(signal_mutex);
+                        constellation_s2.pushComplexPL(&pll_output_stream->readBuf[0], 90);
+                        constellation_s2.pushComplexSlots(&pll_output_stream->readBuf[90], frame_slot_count * 90);
+                        snr_estimator.update(&pll_output_stream->readBuf[90], frame_slot_count * 90);
+                        snr = snr_estimator.snr();
+                        peak_snr = std::max(peak_snr, snr);
+                        display_freq = dsp::rad_to_hz(current_freq, final_samplerate);
                         detected_modcod = s2_bb_to_soft->detect_modcod;
                         detected_shortframes = s2_bb_to_soft->detect_shortframes;
                         detected_pilots = s2_bb_to_soft->detect_pilots;
                     }
                     else
                     {
+                        std::lock_guard<std::mutex> lock(signal_mutex);
                         detected_modcod = s2_bb_to_soft_v2->detect_modcod;
                         detected_shortframes = s2_bb_to_soft_v2->detect_shortframes;
                         detected_pilots = s2_bb_to_soft_v2->detect_pilots;
@@ -278,19 +286,18 @@ namespace satdump
 
                     bb_output_stream->flush();
 
-                    // Propagate frequency to an earlier rotator, slowly
-                    const float pll_freq = d_improved_decoder ? s2_pll_v2->getFreq() : s2_pll->getFreq();
-                    if (d_improved_decoder)
+                    {
+                        std::lock_guard<std::mutex> lock(signal_mutex);
+                        const float pll_freq = d_improved_decoder ? s2_pll_v2->getFreq() : s2_pll->getFreq();
                         current_freq -= (pll_freq / final_sps) * freq_propagation_factor;
-                    else
-                        current_freq -= (pll_freq / final_sps) * freq_propagation_factor;
-                    freq_sh->set_freq_raw(current_freq);
-                    // logger->info("Freq %f, PLFreq %f", current_freq, s2_pll->getFreq());
+                        freq_sh->set_freq_raw(current_freq);
+                    }
 
                     if (input_data_type == DATA_FILE)
                         progress = file_source->getPosition();
                     if (time(NULL) % 10 == 0 && lastTime != time(NULL))
                     {
+                        std::lock_guard<std::mutex> lock(signal_mutex);
                         lastTime = time(NULL);
                         logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%, SNR : " + std::to_string(snr) + "dB," +
                                      " Peak SNR: " + std::to_string(peak_snr) + "dB");
@@ -305,6 +312,7 @@ namespace satdump
 
             nlohmann::json DVBS2DemodModule::getModuleStats()
             {
+                std::lock_guard<std::mutex> lock(signal_mutex);
                 nlohmann::json v; // auto v = satdump::pipeline::base::FileStreamToFileStreamModule::getModuleStats();
                 v["progress"] = ((double)progress / (double)filesize);
                 v["snr"] = snr;
@@ -444,6 +452,7 @@ namespace satdump
 
             void DVBS2DemodModule::drawUI(bool window)
             {
+                std::lock_guard<std::mutex> lock(signal_mutex);
                 ImGui::Begin(name.c_str(), NULL, window ? 0 : NOWINDOW_FLAGS);
 
                 ImGui::BeginGroup();
@@ -481,6 +490,8 @@ namespace satdump
                         ImGui::Text("PL Sync : ");
                         ImGui::SameLine();
                         ImGui::TextColored(sync_locked ? style::theme.green : style::theme.orange, sync_locked ? "Locked" : "Searching");
+                        if (sync_locked && !s2_pll_v2->header_locked.load())
+                            ImGui::TextColored(style::theme.orange, "Check MODCOD / frame type / pilots");
                         ImGui::Text("Frames : %llu", static_cast<unsigned long long>(pl_sync_v2->processed_frames.load()));
                     }
                 }

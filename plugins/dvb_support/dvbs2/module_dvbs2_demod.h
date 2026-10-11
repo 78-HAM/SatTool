@@ -22,6 +22,7 @@
 
 #include "common/widgets/constellation_s2.h"
 #include "common/widgets/value_plot.h"
+#include <mutex>
 
 namespace satdump
 {
@@ -77,6 +78,7 @@ namespace satdump
                 float current_freq = 0;
 
                 // UI
+                mutable std::mutex signal_mutex;
                 widgets::ConstellationViewerDVBS2 constellation_s2;
                 int detected_modcod = -1;
                 bool detected_shortframes = false;

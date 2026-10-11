@@ -71,6 +71,8 @@ namespace dvbs2
             for (int state = 0; state < (1 << constellation->getBitsCnt()); ++state)
                 constellation_points.push_back(constellation->mod(state));
         coarse_acquired = false;
+        header_locked = false;
+        reported_freq = 0.0f;
     }
 
     complex_t S2PLLBlockV2::correlate_known(const complex_t *samples, int start, int length, float center, float frequency)
@@ -87,7 +89,7 @@ namespace dvbs2
     float S2PLLBlockV2::acquire_header_frequency(const complex_t *samples)
     {
         // Coherent header matching is far less noisy than adjacent-symbol
-        // frequency estimation. Only acquisition replaces the tracked prior.
+        // frequency estimation and provides an independent frame-local prior.
         float best_frequency = freq;
         float best_match = -1.0f;
         for (int step = -50; step <= 50; ++step)
@@ -149,19 +151,48 @@ namespace dvbs2
         return error;
     }
 
-    void S2PLLBlockV2::estimate_frame_carrier(const complex_t *samples, int count, int available)
+    bool S2PLLBlockV2::estimate_frame_carrier(const complex_t *samples, int count, int available)
     {
         anchors.clear();
         float energy = 0.0f;
         for (int i = 0; i < 90; ++i)
             energy += power(samples[i]);
-        const float tracked_match = power(correlate_known(samples, 0, 90, 44.5f, freq)) / std::max(90.0f * energy, 1.0e-9f);
-        const bool acquiring = !coarse_acquired || tracked_match < 0.5f;
+        const float normalization = std::max(90.0f * energy, 1.0e-9f);
         const float previous_frequency = freq;
-        if (acquiring)
-            freq = acquire_header_frequency(samples);
+        const float tracked_match = power(correlate_known(samples, 0, 90, 44.5f, freq)) / normalization;
+        const bool acquiring = !coarse_acquired || tracked_match < 0.5f;
+        bool current_header_prior = false;
+        // The upstream rotator can change frequency while buffered frames are
+        // still in flight. A coherent header can remain above the lock
+        // threshold even when the old frequency is in the wrong pilot-cycle
+        // branch. Refresh that prior from a strong current header. At low SNR
+        // retain continuity: a noisy 90-symbol estimate is less reliable than
+        // the frequency already constrained by a whole frame's pilots.
+        if (acquiring || pilots)
+        {
+            const float candidate = acquire_header_frequency(samples);
+            const float candidate_match = power(correlate_known(samples, 0, 90, 44.5f, candidate)) / normalization;
+            current_header_prior = pilots && candidate_match >= 0.85f;
+            if (acquiring || current_header_prior)
+                freq = candidate;
+        }
+        const float branch_prior = current_header_prior ? freq : previous_frequency;
 
         complex_t header = correlate_known(samples, 0, 90, 44.5f, freq);
+        // Differential SOF/PLS correlation finds a boundary regardless of the
+        // PLS value. It does not prove that MODCOD/frame type/pilots match our
+        // configuration. A mismatched PLS has a weak coherent correlation;
+        // using it as an amplitude reference magnifies the payload, and its
+        // frequency estimate can drive the upstream rotator away from signal.
+        // Leave margin for the low-SNR QPSK MODCODs. The wrong orthogonal
+        // PLS word contributes no coherent energy beyond the 26-symbol SOF.
+        header_locked = power(header) / normalization >= 0.25f;
+        if (!header_locked.load())
+        {
+            coarse_acquired = false;
+            reported_freq = 0.0f;
+            return false;
+        }
         anchors.push_back({44.5f, header.arg()});
         if (pilots)
             for (int p = 0; p < pilot_cnt; ++p)
@@ -218,17 +249,16 @@ namespace dvbs2
                     best_frequency = candidate_frequency;
                 }
 
-                // A weak frame can make two integer-cycle hypotheses look
-                // almost identical.  Keep the branch close to the tracked
-                // frequency in that case, while still allowing a genuine
-                // frequency step when the data metric clearly prefers it.
-                if (coarse_acquired && std::abs(candidate_frequency - previous_frequency) < two_pi / (2.0f * nwrap))
+                // A strong current header breaks near-ties independently of
+                // the last frame; a weak header keeps the tracked prior.
+                if ((coarse_acquired || current_header_prior) &&
+                    std::abs(candidate_frequency - branch_prior) < two_pi / (2.0f * nwrap))
                 {
                     prior_error = error;
                     prior_frequency = candidate_frequency;
                 }
             }
-            if (coarse_acquired && prior_error < std::numeric_limits<float>::max() &&
+            if ((coarse_acquired || current_header_prior) && prior_error < std::numeric_limits<float>::max() &&
                 prior_error <= best_error * 1.20f)
             {
                 best_frequency = prior_frequency;
@@ -251,6 +281,7 @@ namespace dvbs2
         }
         phase = anchors[0].phase - freq * anchors[0].center;
         coarse_acquired = true;
+        return true;
     }
 
     float S2PLLBlockV2::phase_at(int symbol) const
@@ -278,9 +309,18 @@ namespace dvbs2
         {
             input_stream->flush();
             coarse_acquired = false;
+            header_locked = false;
+            reported_freq = 0.0f;
             return;
         }
-        estimate_frame_carrier(input_stream->readBuf, expected, nsamples);
+        if (!estimate_frame_carrier(input_stream->readBuf, expected, nsamples))
+        {
+            // A zero-length notification keeps the consumer responsive while
+            // searching, without inventing a payload for LDPC/BCH to decode.
+            input_stream->flush();
+            output_stream->swap(0);
+            return;
+        }
         const bool pilot_aided = pilots && anchors.size() >= 2;
         // Normalize the frame with the known PLHEADER.  SDRangel's receiver
         // carries this gain estimate through its sampler; leaving the small
@@ -329,6 +369,8 @@ namespace dvbs2
                 update_loop(error);
         }
         reported_freq = freq;
+        if (on_frame)
+            on_frame(output_stream->writeBuf, expected, freq);
         input_stream->flush();
         output_stream->swap(expected);
     }

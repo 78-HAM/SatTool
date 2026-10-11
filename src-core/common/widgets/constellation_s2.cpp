@@ -13,8 +13,11 @@ namespace satdump
 
         void ConstellationViewerDVBS2::pushComplexPL(complex_t *buffer, int size)
         {
-            int to_copy = std::min<int>(CONST_SIZE, size);
-            int to_move = size >= CONST_SIZE ? 0 : CONST_SIZE - size;
+            // PLHEADER storage is only one quarter of the payload storage.
+            // Using CONST_SIZE here overwrote the following sample arrays.
+            constexpr int capacity = CONST_SIZE / 4;
+            int to_copy = std::min<int>(capacity, size);
+            int to_move = size >= capacity ? 0 : capacity - size;
 
             if (to_move > 0)
                 std::memmove(&sample_buffer_complex_float_plheader[size], sample_buffer_complex_float_plheader, to_move * sizeof(complex_t));

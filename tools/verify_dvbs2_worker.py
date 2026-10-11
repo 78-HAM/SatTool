@@ -22,7 +22,7 @@ pll_source = PLL_SOURCE.read_text(encoding="utf-8")
 assert "bool coarse_acquired = false" in pll_header, (
     "the improved DVB-S2 PLL must remember when coarse carrier acquisition is complete"
 )
-assert "void S2PLLBlockV2::estimate_frame_carrier" in pll_source, (
+assert "bool S2PLLBlockV2::estimate_frame_carrier" in pll_source, (
     "the improved DVB-S2 PLL must provide frame-level carrier estimation"
 )
 assert "estimate_frame_carrier(input_stream->readBuf, expected, nsamples)" in pll_source, (

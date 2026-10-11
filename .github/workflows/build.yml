@@ -38,6 +38,22 @@ jobs:
           python3 tools/verify_sattool_branding.py
           python3 tools/verify_windows_release_config.py
           python3 tools/verify_dvbs2_worker.py
+          g++ -std=c++17 -O2 -DSOURCE_PATH_SIZE=0 -Isrc-core -Iplugins/dvb_support \
+            src-testing/dvbs2_header_regression_test.cpp src-testing/dvbs2_test_support.cpp \
+            plugins/dvb_support/dvbs2/dvbs2_pll_v2.cpp \
+            plugins/dvb_support/dvbs2/dvbs2_bb_to_soft_v2.cpp \
+            plugins/dvb_support/codings/dvb-s2/s2_scrambling.cpp \
+            plugins/dvb_support/codings/dvb-s2/s2_deinterleaver.cpp \
+            src-core/common/dsp/demod/constellation.cpp -lvolk -pthread \
+            -o /tmp/dvbs2_header_regression_test
+          /tmp/dvbs2_header_regression_test
+          g++ -std=c++17 -O2 -DSOURCE_PATH_SIZE=0 -Isrc-core -Iplugins/dvb_support \
+            src-testing/dvbs2_carrier_tracking_test.cpp src-testing/dvbs2_test_support.cpp \
+            plugins/dvb_support/dvbs2/dvbs2_pll_v2.cpp \
+            plugins/dvb_support/codings/dvb-s2/s2_scrambling.cpp \
+            src-core/common/dsp/demod/constellation.cpp -lvolk -pthread \
+            -o /tmp/dvbs2_carrier_tracking_test
+          /tmp/dvbs2_carrier_tracking_test
           g++ -std=c++17 -Isrc-core src-testing/ui_regression_tests.cpp -o /tmp/ui_regression_tests
           /tmp/ui_regression_tests
           g++ -std=c++17 -Isrc-core src-testing/dvbs2_soft_metric_test.cpp -o /tmp/dvbs2_soft_metric_test

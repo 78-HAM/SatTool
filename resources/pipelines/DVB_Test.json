@@ -142,6 +142,18 @@
                 "name": "PLL BW",
                 "description": "DVB-S2 PLL Bandwidth"
             },
+            "pilots": {
+                "type": "bool",
+                "value": false,
+                "name": "Pilots",
+                "description": "Enable when the DVB-S2 signal contains pilots (required for GK2A UHRIT)."
+            },
+            "shortframes": {
+                "type": "bool",
+                "value": false,
+                "name": "Short Frames",
+                "description": "Enable for short FEC frames. GK2A UHRIT uses normal frames."
+            },
             /*"bb_size": {
                 "type": "int",
                 "value": 58192,
@@ -165,7 +177,6 @@
                     //"rrc_alpha": 0.25,
                     //"pll_bw": 0.005,
                     //"modcod": 17,
-                    // "pilots": true,
                     //"clock_alpha": 1.7e-4, // Needs to be tighter for 32-APSK.
                     "freq_prop_factor": 0.01
                 }
