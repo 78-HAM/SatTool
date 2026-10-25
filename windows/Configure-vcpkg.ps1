@@ -127,8 +127,11 @@ function Invoke-VcpkgInstall
     throw "vcpkg install failed after 3 attempts (last exit code $exit_code)"
 }
 
-# Core packages. libxml2 is for libiio
-Invoke-VcpkgInstall -Arguments @("install", "--triplet", $platform, "pthreads", "libjpeg-turbo", "tiff", "libpng", "glfw3", "libusb", "fftw3", "libxml2", "portaudio", "nng", "zstd", "armadillo", "opencl", "curl[ssl]", "hdf5")
+# Core packages. libxml2 is for libiio.
+# hdf5[hl] is required: official_products_support includes H5LTpublic.h, which
+# only ships with the high-level feature. Without it the Windows build fails
+# with "C1083: Cannot open include file: 'H5LTpublic.h'".
+Invoke-VcpkgInstall -Arguments @("install", "--triplet", $platform, "pthreads", "libjpeg-turbo", "tiff", "libpng", "glfw3", "libusb", "fftw3", "libxml2", "portaudio", "nng", "zstd", "armadillo", "opencl", "curl[ssl]", "hdf5[hl]")
 
 # Entirely for UHD...
 if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
