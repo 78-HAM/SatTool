@@ -362,14 +362,52 @@ if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
     Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "FX3-SDK")
     Remove-Item -LiteralPath (Join-Path (Get-Location) "FX3-SDK.zip") -Force -ErrorAction SilentlyContinue
     Write-Output "Building UHD..."
-    git clone https://github.com/EttusResearch/uhd --depth 1 -b v4.7.0.0
-    cd uhd\host
-    $null = mkdir build
-    cd build
-    cmake $build_args -DENABLE_MAN_PAGES=OFF -DENABLE_MANUAL=OFF -DENABLE_PYTHON_API=OFF -DENABLE_EXAMPLES=OFF -DENABLE_UTILS=OFF -DENABLE_TESTS=OFF ..
-    cmake --build . --config Release
-    cmake --install .
-    cd ..\..\..
+
+    # UHD vendors an old rpclib that does not compile against the Boost.Asio
+    # shipped by the vcpkg baseline pinned above (errors on
+    # boost::asio::strand / io_service). That is an upstream incompatibility,
+    # not a problem with this project, and USRP support is optional: do not let
+    # it abort the whole dependency build. usrp_sdr_support skips itself when
+    # uhd.lib is missing.
+    $uhd_ok = $false
+    try
+    {
+        git clone https://github.com/EttusResearch/uhd --depth 1 -b v4.7.0.0
+        cd uhd\host
+        $null = mkdir build
+        cd build
+        cmake $build_args -DENABLE_MAN_PAGES=OFF -DENABLE_MANUAL=OFF -DENABLE_PYTHON_API=OFF -DENABLE_EXAMPLES=OFF -DENABLE_UTILS=OFF -DENABLE_TESTS=OFF ..
+        if($LASTEXITCODE -eq 0)
+        {
+            cmake --build . --config Release
+            if($LASTEXITCODE -eq 0)
+            {
+                cmake --install .
+                if($LASTEXITCODE -eq 0)
+                {
+                    $uhd_ok = $true
+                }
+            }
+        }
+        cd ..\..\..
+    }
+    catch
+    {
+        Write-Warning "UHD build threw: $($_.Exception.Message)"
+    }
+
+    if($uhd_ok)
+    {
+        Write-Output "UHD built successfully."
+    }
+    else
+    {
+        Write-Warning "UHD could not be built with the pinned Boost; USRP support will be disabled for this build."
+        # Remove any partial install so CMake does not pick up a broken uhd.lib.
+        Remove-Item -LiteralPath (Join-Path (Get-Location) "installed\$platform\lib\uhd.lib") -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath (Join-Path (Get-Location) "installed\$platform\bin\uhd.dll") -Force -ErrorAction SilentlyContinue
+    }
+
     Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "uhd")
 }
 
