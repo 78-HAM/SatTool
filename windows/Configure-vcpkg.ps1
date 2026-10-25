@@ -453,3 +453,13 @@ Remove-Item sdrplay.zip -Force -ErrorAction SilentlyContinue
 mv installed\$platform\lib\*.dll installed\$platform\bin\
 mv installed\$platform\bin\*.lib installed\$platform\lib\
 cd ..
+
+# The step must succeed: optional components above (UHD, LimeSuite, SDRPlay)
+# are allowed to fail, but a failing native command leaves $LASTEXITCODE set,
+# and PowerShell propagates that as the script's exit code. That is what made
+# "Configure vcpkg" fail on x64 even after UHD was skipped successfully.
+if($LASTEXITCODE -ne 0)
+{
+    Write-Warning "Ignoring leftover native exit code $LASTEXITCODE from optional dependency steps."
+}
+exit 0
