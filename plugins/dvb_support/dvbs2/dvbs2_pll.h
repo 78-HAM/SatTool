@@ -32,18 +32,9 @@ namespace dvbs2
 
         void update()
         {
-            if (pilots)
-            {
-                int raw_size = (frame_slot_count - 90) / 90;
-                pilot_cnt = 1;
-                raw_size -= 16; // First pilot is 16 slots after the SOF
-
-                while (raw_size > 16)
-                {
-                    raw_size -= 16; // The rest is 32 symbols further
-                    pilot_cnt++;
-                }
-            }
+            // A 36-symbol pilot block follows every 16 slots of 90 data symbols,
+            // i.e. one pilot block per 1440 data symbols.
+            pilot_cnt = pilots ? (frame_slot_count / 16) : 0;
         }
 
         std::shared_ptr<dsp::constellation_t> constellation;

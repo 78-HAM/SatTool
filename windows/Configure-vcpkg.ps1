@@ -1,4 +1,4 @@
-﻿param([string]$platform="x64-windows") #or x86-windows, arm64-windows
+param([string]$platform="x64-windows") #or x86-windows, arm64-windows
 $ErrorActionPreference = "Stop"
 $PSDefaultParameterValues['*:ErrorAction']='Stop'
 
@@ -267,21 +267,64 @@ Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "libad9361-iio")
 if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
 {
     Write-Output "Building LimeSuite..."
-    Invoke-WebRequest -Uri "https://www.satdump.org/FX3-SDK.zip" -OutFile FX3-SDK.zip
-    Expand-Archive FX3-SDK.zip .
-    $fx3_arg = "-DFX3_SDK_PATH=$($(Get-Item .\FX3-SDK).FullName)"
-    git clone https://github.com/myriadrf/LimeSuite --depth 1 -b v23.11.0
-    cd LimeSuite
-    $null = mkdir build-dir
-    cd build-dir
-    cmake $build_args -DENABLE_GUI=OFF $fx3_arg ..
-    cmake --build . --config Release
-    cmake --install .
-    cd ..\..
-    Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "LimeSuite")
+
+    # www.satdump.org now sits behind an Anubis proof-of-work challenge, so a
+    # plain Invoke-WebRequest returns an HTML page instead of the ZIP, and
+    # Expand-Archive then aborts the whole dependency build with
+    # "End of Central Directory record could not be found".
+    # This SDK is optional: validate the ZIP magic, try the mirror, and skip
+    # LimeSuite rather than failing the job (the plugin CMakeLists also skips
+    # itself when LimeSuite is absent).
+    $fx3_ok = $false
+    foreach($fx3_url in @("https://github.com/myriadrf/LimeSuite/archive/refs/tags/v23.11.0/FX3-SDK.zip",
+                          "https://www.satdump.org/FX3-SDK.zip"))
+    {
+        try
+        {
+            Invoke-WebRequest -Uri $fx3_url -OutFile FX3-SDK.zip -MaximumRedirection 5
+            $magic = [System.IO.File]::ReadAllBytes((Resolve-Path FX3-SDK.zip))[0..1]
+            if($magic[0] -eq 0x50 -and $magic[1] -eq 0x4B)
+            {
+                Expand-Archive FX3-SDK.zip . -Force
+                if(Test-Path .\FX3-SDK)
+                {
+                    $fx3_ok = $true
+                    break
+                }
+            }
+            Write-Warning "FX3-SDK from $fx3_url is not a valid ZIP (likely a bot-check page); trying next source"
+        }
+        catch
+        {
+            Write-Warning "FX3-SDK download from $fx3_url failed: $($_.Exception.Message)"
+        }
+        Remove-Item -LiteralPath (Join-Path (Get-Location) "FX3-SDK.zip") -Force -ErrorAction SilentlyContinue
+    }
+
+    if($fx3_ok)
+    {
+        $fx3_arg = "-DFX3_SDK_PATH=$($(Get-Item .\FX3-SDK).FullName)"
+        git clone https://github.com/myriadrf/LimeSuite --depth 1 -b v23.11.0
+        cd LimeSuite
+        $null = mkdir build-dir
+        cd build-dir
+        cmake $build_args -DENABLE_GUI=OFF $fx3_arg ..
+        cmake --build . --config Release
+        cmake --install .
+        cd ..\..
+        Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "LimeSuite")
+    }
+    else
+    {
+        Write-Warning "Skipping LimeSuite: the FX3 SDK is unavailable. LimeSDR support will be disabled for this build."
+    }
 }
 
 Write-Output "Building bladeRF..."
+# $fx3_arg only exists when the FX3 SDK downloaded successfully, but bladeRF
+# references it unconditionally. Initialise it so an unavailable SDK leaves the
+# build with the default (no FX3 path) instead of throwing.
+$fx3_arg = ""
 git clone https://github.com/Nuand/bladeRF --depth 1 -b 2024.05
 cd bladeRF\host
 Clear-Content cmake/modules/FindLibPThreadsWin32.cmake
@@ -316,14 +359,39 @@ cd ..
 Remove-DirectoryWithRetry -Path (Join-Path (Get-Location) "build")
 
 #Install SDRPlay API
-Invoke-WebRequest -Uri "https://www.satdump.org/SDRPlay.zip" -OutFile sdrplay.zip
-mkdir sdrplay | Out-Null
-Expand-Archive sdrplay.zip .
-cp sdrplay\API\inc\*.h installed\$platform\include
-cp sdrplay\API\$sdrplay_arch\sdrplay_api.dll installed\$platform\bin
-cp sdrplay\API\$sdrplay_arch\sdrplay_api.lib installed\$platform\lib
+# Optional: www.satdump.org is behind a bot challenge, so a failure here must
+# not abort the dependency build. The plugin CMakeLists skips itself when the
+# API is missing.
+try
+{
+    Invoke-WebRequest -Uri "https://www.satdump.org/SDRPlay.zip" -OutFile sdrplay.zip -MaximumRedirection 5
+    $magic = [System.IO.File]::ReadAllBytes((Resolve-Path sdrplay.zip))[0..1]
+    if($magic[0] -eq 0x50 -and $magic[1] -eq 0x4B)
+    {
+        mkdir sdrplay | Out-Null
+        Expand-Archive sdrplay.zip . -Force
+        if(Test-Path sdrplay\API)
+        {
+            cp sdrplay\API\inc\*.h installed\$platform\include
+            cp sdrplay\API\$sdrplay_arch\sdrplay_api.dll installed\$platform\bin
+            cp sdrplay\API\$sdrplay_arch\sdrplay_api.lib installed\$platform\lib
+        }
+        else
+        {
+            Write-Warning "SDRPlay.zip did not contain an API folder; skipping SDRPlay API install."
+        }
+    }
+    else
+    {
+        Write-Warning "SDRPlay.zip is not a valid ZIP (likely a bot-check page); skipping SDRPlay API install."
+    }
+}
+catch
+{
+    Write-Warning "SDRPlay API install skipped: $($_.Exception.Message)"
+}
 Remove-Item sdrplay -Force -Recurse -ErrorAction SilentlyContinue
-Remove-Item sdrplay.zip
+Remove-Item sdrplay.zip -Force -ErrorAction SilentlyContinue
 
 #Clean Up (Some packages are silly)
 mv installed\$platform\lib\*.dll installed\$platform\bin\

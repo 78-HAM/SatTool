@@ -53,6 +53,13 @@ namespace dsp
         int lut_resolution;
         std::vector<std::vector<SoftResult>> lut;
 
+        // Geometry of the LUT grid, computed by make_lut(): the grid spans
+        // [-lut_half_span, +lut_half_span] on both axes with lut_scale between
+        // adjacent pixels. demod_soft_lut() uses these to map a sample to a
+        // pixel, so the range always covers the whole signal set.
+        float lut_half_span = 0.75f;
+        float lut_scale = 1.5f / 256.0f;
+
     public:
         void make_lut(int resolution);
         void demod_soft_lut(complex_t sample, int8_t *bits, float *phase_error = nullptr);

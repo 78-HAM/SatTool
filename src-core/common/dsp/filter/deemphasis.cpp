@@ -1,17 +1,13 @@
 #include "common/dsp/filter/deemphasis.h"
-#include "common/dsp/buffer.h"
-#include <complex.h>
 #include <memory>
 #include <type_traits>
 
 namespace dsp
 {
-    template<typename T>
+    template <typename T>
     DeEmphasisBlock<T>::DeEmphasisBlock(std::shared_ptr<dsp::stream<T>> input, double quad_sampl_rate, double tau) : Block<T, T>(input)
     {
-        // Init buffer
-        buffer = create_volk_buffer<T>(2 * STREAM_BUFFER_SIZE);
-
+        // Precompute the one-pole coefficient: alpha = dt / (tau + dt)
         float dt = 1.0f / quad_sampl_rate;
         alpha = dt / (tau + dt);
     }
@@ -19,7 +15,6 @@ namespace dsp
     template <typename T>
     DeEmphasisBlock<T>::~DeEmphasisBlock()
     {
-        volk_free(buffer);
     }
 
     template <typename T>
@@ -32,59 +27,29 @@ namespace dsp
             return;
         }
 
-        memcpy(&buffer[in_buffer], Block<T, T>::input_stream->readBuf, nsamples * sizeof(T));
-        in_buffer += nsamples;
-
-        int consumed = 0;
-        for (int i = 0; (i + d_nsamples) < in_buffer; i += d_nsamples)
+        // One-pole IIR applied to the freshly read samples. The state is kept
+        // in lastSamp* so the filter stays continuous across buffer boundaries.
+        if constexpr (std::is_same_v<T, float>)
         {
-            T input = Block<T, T>::input_stream->readBuf[i];
-            T output = Block<T, T>::output_stream->readBuf[i];
-
-            consumed += d_nsamples;
-
-            //float dt = 1.0f / quad_sampl_rate;
-            //alpha = dt / (tau + dt);
-
-            if constexpr (std::is_same_v<T, float>)
+            for (int i = 0; i < nsamples; i++)
             {
-                std::vector<float> input;
-                std::vector<float> output;
-                output[0] = (alpha * input[0]) + ((1 - alpha) * lastSamp);
-                for (int j = 1; j < d_nsamples; j++)
-                {
-                    output[j] = (alpha * input[j]) + ((1 - alpha) * output[j -1]);
-                }
-                lastSamp = output[d_nsamples - 1];
+                lastSamp = (alpha * Block<T, T>::input_stream->readBuf[i]) + ((1 - alpha) * lastSamp);
+                Block<T, T>::output_stream->writeBuf[i] = lastSamp;
             }
-
-            if constexpr (std::is_same_v<T, complex_t>)
+        }
+        else if constexpr (std::is_same_v<T, complex_t>)
+        {
+            for (int i = 0; i < nsamples; i++)
             {
-                std::vector<complex_t> input;
-                std::vector<complex_t> output;
-                output[0].imag = (alpha * input[0].imag) + ((1 - alpha) * lastSampImag);
-                output[0].real = (alpha * input[0].real) + ((1 - alpha) * lastSampReal);
-                for (int j = 1; j < d_nsamples; j++)
-                {
-                    output[j].imag = (alpha * input[j].imag) + ((1 - alpha) * output[j - 1].imag);
-                    output[j].real = (alpha * input[j].real) + ((1 - alpha) * output[j - 1].real);
-                }
-
-                lastSampImag = output[d_nsamples - 1].imag;
-                lastSampReal = output[d_nsamples - 1].real;
-
+                const complex_t in = Block<T, T>::input_stream->readBuf[i];
+                lastSampReal = (alpha * in.real) + ((1 - alpha) * lastSampReal);
+                lastSampImag = (alpha * in.imag) + ((1 - alpha) * lastSampImag);
+                Block<T, T>::output_stream->writeBuf[i] = complex_t(lastSampReal, lastSampImag);
             }
-
-            Block<T, T>::output_stream->writeBuf[i] = output;
         }
 
         Block<T, T>::input_stream->flush();
-        //Block<T, T>::output_stream->swap(nsamples);
-        Block<T, T>::output_stream->swap(consumed);
-
-        memmove(&buffer[0], &buffer[consumed], (in_buffer - consumed) * sizeof(T));
-        in_buffer -= consumed;
-
+        Block<T, T>::output_stream->swap(nsamples);
     }
 
     template class DeEmphasisBlock<complex_t>;

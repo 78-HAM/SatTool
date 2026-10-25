@@ -49,12 +49,14 @@ jobs:
 
       - name: Download Aaronia RTSA API
         if: steps.win-deps-x64.outputs.cache-hit != 'true'
+        continue-on-error: true
         shell: powershell
         run: Invoke-WebRequest -Uri "https://www.satdump.org/Aaronia_RTSA_Suite_PRO_2.2.0.12821_Setup_64bit.exe" -OutFile $Env:GITHUB_WORKSPACE/vcpkg/rtsa.exe
 
       - name: Install Aaronia RTSA API
+        continue-on-error: true
         shell: cmd
-        run: start /wait vcpkg\rtsa.exe /q2 /install
+        run: if exist vcpkg\rtsa.exe (start /wait vcpkg\rtsa.exe /q2 /install) else (echo "Aaronia installer not downloaded; skipping")
 
       - name: Add support to NSIS for long PATHs
         shell: powershell

@@ -14,8 +14,10 @@ namespace dsp
     class MMClockRecoveryBlock : public Block<T, T>
     {
     private:
-        // Buffer
+        // Buffer. Sized for a full stream read PLUS the interpolation history
+        // (ntaps) that work() writes past the end of the new samples.
         T *buffer;
+        int buffer_size = 0;
 
         // Variables
         float mu;
@@ -26,8 +28,10 @@ namespace dsp
         float omega_mid;
         float omega_limit;
 
-        float sample;
-        float last_sample;
+        float sample = 0;
+        // Must be initialised: the first Gardner/M&M phase error is computed
+        // against the "previous" symbol, which does not exist on the first call.
+        float last_sample = 0;
 
         complex_t p_2T, p_1T, p_0T;
         complex_t c_2T, c_1T, c_0T;

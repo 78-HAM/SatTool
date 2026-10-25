@@ -4,7 +4,21 @@ project(limesdr_sdr_support)
 
 find_library(LIMESDR_LIBRARY LimeSuite)
 
-if(LIMESDR_LIBRARY OR MSVC OR ANDROID)
+# On MSVC the library is normally resolved by the linker, so find_library()
+# comes back empty and the plugin used to be built unconditionally. If the FX3
+# SDK download fails, LimeSuite is never built and that produces a link error.
+# Probe the vcpkg install tree instead, and skip the plugin when it is absent.
+if(MSVC AND NOT LIMESDR_LIBRARY)
+    find_library(LIMESDR_LIBRARY LimeSuite
+                 PATHS
+                       "$ENV{VCPKG_ROOT}/installed/x64-windows/lib"
+                       "$ENV{VCPKG_ROOT}/installed/arm64-windows/lib"
+                       "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/lib"
+                       "${CMAKE_SOURCE_DIR}/vcpkg/installed/arm64-windows/lib"
+                 NO_DEFAULT_PATH)
+endif()
+
+if(LIMESDR_LIBRARY OR ANDROID)
     message("Building with LimeSDR support")
     file(GLOB_RECURSE limesdr_sdr_support_CPPS *.cpp)
     add_library(limesdr_sdr_support SHARED ${limesdr_sdr_support_CPPS})

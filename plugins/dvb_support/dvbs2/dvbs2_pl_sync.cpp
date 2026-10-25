@@ -13,16 +13,11 @@ namespace dvbs2
 
         if (pilots)
         {
-            int raw_size = (raw_frame_size - 90) / 90;
-            int pilot_cnt = 1;
-            raw_size -= 16; // First pilot is 16 slots after the SOF
-
-            while (raw_size > 16)
-            {
-                raw_size -= 16; // The rest is 32 symbols further
-                pilot_cnt++;
-            }
-
+            // One 36-symbol pilot block per 16 slots (1440 data symbols).
+            // The previous loop stopped one block short for slot counts such
+            // as 144 and 240, so the correlation buffer was smaller than the
+            // real frame and the tail of every frame was truncated.
+            const int pilot_cnt = slot_number / 16;
             raw_frame_size += pilot_cnt * 36;
 
             logger->info("Pilots size (PLSYNC) : %d", raw_frame_size);

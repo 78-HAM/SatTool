@@ -9,7 +9,20 @@ endif()
 
 find_library(SDRPLAY_LIBRARY sdrplay_api)
 
-if(SDRPLAY_LIBRARY OR MSVC)
+# The SDRPlay API is a manual download (the ZIP is not in vcpkg). On MSVC the
+# plugin used to be built unconditionally, so a missing/failed API download
+# turned into a link error. Probe the install tree and skip the plugin instead.
+if(MSVC AND NOT SDRPLAY_LIBRARY)
+    find_library(SDRPLAY_LIBRARY sdrplay_api
+                 PATHS
+                       "$ENV{VCPKG_ROOT}/installed/x64-windows/lib"
+                       "$ENV{VCPKG_ROOT}/installed/arm64-windows/lib"
+                       "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows/lib"
+                       "${CMAKE_SOURCE_DIR}/vcpkg/installed/arm64-windows/lib"
+                 NO_DEFAULT_PATH)
+endif()
+
+if(SDRPLAY_LIBRARY)
     message("Building with SDRPlay support")
     file(GLOB_RECURSE sdrplay_sdr_support_CPPS *.cpp)
     add_library(sdrplay_sdr_support SHARED ${sdrplay_sdr_support_CPPS})
@@ -23,5 +36,5 @@ if(SDRPLAY_LIBRARY OR MSVC)
         install(TARGETS sdrplay_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
     endif()
 else()
-    message("SDRlay Library could not be found! Not building.")
+    message("SDRPlay Library could not be found! Not building.")
 endif()

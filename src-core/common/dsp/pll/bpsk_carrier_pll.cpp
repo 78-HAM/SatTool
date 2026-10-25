@@ -8,12 +8,18 @@
 #define sincosf __sincosf
 #endif
 
-#ifdef _WIN32
-void sincosf(float x, float *sinx, float *cosx)
+#if defined(_WIN32) && !defined(SATDUMP_HAVE_SINCOSF)
+// MinGW's <math.h> already declares sincosf(float, float*, float*), and GCC
+// lowers sinf+cosf pairs into calls to it. Defining a global sincosf here
+// therefore recursed into itself forever (stack overflow at the first
+// sample). Provide a file-local helper under a distinct name instead.
+static inline void satdump_sincosf(float x, float *sinx, float *cosx)
 {
     *sinx = sinf(x);
     *cosx = cosf(x);
 }
+#else
+#define satdump_sincosf sincosf
 #endif
 
 namespace dsp
@@ -35,7 +41,7 @@ namespace dsp
         {
             // Generate and mix out carrier
             float re, im;
-            sincosf(phase, &im, &re);
+            satdump_sincosf(phase, &im, &re);
             output_stream->writeBuf[i] = (input_stream->readBuf[i] * complex_t(re, -im)).imag;
 
             // Compute error and wrap

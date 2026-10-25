@@ -12,8 +12,10 @@ namespace dsp
     class GardnerClockRecoveryBlock : public Block<T, T>
     {
     private:
-        // Buffer
+        // Buffer. Sized for a full stream read PLUS the interpolation history
+        // (bufs + ntaps) that work() writes past the end of the new samples.
         T *buffer;
+        int buffer_size = 0;
 
         // Variables
         float mu;
@@ -24,9 +26,11 @@ namespace dsp
         float omega_mid;
         float omega_limit;
 
-        T sample;
-        T zc_sample;
-        T last_sample;
+        T sample = T(0);
+        T zc_sample = T(0);
+        // Must be initialised: the first Gardner phase error is computed
+        // against the "previous" symbol, which does not exist on the first call.
+        T last_sample = T(0);
 
         int bufs;
 

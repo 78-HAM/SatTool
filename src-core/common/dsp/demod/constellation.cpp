@@ -302,14 +302,37 @@ namespace dsp
         lut_resolution = resolution;
         lut.resize(resolution);
 
+        // The LUT has to cover the whole signal set plus some noise margin, or
+        // every sample outside the box gets clamped to the rim and its soft
+        // bits are computed for the wrong point. The old fixed 1.5f span only
+        // reached +/-0.75 per axis, while BPSK/8PSK reach 1.0 and 16/32APSK
+        // reach ~1.06/1.16 -- so most outer-ring samples were clamped.
+        //
+        // demod_soft_calc() applies const_amp and const_prescale to the sample
+        // before comparing against `constellation`, so the LUT lives in the
+        // *pre-scaled* domain: a symbol as seen by the LUT is
+        // constellation[i] / (const_amp * const_prescale).
+        float max_point = 0;
+        for (int i = 0; i < const_states; i++)
+        {
+            const float re = constellation[i].real / (const_amp * const_prescale);
+            const float im = constellation[i].imag / (const_amp * const_prescale);
+            max_point = std::max(max_point, std::max(std::fabs(re), std::fabs(im)));
+        }
+
+        // 1.35x the largest coordinate leaves room for AWGN.
+        lut_half_span = std::max(0.75f, max_point * 1.35f);
+        lut_scale = (2.0f * lut_half_span) / float(resolution);
+
         for (int x = 0; x < resolution; x++)
         {
             lut[x].resize(resolution);
 
             for (int y = 0; y < resolution; y++)
             {
-                float x_v = (float(x - resolution / 2) / float(resolution)) * 1.5f;
-                float y_v = (float(y - resolution / 2) / float(resolution)) * 1.5f;
+                // Sample at pixel centres to keep the mapping symmetric.
+                float x_v = -lut_half_span + (float(x) + 0.5f) * lut_scale;
+                float y_v = -lut_half_span + (float(y) + 0.5f) * lut_scale;
 
                 std::vector<int8_t> bits(const_bits);
                 float phase_err;
@@ -325,21 +348,17 @@ namespace dsp
     {
         if (const_bits != 5)
         {
-            int x = (sample.real / 1.5) * lut_resolution + lut_resolution / 2;
-#if 1
+            int x = (int)floorf((sample.real + lut_half_span) / lut_scale);
             if (x < 0)
                 x = 0;
             if (x >= lut_resolution)
                 x = lut_resolution - 1;
-#endif
 
-            int y = (sample.imag / 1.5) * lut_resolution + lut_resolution / 2;
-#if 1
+            int y = (int)floorf((sample.imag + lut_half_span) / lut_scale);
             if (y < 0)
                 y = 0;
             if (y >= lut_resolution)
                 y = lut_resolution - 1;
-#endif
 
             SoftResult &v = lut[x][y];
 

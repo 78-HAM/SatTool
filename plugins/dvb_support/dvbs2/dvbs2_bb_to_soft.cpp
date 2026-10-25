@@ -51,15 +51,23 @@ namespace dvbs2
         detect_pilots = best_header & 1;
 
         int pilots_offset = 0;
+        const int bits_per_sym = constellation->getBitsCnt();
+        const int data_symbols = frame_slot_count * 90;
 
-        // Derandomize and decode slots
+        // Derandomize and decode slots.
+        // With pilots enabled a 36-symbol pilot block follows every 16 slots
+        // (1440 data symbols), so the physical read index runs ahead of the
+        // data-symbol index. The old code accumulated pilots_offset but never
+        // added it to the read index (and stepped it at a 1476-symbol period),
+        // which made the demodulator read mostly the wrong samples.
         descrambler.reset();
-        for (int i = 0; i < frame_slot_count * 90; i++)
+        for (int i = 0; i < data_symbols; i++)
         {
-            if (i % 1476 == 0 && i != 0 && pilots)
+            if (pilots && i != 0 && (i % 1440) == 0)
                 pilots_offset += 36;
 
-            constellation->demod_soft_lut(descrambler.descramble(input_stream->readBuf[90 + i]), &soft_slots_buffer[(i - pilots_offset) * constellation->getBitsCnt()]);
+            constellation->demod_soft_lut(descrambler.descramble(input_stream->readBuf[90 + i + pilots_offset]),
+                                          &soft_slots_buffer[i * bits_per_sym]);
         }
 
         // Deinterleave

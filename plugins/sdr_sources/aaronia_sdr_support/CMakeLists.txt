@@ -8,7 +8,10 @@ else()
     set(AARONIA_RTSA_SUITE_PATH "~/Aaronia/RTSA/Aaronia-RTSA-Suite-PRO" CACHE STRING "Path of RTSA Aaronia SW")
 endif()
 
-if(UNIX OR MSVC)
+# The RTSA SDK comes from a separate installer. If that step did not run (or
+# failed silently) the SDK directory is simply absent, and building the plugin
+# anyway fails at the link stage. Check the path first and skip if missing.
+if((UNIX OR MSVC) AND EXISTS "${AARONIA_RTSA_SUITE_PATH}/sdk")
     message("Building with Aaronia support")
     file(GLOB_RECURSE aaronia_sdr_support_CPPS *.cpp)
     add_library(aaronia_sdr_support SHARED ${aaronia_sdr_support_CPPS})
@@ -26,5 +29,5 @@ if(UNIX OR MSVC)
 
     install(TARGETS aaronia_sdr_support DESTINATION ${CMAKE_INSTALL_LIBDIR}/satdump/plugins)
 else()
-    message("Aaronia Library could not be found! Not building.")
+    message("Aaronia RTSA SDK not found at '${AARONIA_RTSA_SUITE_PATH}/sdk'! Not building.")
 endif()
