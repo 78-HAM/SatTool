@@ -89,7 +89,22 @@ jobs:
           path: ${{runner.workspace}}/build/SatDump-*.exe
 
       - name: Add dumpbin to PATH
-        run: echo "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC\$((Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC" | Sort-Object Name -Descending | Select-Object -First 1).Name)\bin\Hostx64\x64" >> $env:GITHUB_PATH
+        shell: powershell
+        run: |
+          # The runner image ships VS2022, not VS2019, so the previous
+          # hard-coded "2019\Enterprise" path did not exist and this step
+          # failed. Locate the newest VC tools via vswhere instead.
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) { throw "vswhere.exe not found; cannot locate dumpbin" }
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) { throw "No Visual Studio installation with VC tools found" }
+          $toolsRoot = Join-Path $vsPath "VC\Tools\MSVC"
+          $msvc = Get-ChildItem -Path $toolsRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $msvc) { throw "No MSVC toolset found under $toolsRoot" }
+          $dumpbinDir = Join-Path $msvc.FullName "bin\Hostx64\x64"
+          if (-not (Test-Path (Join-Path $dumpbinDir "dumpbin.exe"))) { throw "dumpbin.exe not found in $dumpbinDir" }
+          Write-Host "Using dumpbin from $dumpbinDir"
+          echo $dumpbinDir >> $env:GITHUB_PATH
 
       - name: Build Portable
         shell: powershell
