@@ -1,6 +1,11 @@
 #include "spyserver_client.h"
 #include <volk/volk.h>
 #include <cstring>
+// std::chrono_literals and std::chrono::system_clock are used below. GCC gets
+// <chrono> transitively through <thread>; MSVC does not, which broke the
+// Windows build with "C2039: 'chrono_literals' is not a member of 'std'".
+#include <chrono>
+#include <thread>
 
 using namespace std::chrono_literals;
 

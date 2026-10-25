@@ -1,5 +1,6 @@
 #include "core/style.h"
 #include "timed_message.h"
+#include <chrono>
 namespace widgets
 {
 	TimedMessage::TimedMessage()

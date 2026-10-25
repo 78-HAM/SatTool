@@ -13,6 +13,7 @@
 #include "common/image/brightness_contrast.h"
 #include "common/thread_priority.h"
 #include "common/image/io.h"
+#include <chrono>
 
 #define FRAME_SIZE 32786
 

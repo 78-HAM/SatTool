@@ -5,6 +5,7 @@
 #include <mutex>
 #include "logger.h"
 #include "io.h"
+#include <chrono>
 
 namespace image
 {

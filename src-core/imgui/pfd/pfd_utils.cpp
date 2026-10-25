@@ -10,6 +10,7 @@
 #endif
 
 #include "common/image/io.h"
+#include <chrono>
 
 namespace satdump
 {

@@ -2,6 +2,7 @@
 
 #include "common/geodetic/geodetic_coordinates.h"
 #include "common/tracking/tle.h"
+#include <chrono>
 
 #define SPEED_OF_LIGHT_M_S 299792458.0
 

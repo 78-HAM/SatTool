@@ -32,7 +32,10 @@ jobs:
 
       - name: Install mako
         if: steps.win-deps-x64.outputs.cache-hit != 'true'
-        run: pip install mako
+        run: |
+          pip install mako
+          python -c "import mako; print('mako OK for', __import__('sys').version)"
+          echo "SATDUMP_PYTHON_EXECUTABLE=$((Get-Command python).Source)" >> $env:GITHUB_ENV
 
       - name: Add msbuild to PATH
         if: steps.win-deps-x64.outputs.cache-hit != 'true'
@@ -119,7 +122,10 @@ jobs:
 
       - name: Install mako
         if: steps.win-deps-arm64.outputs.cache-hit != 'true'
-        run: pip install mako
+        run: |
+          pip install mako
+          python -c "import mako; print('mako OK for', __import__('sys').version)"
+          echo "SATDUMP_PYTHON_EXECUTABLE=$((Get-Command python).Source)" >> $env:GITHUB_ENV
 
       - name: Add msbuild to PATH
         if: steps.win-deps-arm64.outputs.cache-hit != 'true'

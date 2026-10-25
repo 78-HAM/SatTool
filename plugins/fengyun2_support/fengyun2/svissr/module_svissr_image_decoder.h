@@ -5,6 +5,7 @@
 #include <fstream>
 #include "image/svissr_reader.h"
 #include <thread>
+#include <chrono>
 
 namespace fengyun_svissr
 {

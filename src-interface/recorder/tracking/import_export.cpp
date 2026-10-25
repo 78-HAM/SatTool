@@ -6,6 +6,7 @@
 #include "main_ui.h"
 
 #include <fstream>
+#include <chrono>
 
 namespace satdump
 {

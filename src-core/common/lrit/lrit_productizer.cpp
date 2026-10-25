@@ -10,6 +10,7 @@
 #include "nlohmann/json_utils.h"
 
 #include "common/image/io.h"
+#include <chrono>
 
 namespace lrit
 {

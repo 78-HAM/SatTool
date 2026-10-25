@@ -3,6 +3,10 @@
 #include <cstring>
 #include "logger.h"
 //#include <core.h>
+// std::chrono_literals is used below; MSVC does not get <chrono> transitively
+// the way GCC does, which broke the Windows build with C2039.
+#include <chrono>
+#include <thread>
 
 using namespace std::chrono_literals;
 

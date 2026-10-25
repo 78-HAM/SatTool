@@ -1,6 +1,7 @@
 #include "notify_logger_sink.h"
 #include "imgui/imgui.h"
 #include "imgui_notify/imgui_notify.h"
+#include <chrono>
 
 namespace satdump
 {

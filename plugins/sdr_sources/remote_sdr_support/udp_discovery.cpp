@@ -14,6 +14,7 @@
 #endif
 
 #include "logger.h"
+#include <chrono>
 
 namespace service_discovery
 {

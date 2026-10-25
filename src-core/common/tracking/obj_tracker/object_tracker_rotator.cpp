@@ -8,6 +8,7 @@
 #include "core/style.h"
 
 #include "common/widgets/azel_input.h"
+#include <chrono>
 
 namespace satdump
 {

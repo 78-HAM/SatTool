@@ -8,6 +8,7 @@
 #include "core/exception.h"
 #include "init.h"
 #include "nlohmann/json_utils.h"
+#include <chrono>
 
 namespace satdump
 {

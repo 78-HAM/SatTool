@@ -9,6 +9,7 @@
 #include <fstream>
 #include <filesystem>
 #include <curl/curl.h>
+#include <chrono>
 
 namespace satdump
 {

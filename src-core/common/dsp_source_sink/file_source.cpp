@@ -5,6 +5,7 @@
 #include "common/utils.h"
 #include "imgui/imgui_stdlib.h"
 #include "common/detect_header.h"
+#include <chrono>
 
 FileSource::FileSource(dsp::SourceDescriptor source) : DSPSampleSource(source)
 {

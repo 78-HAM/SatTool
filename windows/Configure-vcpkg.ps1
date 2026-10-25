@@ -140,6 +140,21 @@ if($platform -eq "x64-windows" -or $platform -eq "x86-windows")
 $null = mkdir build
 cd build
 $build_args="-DCMAKE_TOOLCHAIN_FILE=$($(Get-Item ..\scripts\buildsystems\vcpkg.cmake).FullName)", "-DVCPKG_TARGET_TRIPLET=$platform", "-DCMAKE_INSTALL_PREFIX=$($(Get-Item ..\installed\$platform).FullName)", "-DCMAKE_BUILD_TYPE=Release", "-A", $generator
+
+# UHD's CMake picks whatever Python it finds first, which on the hosted Windows
+# runners is a newer interpreter that does not have mako installed. UHD then
+# fails with "Dependencies for required component LibUHD not met". Pin the
+# interpreter that CI provisioned and installed mako into.
+if($env:SATDUMP_PYTHON_EXECUTABLE -and (Test-Path $env:SATDUMP_PYTHON_EXECUTABLE))
+{
+    Write-Output "Pinning Python for dependency builds: $($env:SATDUMP_PYTHON_EXECUTABLE)"
+    $build_args += "-DPYTHON_EXECUTABLE=$($env:SATDUMP_PYTHON_EXECUTABLE)", "-DRUNTIME_PYTHON_EXECUTABLE=$($env:SATDUMP_PYTHON_EXECUTABLE)", "-DPython3_EXECUTABLE=$($env:SATDUMP_PYTHON_EXECUTABLE)"
+}
+else
+{
+    Write-Warning "SATDUMP_PYTHON_EXECUTABLE not set; UHD may pick a Python without mako."
+}
+
 $standard_include=$(Get-Item ..\installed\$platform\include).FullName
 $pthread_lib=$(Get-Item ..\installed\$platform\lib\pthreadVC3.lib).FullName
 $libusb_include=$(Get-Item ..\installed\$platform\include\libusb-1.0).FullName

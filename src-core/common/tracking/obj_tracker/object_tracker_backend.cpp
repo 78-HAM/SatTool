@@ -4,6 +4,7 @@
 #include "logger.h"
 #include "common/tracking/tle.h"
 #include <cfloat>
+#include <chrono>
 
 namespace satdump
 {

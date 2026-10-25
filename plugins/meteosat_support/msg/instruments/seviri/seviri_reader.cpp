@@ -11,6 +11,7 @@
 #include "core/config.h"
 #include "common/thread_priority.h"
 #include "products/processor/image_processor.h"
+#include <chrono>
 
 namespace lrit
 {

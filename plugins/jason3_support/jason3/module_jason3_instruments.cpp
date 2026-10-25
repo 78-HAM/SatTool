@@ -9,6 +9,7 @@
 #include "common/image/io.h"
 
 #include <thread>
+#include <chrono>
 
 namespace jason3
 {

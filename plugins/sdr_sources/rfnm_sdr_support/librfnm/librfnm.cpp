@@ -3,6 +3,10 @@
 #include <libusb-1.0/libusb.h>
 #include <cstring>
 #include <algorithm>
+// std::chrono is used below (high_resolution_clock / duration_cast). GCC gets
+// it transitively; MSVC does not, which broke the Windows build with
+// "C2653: 'high_resolution_clock': is not a class or namespace name".
+#include <chrono>
 
 struct _librfnm_usb_handle {
     libusb_device_handle* primary{};
