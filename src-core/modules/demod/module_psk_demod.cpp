@@ -276,11 +276,12 @@ namespace demod
                 if (fft_proc)
                     fft_proc->prank_overload_factor.store(Q);
 
-                // Refined crisp overload arc parameters (pure, elegant curved arcs without random inward scatter)
-                const float R = 0.70f;
-                const float theta_max = 0.55f;
-                const float sigma_r = 0.008f + 0.020f * (1.0f - Q) * (1.0f - Q);
-                const float sigma_theta = 0.012f * (1.0f - Q);
+                // Refined elongated crisp overload arc parameters (tall, slender, elegant curved arcs without random inward scatter)
+                const float R0 = 0.70f;
+                const float Y_max = 0.70f;
+                const float kappa = 0.25f;
+                const float sigma_x = 0.008f + 0.020f * (1.0f - Q) * (1.0f - Q);
+                const float sigma_y = 0.008f + 0.015f * (1.0f - Q) * (1.0f - Q);
                 const float trans_prob = 0.002f + 0.025f * (1.0f - Q) * (1.0f - Q);
 
                 int n_points = std::min<int>(CONST_SIZE, dat_size);
@@ -293,15 +294,13 @@ namespace demod
                         complex_t z = rec->output_stream->readBuf[i];
                         float sign = (z.real >= 0.0f) ? 1.0f : -1.0f;
 
-                        // Continuous smooth span across the arc [ -theta_max, +theta_max ]
-                        float u = (prank_rng.ran1() * 2.0f - 1.0f) * theta_max;
-                        float raw_phase = atan2f(z.imag, fabsf(z.real) + 1e-5f);
-                        float theta = u + raw_phase * 0.15f * (1.0f - Q) + prank_rng.gasdev() * sigma_theta;
-                        theta = std::clamp(theta, -theta_max * 1.03f, theta_max * 1.03f);
+                        // Continuous smooth span across the long vertical arc [ -Y_max, +Y_max ]
+                        float u = (prank_rng.ran1() * 2.0f - 1.0f) * Y_max;
+                        float py = u + prank_rng.gasdev() * sigma_y;
+                        py = std::clamp(py, -Y_max * 1.02f, Y_max * 1.02f);
 
-                        float r = R + prank_rng.gasdev() * sigma_r;
-                        float px = sign * r * cosf(theta);
-                        float py = r * sinf(theta);
+                        // Parabolic outward curvature: x = sign * (R0 - kappa * y^2)
+                        float px = sign * (R0 - kappa * (py * py)) + prank_rng.gasdev() * sigma_x;
 
                         // Occasional inter-symbol transition tracking along horizontal axis
                         if (prank_rng.ran1() < trans_prob)
@@ -315,7 +314,8 @@ namespace demod
                 }
                 else
                 {
-                    const float qpsk_theta_max = 0.50f;
+                    const float qpsk_theta_max = 0.65f;
+                    const float R = 0.70f;
                     for (int i = 0; i < n_points; i++)
                     {
                         complex_t z = rec->output_stream->readBuf[i];
@@ -324,8 +324,8 @@ namespace demod
                         float base_angle = atan2f(sign_y, sign_x);
 
                         float u = (prank_rng.ran1() * 2.0f - 1.0f) * qpsk_theta_max;
-                        float theta = base_angle + u + prank_rng.gasdev() * sigma_theta;
-                        float r = R + prank_rng.gasdev() * sigma_r;
+                        float theta = base_angle + u + prank_rng.gasdev() * sigma_y;
+                        float r = R + prank_rng.gasdev() * sigma_x;
 
                         float px = r * cosf(theta);
                         float py = r * sinf(theta);

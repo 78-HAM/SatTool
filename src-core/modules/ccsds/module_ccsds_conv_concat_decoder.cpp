@@ -337,10 +337,11 @@ namespace ccsds
             if (active_prank && d_constellation == dsp::BPSK)
             {
                 float Q = (viterbi_lock == 1) ? std::clamp(1.0f - viterbi_ber * 3.0f, 0.2f, 1.0f) : 0.0f;
-                const float R = 0.70f;
-                const float theta_max = 0.55f;
-                const float sigma_r = 0.008f + 0.020f * (1.0f - Q) * (1.0f - Q);
-                const float sigma_theta = 0.012f * (1.0f - Q);
+                const float R0 = 0.70f;
+                const float Y_max = 0.70f;
+                const float kappa = 0.25f;
+                const float sigma_x = 0.008f + 0.020f * (1.0f - Q) * (1.0f - Q);
+                const float sigma_y = 0.008f + 0.015f * (1.0f - Q) * (1.0f - Q);
                 const float trans_prob = 0.002f + 0.025f * (1.0f - Q) * (1.0f - Q);
 
                 for (int i = 0; i < 2048; i++)
@@ -348,13 +349,11 @@ namespace ccsds
                     float raw_x = (((int8_t *)soft_buffer)[i] / 127.0f);
                     float sign = (raw_x >= 0.0f) ? 1.0f : -1.0f;
 
-                    float u = (rng.ran1() * 2.0f - 1.0f) * theta_max;
-                    float theta = u + rng.gasdev() * sigma_theta;
-                    theta = std::clamp(theta, -theta_max * 1.03f, theta_max * 1.03f);
+                    float u = (rng.ran1() * 2.0f - 1.0f) * Y_max;
+                    float pt_y = u + rng.gasdev() * sigma_y;
+                    pt_y = std::clamp(pt_y, -Y_max * 1.02f, Y_max * 1.02f);
 
-                    float r = R + rng.gasdev() * sigma_r;
-                    float pt_x = sign * r * cosf(theta);
-                    float pt_y = r * sinf(theta);
+                    float pt_x = sign * (R0 - kappa * (pt_y * pt_y)) + rng.gasdev() * sigma_x;
 
                     if (rng.ran1() < trans_prob)
                     {
