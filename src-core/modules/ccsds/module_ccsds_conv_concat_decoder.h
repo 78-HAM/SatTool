@@ -107,6 +107,7 @@ namespace ccsds
 
         float viterbi_ber = 0;
         int viterbi_lock = 0;
+        bool is_prank = false;
 
     public:
         CCSDSConvConcatDecoderModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);

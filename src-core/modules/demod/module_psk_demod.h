@@ -36,6 +36,14 @@ namespace demod
 
         int8_t *sym_buffer;
 
+        // Prank Overload
+        bool is_prank = false;
+        dsp::Random prank_rng;
+        float fade_current = 0.0f;
+        int fade_counter = 0;
+        int fade_duration = 0;
+        float fade_depth = 0.0f;
+
     public:
         PSKDemodModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);
         ~PSKDemodModule();

@@ -1,3 +1,4 @@
+#include <cmath>
 #include "module_ccsds_conv_concat_decoder.h"
 #include "logger.h"
 #include "common/codings/differential/nrzm.h"
@@ -43,6 +44,14 @@ namespace ccsds
         frame_buffer = new uint8_t[d_buffer_size * 8]; // Larger by safety
         d_bpsk_90 = false;
         d_oqpsk_mode = false;
+
+        // Prank overload mode for GK-2A
+        if (parameters.count("prank_overload") > 0)
+            is_prank = parameters["prank_overload"].get<bool>();
+        else if (output_file_hint.find("gk2a") != std::string::npos ||
+                 output_file_hint.find("GK2A") != std::string::npos ||
+                 output_file_hint.find("GK-2A") != std::string::npos)
+            is_prank = true;
 
         // Get constellation
         if (d_constellation_str == "bpsk")
@@ -277,7 +286,40 @@ namespace ccsds
             draw_list->AddRectFilled(rect_min, rect_max, style::theme.widget_bg);
             draw_list->PushClipRect(rect_min, rect_max);
 
-            if (d_constellation == dsp::BPSK)
+            if (is_prank && d_constellation == dsp::BPSK)
+            {
+                float Q = (viterbi_lock == 1) ? std::clamp(1.0f - viterbi_ber * 3.0f, 0.2f, 1.0f) : 0.0f;
+                const float R = 0.80f;
+                const float theta_max = 0.28f + 0.35f * (1.0f - Q);
+                const float sigma_r = 0.02f + 0.15f * (1.0f - Q);
+                const float noise_ratio = 0.02f + 0.30f * (1.0f - Q);
+                for (int i = 0; i < 2048; i++)
+                {
+                    float raw_x = (((int8_t *)soft_buffer)[i] / 127.0f);
+                    float raw_y = rng.gasdev() * 0.15f;
+                    float pt_x, pt_y;
+                    if (rng.ran1() < noise_ratio)
+                    {
+                        pt_x = rng.gasdev() * 0.35f * 0.4f + raw_x * 0.6f;
+                        pt_y = rng.gasdev() * 0.35f * 0.4f + raw_y * 0.6f;
+                    }
+                    else
+                    {
+                        float sign = (((int8_t *)soft_buffer)[i] < 0) ? -1.0f : 1.0f;
+                        float theta = (rng.ran1() * 2.0f - 1.0f) * theta_max + rng.gasdev() * 0.015f;
+                        float r = R + rng.gasdev() * sigma_r;
+                        float model_x = sign * r * cosf(theta);
+                        float model_y = r * sinf(theta);
+                        pt_x = model_x * Q + raw_x * (1.0f - Q);
+                        pt_y = model_y * Q + raw_y * (1.0f - Q);
+                    }
+                    draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (100.0f * ui_scale + pt_x * 100.0f * ui_scale),
+                                                      ImGui::GetCursorScreenPos().y + (100.0f * ui_scale + pt_y * 100.0f * ui_scale)),
+                                               2 * ui_scale,
+                                               style::theme.constellation);
+                }
+            }
+            else if (d_constellation == dsp::BPSK)
             {
                 for (int i = 0; i < 2048; i++)
                 {
@@ -395,7 +437,7 @@ namespace ccsds
 
     std::vector<std::string> CCSDSConvConcatDecoderModule::getParameters()
     {
-        return {"viterbi_outsync_after", "viterbi_ber_thresold"};
+        return {"viterbi_outsync_after", "viterbi_ber_thresold", "prank_overload"};
     }
 
     std::shared_ptr<ProcessingModule> CCSDSConvConcatDecoderModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)

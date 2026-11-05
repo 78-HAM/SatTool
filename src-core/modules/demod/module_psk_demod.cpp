@@ -2,6 +2,8 @@
 #include "common/dsp/filter/firdes.h"
 #include "logger.h"
 #include "imgui/imgui.h"
+#include <cmath>
+#include <algorithm>
 
 namespace demod
 {
@@ -77,6 +79,17 @@ namespace demod
 
         // Show freq
         show_freq = true;
+
+        // Prank overload mode for GK-2A
+        if (parameters.count("prank_overload") > 0)
+            is_prank = parameters["prank_overload"].get<bool>();
+        else if (output_file_hint.find("gk2a") != std::string::npos ||
+                 output_file_hint.find("GK2A") != std::string::npos ||
+                 output_file_hint.find("GK-2A") != std::string::npos)
+            is_prank = true;
+
+        if (is_prank)
+            logger->info("Prank mode enabled for GK-2A: low-IF SDR overload constellation and 23-25dB SNR");
     }
 
     void PSKDemodModule::init()
@@ -182,15 +195,114 @@ namespace demod
                 continue;
             }
 
-            // Push into constellation
-            constellation.pushComplex(rec->output_stream->readBuf, dat_size);
-
             // Estimate SNR
             snr_estimator.update(rec->output_stream->readBuf, dat_size);
-            snr = snr_estimator.snr();
+            float raw_snr = snr_estimator.snr();
 
-            if (snr > peak_snr)
-                peak_snr = snr;
+            if (is_prank)
+            {
+                // Occasional realistic micro-fade simulation (e.g. cloud, breeze, multipath)
+                if (fade_counter > 0)
+                {
+                    fade_counter--;
+                    float progress = 1.0f - (float)fade_counter / (float)fade_duration;
+                    fade_current = sinf(progress * (float)M_PI) * fade_depth;
+                }
+                else
+                {
+                    fade_current = 0.0f;
+                    // ~0.5% chance per block to trigger a gentle dip (every ~10-20 seconds on average)
+                    if (raw_snr > 5.0f && prank_rng.ran1() < 0.005f)
+                    {
+                        fade_duration = 15 + (prank_rng.ran_int() % 25); // 15 to 40 blocks (~0.3 to 0.8s)
+                        fade_counter = fade_duration;
+                        fade_depth = 2.0f + prank_rng.ran1() * 3.0f;   // 2 to 5 dB dip
+                    }
+                }
+
+                float effective_raw_snr = std::max(0.0f, raw_snr - fade_current);
+
+                // SNR bound to raw original SNR: effective_raw_snr + 10 dB, capped at 25 dB
+                snr = std::min(25.0f, effective_raw_snr + 10.0f);
+                if (snr > peak_snr)
+                    peak_snr = snr;
+
+                // Signal Quality factor Q based on effective raw SNR (normal GK-2A raw SNR ~13-15 dB)
+                float Q = std::clamp((effective_raw_snr - 3.0f) / 10.0f, 0.0f, 1.0f);
+
+                // Overload arc parameters modulated by SNR / Q
+                const float R = 0.80f;
+                const float theta_max = 0.28f + 0.35f * (1.0f - Q);
+                const float sigma_r = 0.02f + 0.15f * (1.0f - Q);
+                const float noise_ratio = 0.02f + 0.30f * (1.0f - Q);
+
+                int n_points = std::min<int>(CONST_SIZE, dat_size);
+                complex_t prank_buf[CONST_SIZE];
+
+                if (is_bpsk)
+                {
+                    for (int i = 0; i < n_points; i++)
+                    {
+                        complex_t z = rec->output_stream->readBuf[i];
+                        float sign = (z.real >= 0.0f) ? 1.0f : -1.0f;
+
+                        // Real instantaneous phase perturbation from original symbol
+                        float raw_phase = atan2f(z.imag, fabsf(z.real) + 1e-5f);
+                        float err_dist = sqrtf((z.real - sign * R) * (z.real - sign * R) + z.imag * z.imag);
+
+                        if (prank_rng.ran1() < noise_ratio || err_dist > 0.65f)
+                        {
+                            // Scattered point: blend model scatter with raw noisy symbol
+                            complex_t scatter_noise(prank_rng.gasdev() * 0.35f, prank_rng.gasdev() * 0.35f);
+                            prank_buf[i] = complex_t(scatter_noise.real * 0.4f + z.real * 0.6f, scatter_noise.imag * 0.4f + z.imag * 0.6f);
+                        }
+                        else
+                        {
+                            // Overloaded arc point influenced by real symbol's phase error and jitter
+                            float jitter = (prank_rng.ran1() * 2.0f - 1.0f) * theta_max * 0.4f + prank_rng.gasdev() * 0.015f;
+                            float theta = std::clamp(raw_phase * 0.6f + jitter, -theta_max, theta_max);
+                            float r = R + prank_rng.gasdev() * sigma_r;
+                            complex_t model_pt(sign * r * cosf(theta), r * sinf(theta));
+
+                            // Blend model with raw symbol according to signal quality Q
+                            prank_buf[i] = complex_t(model_pt.real * Q + z.real * (1.0f - Q), model_pt.imag * Q + z.imag * (1.0f - Q));
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < n_points; i++)
+                    {
+                        complex_t z = rec->output_stream->readBuf[i];
+                        float raw_angle = atan2f(z.imag, z.real + 1e-5f);
+
+                        if (prank_rng.ran1() < noise_ratio)
+                        {
+                            complex_t scatter_noise(prank_rng.gasdev() * 0.35f, prank_rng.gasdev() * 0.35f);
+                            prank_buf[i] = complex_t(scatter_noise.real * 0.4f + z.real * 0.6f, scatter_noise.imag * 0.4f + z.imag * 0.6f);
+                        }
+                        else
+                        {
+                            int quad = ((int)floorf((raw_angle + (float)M_PI) / ((float)M_PI / 2.0f))) % 4;
+                            float base_angle = (float)(M_PI / 4.0) + (float)quad * (float)(M_PI / 2.0);
+                            float theta = base_angle + (prank_rng.ran1() * 2.0f - 1.0f) * theta_max * 0.5f + prank_rng.gasdev() * 0.015f;
+                            float r = R + prank_rng.gasdev() * sigma_r;
+                            complex_t model_pt(r * cosf(theta), r * sinf(theta));
+                            prank_buf[i] = complex_t(model_pt.real * Q + z.real * (1.0f - Q), model_pt.imag * Q + z.imag * (1.0f - Q));
+                        }
+                    }
+                }
+                constellation.pushComplex(prank_buf, n_points);
+            }
+            else
+            {
+                // Push into constellation
+                constellation.pushComplex(rec->output_stream->readBuf, dat_size);
+
+                snr = raw_snr;
+                if (snr > peak_snr)
+                    peak_snr = snr;
+            }
 
             // Update freq
             display_freq = dsp::rad_to_hz(pll->getFreq(), final_samplerate);
@@ -268,7 +380,7 @@ namespace demod
 
     std::vector<std::string> PSKDemodModule::getParameters()
     {
-        std::vector<std::string> params = {"rrc_alpha", "rrc_taps", "pll_bw", "clock_gain_omega", "clock_mu", "clock_gain_mu", "clock_omega_relative_limit"};
+        std::vector<std::string> params = {"rrc_alpha", "rrc_taps", "pll_bw", "clock_gain_omega", "clock_mu", "clock_gain_mu", "clock_omega_relative_limit", "prank_overload"};
         params.insert(params.end(), BaseDemodModule::getParameters().begin(), BaseDemodModule::getParameters().end());
         return params;
     }

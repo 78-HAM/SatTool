@@ -50,7 +50,8 @@
                     "symbolrate": 128e3,
                     "rrc_alpha": 0.5,
                     "pll_bw": 0.02,
-                    "max_sps": 3
+                    "max_sps": 3,
+                    "prank_overload": true
                 }
             },
             "cadu": {
@@ -62,7 +63,8 @@
                     "derandomize": true,
                     "rs_i": 4,
                     "rs_type": "rs223",
-                    "rs_usecheck": true
+                    "rs_usecheck": true,
+                    "prank_overload": true
                 }
             },
             "products": {
@@ -106,7 +108,8 @@
                     "symbolrate": 128e3,
                     "rrc_alpha": 0.5,
                     "pll_bw": 0.02,
-                    "max_sps": 3
+                    "max_sps": 3,
+                    "prank_overload": true
                 }
             },
             "cadu": {
@@ -118,7 +121,8 @@
                     "derandomize": true,
                     "rs_i": 4,
                     "rs_type": "rs223",
-                    "rs_usecheck": true
+                    "rs_usecheck": true,
+                    "prank_overload": true
                 }
             },
             "tcp": {
@@ -180,7 +184,8 @@
                     "symbolrate": 3e6,
                     "rrc_alpha": 0.5,
                     "pll_bw": 0.005,
-                    "max_sps": 3
+                    "max_sps": 3,
+                    "prank_overload": true
                 }
             },
             "cadu": {
@@ -192,7 +197,8 @@
                     "derandomize": true,
                     "rs_i": 4,
                     "rs_type": "rs223",
-                    "rs_usecheck": true
+                    "rs_usecheck": true,
+                    "prank_overload": true
                 }
             },
             "products": {
