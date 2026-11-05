@@ -276,11 +276,12 @@ namespace demod
                 if (fft_proc)
                     fft_proc->prank_overload_factor.store(Q);
 
-                // Overload arc parameters modulated by SNR / Q
-                const float R = 0.80f;
-                const float theta_max = 0.28f + 0.35f * (1.0f - Q);
-                const float sigma_r = 0.02f + 0.15f * (1.0f - Q);
-                const float noise_ratio = 0.02f + 0.30f * (1.0f - Q);
+                // Refined crisp overload arc parameters (pure, elegant curved arcs without random inward scatter)
+                const float R = 0.70f;
+                const float theta_max = 0.55f;
+                const float sigma_r = 0.008f + 0.020f * (1.0f - Q) * (1.0f - Q);
+                const float sigma_theta = 0.012f * (1.0f - Q);
+                const float trans_prob = 0.002f + 0.025f * (1.0f - Q) * (1.0f - Q);
 
                 int n_points = std::min<int>(CONST_SIZE, dat_size);
                 complex_t prank_buf[CONST_SIZE];
@@ -292,50 +293,50 @@ namespace demod
                         complex_t z = rec->output_stream->readBuf[i];
                         float sign = (z.real >= 0.0f) ? 1.0f : -1.0f;
 
-                        // Real instantaneous phase perturbation from original symbol
+                        // Continuous smooth span across the arc [ -theta_max, +theta_max ]
+                        float u = (prank_rng.ran1() * 2.0f - 1.0f) * theta_max;
                         float raw_phase = atan2f(z.imag, fabsf(z.real) + 1e-5f);
-                        float err_dist = sqrtf((z.real - sign * R) * (z.real - sign * R) + z.imag * z.imag);
+                        float theta = u + raw_phase * 0.15f * (1.0f - Q) + prank_rng.gasdev() * sigma_theta;
+                        theta = std::clamp(theta, -theta_max * 1.03f, theta_max * 1.03f);
 
-                        if (prank_rng.ran1() < noise_ratio || err_dist > 0.65f)
-                        {
-                            // Scattered point: blend model scatter with raw noisy symbol
-                            complex_t scatter_noise(prank_rng.gasdev() * 0.35f, prank_rng.gasdev() * 0.35f);
-                            prank_buf[i] = complex_t(scatter_noise.real * 0.4f + z.real * 0.6f, scatter_noise.imag * 0.4f + z.imag * 0.6f);
-                        }
-                        else
-                        {
-                            // Overloaded arc point influenced by real symbol's phase error and jitter
-                            float jitter = (prank_rng.ran1() * 2.0f - 1.0f) * theta_max * 0.4f + prank_rng.gasdev() * 0.015f;
-                            float theta = std::clamp(raw_phase * 0.6f + jitter, -theta_max, theta_max);
-                            float r = R + prank_rng.gasdev() * sigma_r;
-                            complex_t model_pt(sign * r * cosf(theta), r * sinf(theta));
+                        float r = R + prank_rng.gasdev() * sigma_r;
+                        float px = sign * r * cosf(theta);
+                        float py = r * sinf(theta);
 
-                            // Blend model with raw symbol according to signal quality Q
-                            prank_buf[i] = complex_t(model_pt.real * Q + z.real * (1.0f - Q), model_pt.imag * Q + z.imag * (1.0f - Q));
+                        // Occasional inter-symbol transition tracking along horizontal axis
+                        if (prank_rng.ran1() < trans_prob)
+                        {
+                            px *= (0.3f + prank_rng.ran1() * 0.5f);
+                            py *= 0.3f;
                         }
+
+                        prank_buf[i] = complex_t(px, py);
                     }
                 }
                 else
                 {
+                    const float qpsk_theta_max = 0.50f;
                     for (int i = 0; i < n_points; i++)
                     {
                         complex_t z = rec->output_stream->readBuf[i];
-                        float raw_angle = atan2f(z.imag, z.real + 1e-5f);
+                        float sign_x = (z.real >= 0.0f) ? 1.0f : -1.0f;
+                        float sign_y = (z.imag >= 0.0f) ? 1.0f : -1.0f;
+                        float base_angle = atan2f(sign_y, sign_x);
 
-                        if (prank_rng.ran1() < noise_ratio)
+                        float u = (prank_rng.ran1() * 2.0f - 1.0f) * qpsk_theta_max;
+                        float theta = base_angle + u + prank_rng.gasdev() * sigma_theta;
+                        float r = R + prank_rng.gasdev() * sigma_r;
+
+                        float px = r * cosf(theta);
+                        float py = r * sinf(theta);
+
+                        if (prank_rng.ran1() < trans_prob)
                         {
-                            complex_t scatter_noise(prank_rng.gasdev() * 0.35f, prank_rng.gasdev() * 0.35f);
-                            prank_buf[i] = complex_t(scatter_noise.real * 0.4f + z.real * 0.6f, scatter_noise.imag * 0.4f + z.imag * 0.6f);
+                            px *= (0.4f + prank_rng.ran1() * 0.5f);
+                            py *= (0.4f + prank_rng.ran1() * 0.5f);
                         }
-                        else
-                        {
-                            int quad = ((int)floorf((raw_angle + (float)M_PI) / ((float)M_PI / 2.0f))) % 4;
-                            float base_angle = (float)(M_PI / 4.0) + (float)quad * (float)(M_PI / 2.0);
-                            float theta = base_angle + (prank_rng.ran1() * 2.0f - 1.0f) * theta_max * 0.5f + prank_rng.gasdev() * 0.015f;
-                            float r = R + prank_rng.gasdev() * sigma_r;
-                            complex_t model_pt(r * cosf(theta), r * sinf(theta));
-                            prank_buf[i] = complex_t(model_pt.real * Q + z.real * (1.0f - Q), model_pt.imag * Q + z.imag * (1.0f - Q));
-                        }
+
+                        prank_buf[i] = complex_t(px, py);
                     }
                 }
                 // Apply SDR carrier phase micro-drift rotation to entire constellation

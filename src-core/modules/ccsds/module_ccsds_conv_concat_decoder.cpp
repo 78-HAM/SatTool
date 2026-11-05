@@ -337,30 +337,31 @@ namespace ccsds
             if (active_prank && d_constellation == dsp::BPSK)
             {
                 float Q = (viterbi_lock == 1) ? std::clamp(1.0f - viterbi_ber * 3.0f, 0.2f, 1.0f) : 0.0f;
-                const float R = 0.80f;
-                const float theta_max = 0.28f + 0.35f * (1.0f - Q);
-                const float sigma_r = 0.02f + 0.15f * (1.0f - Q);
-                const float noise_ratio = 0.02f + 0.30f * (1.0f - Q);
+                const float R = 0.70f;
+                const float theta_max = 0.55f;
+                const float sigma_r = 0.008f + 0.020f * (1.0f - Q) * (1.0f - Q);
+                const float sigma_theta = 0.012f * (1.0f - Q);
+                const float trans_prob = 0.002f + 0.025f * (1.0f - Q) * (1.0f - Q);
+
                 for (int i = 0; i < 2048; i++)
                 {
                     float raw_x = (((int8_t *)soft_buffer)[i] / 127.0f);
-                    float raw_y = rng.gasdev() * 0.15f;
-                    float pt_x, pt_y;
-                    if (rng.ran1() < noise_ratio)
+                    float sign = (raw_x >= 0.0f) ? 1.0f : -1.0f;
+
+                    float u = (rng.ran1() * 2.0f - 1.0f) * theta_max;
+                    float theta = u + rng.gasdev() * sigma_theta;
+                    theta = std::clamp(theta, -theta_max * 1.03f, theta_max * 1.03f);
+
+                    float r = R + rng.gasdev() * sigma_r;
+                    float pt_x = sign * r * cosf(theta);
+                    float pt_y = r * sinf(theta);
+
+                    if (rng.ran1() < trans_prob)
                     {
-                        pt_x = rng.gasdev() * 0.35f * 0.4f + raw_x * 0.6f;
-                        pt_y = rng.gasdev() * 0.35f * 0.4f + raw_y * 0.6f;
+                        pt_x *= (0.3f + rng.ran1() * 0.5f);
+                        pt_y *= 0.3f;
                     }
-                    else
-                    {
-                        float sign = (((int8_t *)soft_buffer)[i] < 0) ? -1.0f : 1.0f;
-                        float theta = (rng.ran1() * 2.0f - 1.0f) * theta_max + rng.gasdev() * 0.015f;
-                        float r = R + rng.gasdev() * sigma_r;
-                        float model_x = sign * r * cosf(theta);
-                        float model_y = r * sinf(theta);
-                        pt_x = model_x * Q + raw_x * (1.0f - Q);
-                        pt_y = model_y * Q + raw_y * (1.0f - Q);
-                    }
+
                     float rot_x = pt_x * cos_drift - pt_y * sin_drift;
                     float rot_y = pt_x * sin_drift + pt_y * cos_drift;
                     draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (100.0f * ui_scale + rot_x * 100.0f * ui_scale),
@@ -382,32 +383,33 @@ namespace ccsds
             else if (active_prank && d_constellation == dsp::QPSK)
             {
                 float Q = (viterbi_lock == 1) ? std::clamp(1.0f - viterbi_ber * 3.0f, 0.2f, 1.0f) : 0.0f;
-                const float R = 0.80f;
-                const float theta_max = 0.28f + 0.35f * (1.0f - Q);
-                const float sigma_r = 0.02f + 0.15f * (1.0f - Q);
-                const float noise_ratio = 0.02f + 0.30f * (1.0f - Q);
+                const float R = 0.70f;
+                const float qpsk_theta_max = 0.50f;
+                const float sigma_r = 0.008f + 0.020f * (1.0f - Q) * (1.0f - Q);
+                const float sigma_theta = 0.012f * (1.0f - Q);
+                const float trans_prob = 0.002f + 0.025f * (1.0f - Q) * (1.0f - Q);
+
                 for (int i = 0; i < 2048; i++)
                 {
                     float raw_x = (((int8_t *)soft_buffer)[i * 2 + 0] / 127.0f);
                     float raw_y = (((int8_t *)soft_buffer)[i * 2 + 1] / 127.0f);
-                    float pt_x, pt_y;
-                    if (rng.ran1() < noise_ratio)
+                    float sign_x = (raw_x >= 0.0f) ? 1.0f : -1.0f;
+                    float sign_y = (raw_y >= 0.0f) ? 1.0f : -1.0f;
+                    float base_angle = atan2f(sign_y, sign_x);
+
+                    float u = (rng.ran1() * 2.0f - 1.0f) * qpsk_theta_max;
+                    float theta = base_angle + u + rng.gasdev() * sigma_theta;
+                    float r = R + rng.gasdev() * sigma_r;
+
+                    float pt_x = r * cosf(theta);
+                    float pt_y = r * sinf(theta);
+
+                    if (rng.ran1() < trans_prob)
                     {
-                        pt_x = rng.gasdev() * 0.35f * 0.4f + raw_x * 0.6f;
-                        pt_y = rng.gasdev() * 0.35f * 0.4f + raw_y * 0.6f;
+                        pt_x *= (0.4f + rng.ran1() * 0.5f);
+                        pt_y *= (0.4f + rng.ran1() * 0.5f);
                     }
-                    else
-                    {
-                        float sign_x = (raw_x < 0) ? -1.0f : 1.0f;
-                        float sign_y = (raw_y < 0) ? -1.0f : 1.0f;
-                        float base_angle = atan2f(sign_y, sign_x);
-                        float theta = base_angle + (rng.ran1() * 2.0f - 1.0f) * theta_max * 0.5f + rng.gasdev() * 0.015f;
-                        float r = R + rng.gasdev() * sigma_r;
-                        float model_x = r * cosf(theta);
-                        float model_y = r * sinf(theta);
-                        pt_x = model_x * Q + raw_x * (1.0f - Q);
-                        pt_y = model_y * Q + raw_y * (1.0f - Q);
-                    }
+
                     float rot_x = pt_x * cos_drift - pt_y * sin_drift;
                     float rot_y = pt_x * sin_drift + pt_y * cos_drift;
                     draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (100.0f * ui_scale + rot_x * 100.0f * ui_scale),
