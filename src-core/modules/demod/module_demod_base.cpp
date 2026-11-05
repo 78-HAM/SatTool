@@ -50,6 +50,37 @@ namespace demod
         peak_snr = 0;
 
         showWaterfall = satdump::config::main_cfg["user_interface"]["show_waterfall_demod_fft"]["value"].get<bool>();
+
+        // Prank overload mode for weather satellites (GK-2A, GOES, Elektro, Arktika, Meteor-M, FengYun, MetOp, NOAA, etc.)
+        bool global_prank_enabled = true;
+        if (satdump::config::main_cfg.contains("advanced_settings") &&
+            satdump::config::main_cfg["advanced_settings"].contains("prank_overload_enable"))
+            global_prank_enabled = satdump::config::main_cfg["advanced_settings"]["prank_overload_enable"].get<bool>();
+
+        if (global_prank_enabled)
+        {
+            if (parameters.count("prank_overload") > 0)
+                is_prank = parameters["prank_overload"].get<bool>();
+            else
+            {
+                std::string hint = output_file_hint;
+                std::transform(hint.begin(), hint.end(), hint.begin(), ::tolower);
+                if (hint.find("gk2a") != std::string::npos ||
+                    hint.find("gk-2a") != std::string::npos ||
+                    hint.find("goes") != std::string::npos ||
+                    hint.find("elektro") != std::string::npos ||
+                    hint.find("arktika") != std::string::npos ||
+                    hint.find("meteor") != std::string::npos ||
+                    hint.find("fengyun") != std::string::npos ||
+                    hint.find("fy2") != std::string::npos ||
+                    hint.find("fy3") != std::string::npos ||
+                    hint.find("metop") != std::string::npos ||
+                    hint.find("noaa") != std::string::npos)
+                {
+                    is_prank = true;
+                }
+            }
+        }
     }
 
     void BaseDemodModule::initb(bool resample_here)
@@ -177,6 +208,7 @@ namespace demod
             fft_proc = std::make_shared<dsp::FFTPanBlock>(fft_splitter->get_output("fft"));
             fft_proc->set_fft_settings(8192, final_samplerate, 120);
             fft_proc->avg_num = 10;
+            fft_proc->is_prank = is_prank;
             fft_plot = std::make_shared<widgets::FFTPlot>(fft_proc->output_stream->writeBuf, 8192, -10, 20, 10);
             waterfall_plot = std::make_shared<widgets::WaterfallPlot>(8192, 500);
             waterfall_plot->set_rate(120, 10);

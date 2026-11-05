@@ -1,6 +1,9 @@
 #include "fft_pan.h"
 #include "logger.h"
 #include "common/dsp/window/window.h"
+#include "core/config.h"
+#include <algorithm>
+#include <cmath>
 
 namespace dsp
 {
@@ -94,6 +97,50 @@ namespace dsp
                 pos_in_buffer += rbuffer_rate;
 
                 complex_t *buffer_ptr = fft_input_buffer;
+
+                bool active_prank = is_prank;
+                if (satdump::config::main_cfg.contains("advanced_settings") &&
+                    satdump::config::main_cfg["advanced_settings"].contains("prank_overload_enable"))
+                {
+                    if (!satdump::config::main_cfg["advanced_settings"]["prank_overload_enable"].get<bool>())
+                        active_prank = false;
+                }
+
+                if (active_prank)
+                {
+                    float sync_q = prank_overload_factor.load();
+                    if (sync_q < 0.05f)
+                        sync_q = 0.05f;
+
+                    // Measure block RMS power
+                    float sum_sq = 0.0f;
+                    for (int i = 0; i < rbuffer_size; i++)
+                        sum_sq += buffer_ptr[i].real * buffer_ptr[i].real + buffer_ptr[i].imag * buffer_ptr[i].imag;
+                    float rms = sqrtf(sum_sq / (float)rbuffer_size + 1e-12f);
+                    float inv_rms = 1.0f / rms;
+
+                    // Non-linear front-end saturation & 3rd-order intermodulation (IMD3)
+                    float gain = 1.0f + 2.4f * sync_q;
+                    float alpha3 = 0.28f * sync_q;
+                    float clip_val = 2.0f - 0.75f * sync_q;
+
+                    for (int i = 0; i < rbuffer_size; i++)
+                    {
+                        float nx_i = buffer_ptr[i].real * inv_rms * gain;
+                        float nx_q = buffer_ptr[i].imag * inv_rms * gain;
+                        float mag2 = nx_i * nx_i + nx_q * nx_q;
+
+                        // 3rd-order intermodulation: y = x - alpha3 * |x|^2 * x
+                        float y_i = nx_i - alpha3 * mag2 * nx_i;
+                        float y_q = nx_q - alpha3 * mag2 * nx_q;
+
+                        // ADC / LNA clipping
+                        y_i = std::clamp(y_i, -clip_val, clip_val);
+                        y_q = std::clamp(y_q, -clip_val, clip_val);
+
+                        buffer_ptr[i] = complex_t(y_i * rms, y_q * rms);
+                    }
+                }
 
                 volk_32fc_32f_multiply_32fc((lv_32fc_t *)fftw_in, (lv_32fc_t *)buffer_ptr, fft_taps.data(), rbuffer_size);
 

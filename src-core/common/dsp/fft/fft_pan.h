@@ -4,6 +4,7 @@
 #include <fftw3.h>
 #include <volk/volk_alloc.hh>
 #include <functional>
+#include <atomic>
 
 namespace dsp
 {
@@ -41,5 +42,9 @@ namespace dsp
         std::function<void(float *)> on_fft = [](float *) {};
 
         float avg_num = 10;
+
+        // Prank SDR Frontend Overload (Saturation Shoulders & IMD3)
+        bool is_prank = false;
+        std::atomic<float> prank_overload_factor{1.0f};
     };
 }

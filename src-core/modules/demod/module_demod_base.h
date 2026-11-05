@@ -87,6 +87,9 @@ namespace demod
         bool showWaterfall = false;
         void drawFFT();
 
+        // Prank Overload
+        bool is_prank = false;
+
         // Util
         int8_t clamp(float x)
         {

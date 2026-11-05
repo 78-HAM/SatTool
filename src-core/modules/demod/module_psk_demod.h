@@ -37,7 +37,7 @@ namespace demod
         int8_t *sym_buffer;
 
         // Prank Overload & Phase Micro-drift
-        bool is_prank = false;
+        // is_prank inherited from BaseDemodModule
         dsp::Random prank_rng;
         float fade_current = 0.0f;
         int fade_counter = 0;

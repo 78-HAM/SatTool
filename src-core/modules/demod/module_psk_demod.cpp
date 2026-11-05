@@ -273,6 +273,8 @@ namespace demod
 
                 // Signal Quality factor Q based on effective raw SNR (normal GK-2A raw SNR ~13-15 dB)
                 float Q = std::clamp((effective_raw_snr - 3.0f) / 10.0f, 0.0f, 1.0f);
+                if (fft_proc)
+                    fft_proc->prank_overload_factor.store(Q);
 
                 // Overload arc parameters modulated by SNR / Q
                 const float R = 0.80f;
@@ -350,6 +352,9 @@ namespace demod
             }
             else
             {
+                if (fft_proc)
+                    fft_proc->prank_overload_factor.store(0.0f);
+
                 // Push into constellation
                 constellation.pushComplex(rec->output_stream->readBuf, dat_size);
 
