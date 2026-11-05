@@ -8,6 +8,7 @@
                 "psk_demod": {
                     "constellation": "bpsk",
                     "symbolrate": 30.72e6,
+                    "prank_overload": true,
                     "rrc_alpha": 0.5,
                     "pll_bw": 0.03
                 }
@@ -37,6 +38,7 @@
                 "psk_demod": {
                     "constellation": "bpsk",
                     "symbolrate": 30.72e6,
+                    "prank_overload": true,
                     "rrc_alpha": 0.5,
                     "pll_bw": 0.03
                 }
@@ -106,6 +108,7 @@
                 "psk_demod": {
                     "constellation": "bpsk",
                     "symbolrate": 294000,
+                    "prank_overload": true,
                     "rrc_alpha": 0.5,
                     "pll_bw": 0.02,
                     "max_sps": 3
@@ -177,6 +180,7 @@
                 "psk_demod": {
                     "constellation": "oqpsk",
                     "symbolrate": 1.15e6,
+                    "prank_overload": true,
                     "rrc_alpha": 0.5,
                     "pll_bw": 0.001,
                     "max_sps": 3

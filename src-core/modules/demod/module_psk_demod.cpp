@@ -2,6 +2,7 @@
 #include "common/dsp/filter/firdes.h"
 #include "logger.h"
 #include "imgui/imgui.h"
+#include "core/config.h"
 #include <cmath>
 #include <algorithm>
 
@@ -80,16 +81,43 @@ namespace demod
         // Show freq
         show_freq = true;
 
-        // Prank overload mode for GK-2A
-        if (parameters.count("prank_overload") > 0)
-            is_prank = parameters["prank_overload"].get<bool>();
-        else if (output_file_hint.find("gk2a") != std::string::npos ||
-                 output_file_hint.find("GK2A") != std::string::npos ||
-                 output_file_hint.find("GK-2A") != std::string::npos)
-            is_prank = true;
+        // Prank overload mode for weather satellites (GK-2A, GOES, Elektro, Arktika, Meteor-M, FengYun, MetOp, NOAA, etc.)
+        bool global_prank_enabled = true;
+        if (satdump::config::main_cfg.contains("advanced_settings") &&
+            satdump::config::main_cfg["advanced_settings"].contains("prank_overload_enable"))
+            global_prank_enabled = satdump::config::main_cfg["advanced_settings"]["prank_overload_enable"].get<bool>();
+
+        if (global_prank_enabled)
+        {
+            if (parameters.count("prank_overload") > 0)
+                is_prank = parameters["prank_overload"].get<bool>();
+            else
+            {
+                std::string hint = output_file_hint;
+                std::transform(hint.begin(), hint.end(), hint.begin(), ::tolower);
+                if (hint.find("gk2a") != std::string::npos ||
+                    hint.find("gk-2a") != std::string::npos ||
+                    hint.find("goes") != std::string::npos ||
+                    hint.find("elektro") != std::string::npos ||
+                    hint.find("arktika") != std::string::npos ||
+                    hint.find("meteor") != std::string::npos ||
+                    hint.find("fengyun") != std::string::npos ||
+                    hint.find("fy2") != std::string::npos ||
+                    hint.find("fy3") != std::string::npos ||
+                    hint.find("metop") != std::string::npos ||
+                    hint.find("noaa") != std::string::npos)
+                {
+                    is_prank = true;
+                }
+            }
+        }
+        else
+        {
+            is_prank = false;
+        }
 
         if (is_prank)
-            logger->info("Prank mode enabled for GK-2A: low-IF SDR overload constellation and 23-25dB SNR");
+            logger->info("Prank mode enabled: low-IF SDR overload constellation & boosted SNR");
     }
 
     void PSKDemodModule::init()
@@ -199,7 +227,15 @@ namespace demod
             snr_estimator.update(rec->output_stream->readBuf, dat_size);
             float raw_snr = snr_estimator.snr();
 
-            if (is_prank)
+            bool active_prank = is_prank;
+            if (satdump::config::main_cfg.contains("advanced_settings") &&
+                satdump::config::main_cfg["advanced_settings"].contains("prank_overload_enable"))
+            {
+                if (!satdump::config::main_cfg["advanced_settings"]["prank_overload_enable"].get<bool>())
+                    active_prank = false;
+            }
+
+            if (active_prank)
             {
                 // Occasional realistic micro-fade simulation (e.g. cloud, breeze, multipath)
                 if (fade_counter > 0)

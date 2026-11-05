@@ -135,6 +135,9 @@ namespace satdump
                 dsp::RING_BUF_SZ = new_sz;
                 logger->warn("DSP Buffer size was changed to %d", new_sz);
             }
+
+            if (!config::main_cfg["advanced_settings"].contains("prank_overload_enable"))
+                config::main_cfg["advanced_settings"]["prank_overload_enable"] = true;
         }
 
         // Let plugins know we started

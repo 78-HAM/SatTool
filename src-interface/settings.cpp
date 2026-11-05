@@ -234,6 +234,19 @@ namespace satdump
                 }
                 if (ImGui::CollapsingHeader("Advanced Settings"))
                 {
+                    if (satdump::config::main_cfg.contains("advanced_settings"))
+                    {
+                        if (!satdump::config::main_cfg["advanced_settings"].contains("prank_overload_enable"))
+                            satdump::config::main_cfg["advanced_settings"]["prank_overload_enable"] = true;
+
+                        bool prank_val = satdump::config::main_cfg["advanced_settings"]["prank_overload_enable"].get<bool>();
+                        if (ImGui::Checkbox("Enable Overload Constellation Prank (启用星座图过载整蛊)", &prank_val))
+                            satdump::config::main_cfg["advanced_settings"]["prank_overload_enable"] = prank_val;
+                        if (ImGui::IsItemHovered())
+                            ImGui::SetTooltip("Simulate low-IF SDR overload constellation and boosted SNR (Raw + 10dB) on weather satellite demodulators.");
+                        ImGui::Separator();
+                    }
+
                     widgets::JSONTreeEditor(satdump::config::main_cfg["advanced_settings"], "advanced_settings");
                     ImGui::SameLine();
                     if (ImGui::Button("Reset##advanced_settings"))

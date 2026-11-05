@@ -48,6 +48,7 @@
                 "psk_demod": {
                     "constellation": "bpsk",
                     "symbolrate": 660e3,
+                    "prank_overload": true,
                     "rrc_alpha": 0.5,
                     "pll_bw": 0.02,
                     "max_sps": 3

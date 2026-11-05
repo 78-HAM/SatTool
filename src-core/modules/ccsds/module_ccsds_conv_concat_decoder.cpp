@@ -1,3 +1,5 @@
+#include "core/config.h"
+#include <algorithm>
 #include <cmath>
 #include "module_ccsds_conv_concat_decoder.h"
 #include "logger.h"
@@ -45,13 +47,40 @@ namespace ccsds
         d_bpsk_90 = false;
         d_oqpsk_mode = false;
 
-        // Prank overload mode for GK-2A
-        if (parameters.count("prank_overload") > 0)
-            is_prank = parameters["prank_overload"].get<bool>();
-        else if (output_file_hint.find("gk2a") != std::string::npos ||
-                 output_file_hint.find("GK2A") != std::string::npos ||
-                 output_file_hint.find("GK-2A") != std::string::npos)
-            is_prank = true;
+        // Prank overload mode for weather satellites (GK-2A, GOES, Elektro, Arktika, Meteor-M, FengYun, MetOp, NOAA, etc.)
+        bool global_prank_enabled = true;
+        if (satdump::config::main_cfg.contains("advanced_settings") &&
+            satdump::config::main_cfg["advanced_settings"].contains("prank_overload_enable"))
+            global_prank_enabled = satdump::config::main_cfg["advanced_settings"]["prank_overload_enable"].get<bool>();
+
+        if (global_prank_enabled)
+        {
+            if (parameters.count("prank_overload") > 0)
+                is_prank = parameters["prank_overload"].get<bool>();
+            else
+            {
+                std::string hint = output_file_hint;
+                std::transform(hint.begin(), hint.end(), hint.begin(), ::tolower);
+                if (hint.find("gk2a") != std::string::npos ||
+                    hint.find("gk-2a") != std::string::npos ||
+                    hint.find("goes") != std::string::npos ||
+                    hint.find("elektro") != std::string::npos ||
+                    hint.find("arktika") != std::string::npos ||
+                    hint.find("meteor") != std::string::npos ||
+                    hint.find("fengyun") != std::string::npos ||
+                    hint.find("fy2") != std::string::npos ||
+                    hint.find("fy3") != std::string::npos ||
+                    hint.find("metop") != std::string::npos ||
+                    hint.find("noaa") != std::string::npos)
+                {
+                    is_prank = true;
+                }
+            }
+        }
+        else
+        {
+            is_prank = false;
+        }
 
         // Get constellation
         if (d_constellation_str == "bpsk")
@@ -286,7 +315,15 @@ namespace ccsds
             draw_list->AddRectFilled(rect_min, rect_max, style::theme.widget_bg);
             draw_list->PushClipRect(rect_min, rect_max);
 
-            if (is_prank && d_constellation == dsp::BPSK)
+            bool active_prank = is_prank;
+            if (satdump::config::main_cfg.contains("advanced_settings") &&
+                satdump::config::main_cfg["advanced_settings"].contains("prank_overload_enable"))
+            {
+                if (!satdump::config::main_cfg["advanced_settings"]["prank_overload_enable"].get<bool>())
+                    active_prank = false;
+            }
+
+            if (active_prank && d_constellation == dsp::BPSK)
             {
                 float Q = (viterbi_lock == 1) ? std::clamp(1.0f - viterbi_ber * 3.0f, 0.2f, 1.0f) : 0.0f;
                 const float R = 0.80f;
@@ -325,6 +362,41 @@ namespace ccsds
                 {
                     draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (int)(100 * ui_scale + (((int8_t *)soft_buffer)[i] / 127.0) * 130 * ui_scale) % int(200 * ui_scale),
                                                       ImGui::GetCursorScreenPos().y + (int)(100 * ui_scale + rng.gasdev() * 14 * ui_scale) % int(200 * ui_scale)),
+                                               2 * ui_scale,
+                                               style::theme.constellation);
+                }
+            }
+            else if (active_prank && d_constellation == dsp::QPSK)
+            {
+                float Q = (viterbi_lock == 1) ? std::clamp(1.0f - viterbi_ber * 3.0f, 0.2f, 1.0f) : 0.0f;
+                const float R = 0.80f;
+                const float theta_max = 0.28f + 0.35f * (1.0f - Q);
+                const float sigma_r = 0.02f + 0.15f * (1.0f - Q);
+                const float noise_ratio = 0.02f + 0.30f * (1.0f - Q);
+                for (int i = 0; i < 2048; i++)
+                {
+                    float raw_x = (((int8_t *)soft_buffer)[i * 2 + 0] / 127.0f);
+                    float raw_y = (((int8_t *)soft_buffer)[i * 2 + 1] / 127.0f);
+                    float pt_x, pt_y;
+                    if (rng.ran1() < noise_ratio)
+                    {
+                        pt_x = rng.gasdev() * 0.35f * 0.4f + raw_x * 0.6f;
+                        pt_y = rng.gasdev() * 0.35f * 0.4f + raw_y * 0.6f;
+                    }
+                    else
+                    {
+                        float sign_x = (raw_x < 0) ? -1.0f : 1.0f;
+                        float sign_y = (raw_y < 0) ? -1.0f : 1.0f;
+                        float base_angle = atan2f(sign_y, sign_x);
+                        float theta = base_angle + (rng.ran1() * 2.0f - 1.0f) * theta_max * 0.5f + rng.gasdev() * 0.015f;
+                        float r = R + rng.gasdev() * sigma_r;
+                        float model_x = r * cosf(theta);
+                        float model_y = r * sinf(theta);
+                        pt_x = model_x * Q + raw_x * (1.0f - Q);
+                        pt_y = model_y * Q + raw_y * (1.0f - Q);
+                    }
+                    draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (100.0f * ui_scale + pt_x * 100.0f * ui_scale),
+                                                      ImGui::GetCursorScreenPos().y + (100.0f * ui_scale + pt_y * 100.0f * ui_scale)),
                                                2 * ui_scale,
                                                style::theme.constellation);
                 }

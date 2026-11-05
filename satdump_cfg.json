@@ -453,6 +453,7 @@
         // too low or things will break!
         // ------------------------------------------------------
         // "default_buffer_size": 100e3
+        "prank_overload_enable": true
     },
     // Settings for the Viewer. Those also are default settings when generating viewer-less
     "viewer": {
