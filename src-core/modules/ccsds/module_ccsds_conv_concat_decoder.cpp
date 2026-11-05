@@ -323,6 +323,17 @@ namespace ccsds
                     active_prank = false;
             }
 
+            if (active_prank)
+            {
+                drift_phase_vel += rng.gasdev() * 0.0015f;
+                drift_phase_vel *= 0.97f;
+                drift_phase += drift_phase_vel;
+                drift_phase *= 0.995f;
+                drift_phase = std::clamp(drift_phase, -0.045f, 0.045f);
+            }
+            float cos_drift = cosf(drift_phase);
+            float sin_drift = sinf(drift_phase);
+
             if (active_prank && d_constellation == dsp::BPSK)
             {
                 float Q = (viterbi_lock == 1) ? std::clamp(1.0f - viterbi_ber * 3.0f, 0.2f, 1.0f) : 0.0f;
@@ -350,8 +361,10 @@ namespace ccsds
                         pt_x = model_x * Q + raw_x * (1.0f - Q);
                         pt_y = model_y * Q + raw_y * (1.0f - Q);
                     }
-                    draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (100.0f * ui_scale + pt_x * 100.0f * ui_scale),
-                                                      ImGui::GetCursorScreenPos().y + (100.0f * ui_scale + pt_y * 100.0f * ui_scale)),
+                    float rot_x = pt_x * cos_drift - pt_y * sin_drift;
+                    float rot_y = pt_x * sin_drift + pt_y * cos_drift;
+                    draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (100.0f * ui_scale + rot_x * 100.0f * ui_scale),
+                                                      ImGui::GetCursorScreenPos().y + (100.0f * ui_scale + rot_y * 100.0f * ui_scale)),
                                                2 * ui_scale,
                                                style::theme.constellation);
                 }
@@ -395,8 +408,10 @@ namespace ccsds
                         pt_x = model_x * Q + raw_x * (1.0f - Q);
                         pt_y = model_y * Q + raw_y * (1.0f - Q);
                     }
-                    draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (100.0f * ui_scale + pt_x * 100.0f * ui_scale),
-                                                      ImGui::GetCursorScreenPos().y + (100.0f * ui_scale + pt_y * 100.0f * ui_scale)),
+                    float rot_x = pt_x * cos_drift - pt_y * sin_drift;
+                    float rot_y = pt_x * sin_drift + pt_y * cos_drift;
+                    draw_list->AddCircleFilled(ImVec2(ImGui::GetCursorScreenPos().x + (100.0f * ui_scale + rot_x * 100.0f * ui_scale),
+                                                      ImGui::GetCursorScreenPos().y + (100.0f * ui_scale + rot_y * 100.0f * ui_scale)),
                                                2 * ui_scale,
                                                style::theme.constellation);
                 }

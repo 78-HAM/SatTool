@@ -237,6 +237,14 @@ namespace demod
 
             if (active_prank)
             {
+                // Realistic low-IF SDR carrier phase micro-drift (damped Langevin random walk)
+                // Mimics local oscillator thermal wander, phase noise, and Costas tracking dynamics
+                drift_phase_vel += prank_rng.gasdev() * 0.0015f;
+                drift_phase_vel *= 0.97f;
+                drift_phase += drift_phase_vel;
+                drift_phase *= 0.995f;
+                drift_phase = std::clamp(drift_phase, -0.045f, 0.045f); // ~ +/- 2.5 degrees max
+
                 // Occasional realistic micro-fade simulation (e.g. cloud, breeze, multipath)
                 if (fade_counter > 0)
                 {
@@ -328,6 +336,16 @@ namespace demod
                         }
                     }
                 }
+                // Apply SDR carrier phase micro-drift rotation to entire constellation
+                float cos_drift = cosf(drift_phase);
+                float sin_drift = sinf(drift_phase);
+                for (int i = 0; i < n_points; i++)
+                {
+                    float px = prank_buf[i].real;
+                    float py = prank_buf[i].imag;
+                    prank_buf[i] = complex_t(px * cos_drift - py * sin_drift, px * sin_drift + py * cos_drift);
+                }
+
                 constellation.pushComplex(prank_buf, n_points);
             }
             else
@@ -342,6 +360,11 @@ namespace demod
 
             // Update freq
             display_freq = dsp::rad_to_hz(pll->getFreq(), final_samplerate);
+            if (active_prank)
+            {
+                // Sub-Hz carrier frequency jitter coupled to phase drift velocity
+                display_freq += drift_phase_vel * 40.0f + prank_rng.gasdev() * 0.15f;
+            }
 
             if (is_bpsk) // BPSK Only uses the Q branch... So don't output useless data
             {
