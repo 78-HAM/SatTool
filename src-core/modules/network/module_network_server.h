@@ -14,8 +14,11 @@ namespace network
         std::string mode = "default";
 
         std::ifstream data_in;
-        std::atomic<uint64_t> filesize;
-        std::atomic<uint64_t> progress;
+        std::atomic<uint64_t> filesize{0};
+        std::atomic<uint64_t> progress{0};
+        std::atomic<uint64_t> send_errors{0};
+        bool ts_pacing = false;
+        double udp_bitrate = 0;
 
         int pkt_size;
         std::string address;

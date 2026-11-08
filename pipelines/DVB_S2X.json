@@ -2,7 +2,12 @@
     "dvbs2x_bbframe": {
         "name": "DVB-S2X (BBFRAME)",
         "live": true,
-        "live_cfg": [[1, 0]],
+        "live_cfg": [
+            [
+                1,
+                0
+            ]
+        ],
         "frequencies": [],
         "parameters": {
             "symbolrate": {
@@ -31,7 +36,7 @@
             },
             "rrc_alpha": {
                 "type": "float",
-                "value": 0.20,
+                "value": 0.2,
                 "name": "RRC roll-off",
                 "description": "Set to the transmitter roll-off, including 0.05, 0.10 and 0.15 for DVB-S2X"
             },
@@ -51,6 +56,108 @@
                     "clock_alpha": 0.00017,
                     "ldpc_trials": 30,
                     "freq_prop_factor": 0.01
+                }
+            }
+        }
+    },
+    "dvbs2x_ts": {
+        "name": "DVB-S2X (TS over UDP)",
+        "live": true,
+        "live_cfg": [
+            [
+                1,
+                0
+            ],
+            [
+                2,
+                0
+            ],
+            [
+                3,
+                0
+            ]
+        ],
+        "frequencies": [],
+        "parameters": {
+            "symbolrate": {
+                "type": "int",
+                "value": 1000000,
+                "name": "Symbolrate",
+                "description": "DVB-S2X symbol rate in symbols per second"
+            },
+            "modcod": {
+                "type": "int",
+                "value": 132,
+                "name": "Extended PLS code",
+                "description": "Even extended PLS value, e.g. 132 = QPSK 13/45 normal frame. See docs/DVB-S2X.md for supported values."
+            },
+            "pilots": {
+                "type": "bool",
+                "value": false,
+                "name": "Pilots",
+                "description": "Enable when the transmitted frame contains pilot blocks"
+            },
+            "gold_code": {
+                "type": "int",
+                "value": 0,
+                "name": "Gold code",
+                "description": "Physical layer scrambling sequence index (0 to 262141)"
+            },
+            "rrc_alpha": {
+                "type": "float",
+                "value": 0.2,
+                "name": "RRC roll-off",
+                "description": "Set to the transmitter roll-off, including 0.05, 0.10 and 0.15 for DVB-S2X"
+            },
+            "pll_bw": {
+                "type": "float",
+                "value": 0.005,
+                "name": "PLL bandwidth",
+                "description": "Carrier loop bandwidth"
+            },
+            "server_address": {
+                "type": "string",
+                "value": "127.0.0.1",
+                "name": "UDP destination",
+                "description": "Destination IPv4 address for MPEG-TS"
+            },
+            "server_port": {
+                "type": "int",
+                "value": 8888,
+                "name": "UDP port",
+                "description": "Destination port for MPEG-TS"
+            },
+            "udp_bitrate": {
+                "type": "int",
+                "value": 0,
+                "name": "TS bitrate (bit/s)",
+                "description": "0: pace from PCR automatically. Otherwise use the full multiplex TS bitrate (minimum 64000)."
+            }
+        },
+        "work": {
+            "baseband": {},
+            "bbframe": {
+                "dvbs2_demod": {
+                    "standard": "dvb-s2x",
+                    "agc_rate": 0.0001,
+                    "clock_alpha": 0.00017,
+                    "ldpc_trials": 30,
+                    "freq_prop_factor": 0.01
+                }
+            },
+            "ts": {
+                "dvbs2_ts_extractor": {
+                    "standard": "dvb-s2x"
+                }
+            },
+            "net": {
+                "network_server": {
+                    "server_mode": "udp_send",
+                    "server_address": "127.0.0.1",
+                    "server_port": 8888,
+                    "pkt_size": 1316,
+                    "udp_ts_pacing": true,
+                    "udp_bitrate": 0
                 }
             }
         }

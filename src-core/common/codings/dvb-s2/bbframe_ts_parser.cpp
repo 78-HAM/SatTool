@@ -24,226 +24,127 @@
 
 #include "bbframe_ts_parser.h"
 #include <cstring>
-//#include "logger.h"
+#include <stdexcept>
 
 namespace dvbs2
 {
     BBFrameTSParser::BBFrameTSParser(int bbframe_size)
     {
+        if (bbframe_size < 80 || bbframe_size > FRAME_SIZE_NORMAL || bbframe_size % 8 != 0)
+            throw std::invalid_argument("Invalid BBFRAME bit length");
         kbch = bbframe_size;
-
         max_dfl = kbch - 80;
         build_crc8_table();
+        reset();
+    }
 
-        count = 0;
-        index = 0;
+    BBFrameTSParser::~BBFrameTSParser() {}
+
+    void BBFrameTSParser::reset()
+    {
         synched = false;
-        spanning = false;
+        index = 1;
+        packet[0] = 0x47;
+        crc = 0;
     }
 
-    BBFrameTSParser::~BBFrameTSParser()
+    void BBFrameTSParser::build_crc8_table()
     {
-    }
-
-#define CRC_POLY 0xAB
-// Reversed
-#define CRC_POLYR 0xD5
-
-    void BBFrameTSParser::build_crc8_table(void)
-    {
-        int r, crc;
-
-        for (int i = 0; i < 256; i++)
+        for (int i = 0; i < 256; ++i)
         {
-            r = i;
-            crc = 0;
-            for (int j = 7; j >= 0; j--)
-            {
-                if ((r & (1 << j) ? 1 : 0) ^ ((crc & 0x80) ? 1 : 0))
-                {
-                    crc = (crc << 1) ^ CRC_POLYR;
-                }
-                else
-                {
-                    crc <<= 1;
-                }
-            }
-            crc_tab[i] = crc;
+            unsigned int value = i;
+            for (int bit = 0; bit < 8; ++bit)
+                value = (value << 1) ^ ((value & 0x80) ? 0xd5 : 0);
+            crc_tab[i] = value;
         }
     }
 
-    /*
-     * MSB is sent first
-     *
-     * The polynomial has been reversed
-     */
     unsigned int BBFrameTSParser::check_crc8(const uint8_t *in, int length)
     {
-        int crc = 0;
-        int b;
-
-        for (int n = 0; n < length; n++)
+        unsigned int value = 0;
+        for (int bit = 0; bit < length; ++bit)
         {
-            b = ((in[n / 8] >> (7 - (n % 8))) & 1) ^ (crc & 0x01);
-            crc >>= 1;
-            if (b)
-            {
-                crc ^= CRC_POLY;
-            }
+            const bool feedback = ((in[bit / 8] >> (7 - bit % 8)) & 1) ^ (value & 1);
+            value >>= 1;
+            if (feedback)
+                value ^= 0xab;
         }
-
-        return (crc);
+        return value;
     }
 
     int BBFrameTSParser::work(uint8_t *bbframe, int cnt, uint8_t *tsframes, int buffer_outsize)
     {
-        int in_p = 0;
-        int out_p = 0;
-        int tei_p = 0;
-        uint8_t tmp;
-
-        int errors = 0;
-
         int produced = 0;
-
-        for (int currentBBIndex = 0; currentBBIndex < cnt; currentBBIndex++)
+        for (int frame = 0; frame < cnt; ++frame)
         {
-            uint8_t *bbf = &bbframe[(kbch / 8) * currentBBIndex]; // Current bbframe
-
-            // Check CRC
-            unsigned int crc_check = check_crc8(bbf, 80);
-
-            if (crc_check == 0)
-                crc_check = true;
-            else
-                crc_check = false;
-
-            if (crc_check != true)
-            {
-                synched = false;
-                // logger->info("BBHeader CRC Fail");
-                continue;
-            }
-
-            // Parse header
+            uint8_t *bbf = bbframe + (kbch / 8) * frame;
             BBHeader header(bbf);
-
-            // Validate header
-            if (header.dfl > max_dfl)
+            // Normal-mode, byte-aligned MPEG-TS. ISSY/NPD and generic streams
+            // need different adaptation rules and must not be emitted as TS.
+            if (check_crc8(bbf, 80) != 0 || header.ts_gs != 3 ||
+                header.upl != TS_SIZE * 8 || header.sync != 0x47 ||
+                header.issyi || header.npd || header.dfl > max_dfl || header.dfl % 8 != 0)
             {
-                synched = false;
-                // logger->info("DFL Too long!");
+                reset();
                 continue;
             }
 
-            if (header.dfl % 8 != 0)
+            const unsigned int length = header.dfl / 8;
+            const bool has_sync = header.syncd != 0xffff;
+            if (has_sync && (header.syncd % 8 != 0 || header.syncd / 8 >= length))
             {
-                synched = false;
-                // logger->info("DFL Not a multiple of 8!");
+                reset();
                 continue;
             }
+            if (length == 0)
+                continue;
 
-            df_remaining = header.dfl / 8;
+            if (synched && (single_stream != header.sis_mis || stream_id != header.isi))
+                reset();
+            single_stream = header.sis_mis;
+            stream_id = header.isi;
 
-            // Skip header to datafield
-            bbf += 10;
+            // SYNCD addresses the CRC byte that replaces the next TS sync byte.
+            // A mismatch indicates a lost frame: discard the unfinished packet
+            // and reacquire at the advertised marker within this same frame.
+            const unsigned int expected = TS_SIZE - index;
+            if (synched && (has_sync ? header.syncd / 8 != expected : expected < length))
+                reset();
 
+            const uint8_t *data = bbf + 10;
+            unsigned int pos = 0;
             if (!synched)
             {
-                // logger->info("Resynchronizing...");
-
-                bbf += header.syncd / 8 + 1;
-                df_remaining -= header.syncd / 8 + 1;
-
-                count = 0;
+                // 0xffff means there is no packet start in this DATAFIELD.
+                if (!has_sync)
+                    continue;
+                pos = header.syncd / 8 + 1;
                 synched = true;
-                index = 0;
-                spanning = false;
-                distance = header.syncd / 8;
             }
 
-            while (df_remaining && out_p < buffer_outsize)
+            for (; pos < length; ++pos)
             {
-                if (count == 0)
+                const uint8_t byte = data[pos];
+                if (index == TS_SIZE)
                 {
+                    // Retain the whole packet until its CRC arrives, including
+                    // across BBFRAME and work() boundaries. Never emit fragments.
+                    if (produced + TS_SIZE > buffer_outsize)
+                        throw std::length_error("TS output buffer too small");
+                    if (byte != crc)
+                        packet[1] |= TS_ERROR_INDICATOR;
+                    std::memcpy(tsframes + produced, packet, TS_SIZE);
+                    produced += TS_SIZE;
+                    index = 1;
                     crc = 0;
-                    if (index == TS_SIZE)
-                    {
-                        memcpy(&tsframes[out_p], packet, TS_SIZE);
-                        produced += TS_SIZE;
-                        out_p += TS_SIZE;
-
-                        index = 0;
-                        spanning = false;
-                    }
-                    if (df_remaining < (TS_SIZE - 1))
-                    {
-                        index = 0;
-                        packet[index++] = 0x47;
-                        spanning = true;
-                    }
-                    else
-                    {
-                        tsframes[out_p++] = 0x47;
-                        produced++;
-                        tei_p = out_p;
-                    }
-
-                    count++;
-
-                    if (crc_check == true)
-                    {
-                        if (distance != (unsigned int)header.syncd / 8)
-                            synched = false;
-
-                        crc_check = false;
-                    }
                 }
-                else if (count == TS_SIZE)
+                else
                 {
-                    tmp = bbf[in_p++];
-
-                    if (tmp != crc)
-                    {
-                        errors++;
-
-                        if (spanning)
-                            packet[1] |= TS_ERROR_INDICATOR;
-                        else
-                            tsframes[tei_p] |= TS_ERROR_INDICATOR;
-                    }
-
-                    count = 0;
-                    df_remaining -= 1;
-
-                    if (df_remaining == 0)
-                        distance = (TS_SIZE - 1);
-                }
-                if (df_remaining >= 1 && count > 0)
-                {
-                    tmp = bbf[in_p++];
-                    distance += 1;
-
-                    crc = crc_tab[tmp ^ crc];
-                    if (spanning == true)
-                    {
-                        packet[index++] = tmp;
-                    }
-                    else
-                    {
-                        tsframes[out_p++] = tmp;
-                        produced++;
-                    }
-
-                    count++;
-                    df_remaining -= 1;
-
-                    if (df_remaining == 0)
-                        distance = 0;
+                    packet[index++] = byte;
+                    crc = crc_tab[byte ^ crc];
                 }
             }
         }
-
         return produced / TS_SIZE;
     }
 }

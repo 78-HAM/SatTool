@@ -6,6 +6,14 @@
 
 在 pipeline 列表选择 **DVB-S2X (BBFRAME)**（ID：`dvbs2x_bbframe`），设置符号率、扩展 PLS 值、pilots、Gold code 和实际发射端的 RRC roll-off。默认配置是 normal frame、QPSK 13/45、PLS 132、无 pilots、Gold code 0。默认符号率和环路带宽是起点，应按实际信号调整。
 
+需要播放视频时，选择 **DVB-S2X (TS over UDP)**（ID：`dvbs2x_ts`）。接收链为 `dvbs2_demod → dvbs2_ts_extractor → network_server`，默认向 `127.0.0.1:8888` 发送 MPEG-TS，每个 UDP 数据报最多 7 个完整 TS 包（1316 字节）。在 VLC 的“打开网络串流”中输入 `udp://@:8888`；网络缓存可先设为 300–1000 ms，再按延迟需要调整。目标地址和端口可在 pipeline 参数中修改。
+
+TS 输出默认启用 PCR 自动节奏控制，将 LDPC 批量解码产生的 TS 包按媒体时钟均匀发送，减轻 UDP 接收缓冲区溢出导致的卡顿。`udp_bitrate` 默认为 0，表示从首个 PCR PID 的连续时间戳估计码率；PCR 尚未出现时正常转发。缺少 PCR 或需要固定速度时，可填写整个 TS 复用流的码率（bit/s，至少 64000），包含音视频、节目表和空包，不能仅填写视频编码码率。通用 `network_server` 模块通过 `udp_ts_pacing: true` 开启 PCR 检测，`udp_bitrate` 非零时优先使用固定码率。原 DVB-S/S2 测试 pipeline 同样启用了 PCR 平滑发送。
+
+TS 提取支持 normal-mode、UPL=1504 bit、SYNC=0x47 的字节对齐 MPEG-TS 数据，跨 BBFRAME 保留完整包并检查包 CRC；CRC 错误设置 TEI，坏 BBHEADER 或 SYNCD 不连续时丢弃残包并重新同步。`SYNCD=65535` 的连续数据区可正常处理。Generic Stream、ISSY、NPD 和 High Efficiency Mode 尚未实现相应 TS 适配。信号失锁、FEC 无法纠正的错误和网络自身丢包仍可能影响播放；发送恢复功能不补造丢失的媒体数据。UI 中可查看提取的 TS 包数和 UDP 发送错误数。
+
+离线处理 BBFRAME 时，TS 提取器会保存 `.ts` 并登记为后续网络模块的输入；不完整的末尾 BBFRAME 不再被当成有效帧重复处理。
+
 现有 pipeline 也可继续使用模块 ID `dvbs2_demod`，例如模块参数：
 
 ```json
@@ -58,6 +66,14 @@ VLSNR 的 PLS 128/130、额外 900-symbol header、相关 puncturing/spreading�
 移植中适配了 SatDump 的软比特正负极性和 AGC 幅度约定，并修复 pilot 数量、pilot 跳过时的序列推进、PLL 的 pilot 判决，以及 8APSK 必须先解除四分之一周加扰再做相位判决的处理。
 
 ## 回归验证
+
+`src-testing/dvb_ts` 不需要外部库，独立验证 BBFRAME→TS 的逐字节连续性、跨帧 CRC/TEI、无同步标记数据区、坏帧恢复、PCR 回绕/重置，以及真实 UDP 回环和接收端重开。GitHub Actions 在 Windows 和 Ubuntu 上运行此测试：
+
+```sh
+cmake -S src-testing/dvb_ts -B build-dvb-ts -DCMAKE_BUILD_TYPE=Release
+cmake --build build-dvb-ts --config Release
+ctest --test-dir build-dvb-ts -C Release --output-on-failure
+```
 
 `src-testing/dvbs2x` 是可独立构建的 CMake/CTest 项目，需要 C++17、Threads 和真实 VOLK 开发库，不依赖 GNU Radio 安装。参考发送端星座单独保存在 `reference_constellations.h`，来自上述 `gr-dvbs2` 提交，测试不用接收端 `constellation_t::mod()` 生成发送符号。
 

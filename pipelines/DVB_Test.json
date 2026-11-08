@@ -39,7 +39,8 @@
                     "server_mode": "udp_send",
                     "server_address": "127.0.0.1",
                     "server_port": 8888,
-                    "pkt_size": 1316
+                    "pkt_size": 1316,
+                    "udp_ts_pacing": true
                 }
             }
         }
@@ -93,11 +94,23 @@
                 "name": "BBFrame Size",
                 "description": "BBFrame size for the TCP Sink"
             },*/
-            "port": {
+            "server_address": {
+                "type": "string",
+                "value": "127.0.0.1",
+                "name": "UDP destination",
+                "description": "Destination IPv4 address for MPEG-TS"
+            },
+            "server_port": {
                 "type": "int",
-                "value": 6666,
-                "name": "TCP Port",
-                "description": "TCP Server Port"
+                "value": 8888,
+                "name": "UDP port",
+                "description": "Destination port for MPEG-TS"
+            },
+            "udp_bitrate": {
+                "type": "int",
+                "value": 0,
+                "name": "TS bitrate (bit/s)",
+                "description": "0: pace from PCR automatically; otherwise full TS multiplex bitrate."
             }
         },
         "work": {
@@ -124,7 +137,8 @@
                     "server_mode": "udp_send",
                     "server_address": "127.0.0.1",
                     "server_port": 8888,
-                    "pkt_size": 1316
+                    "pkt_size": 1316,
+                    "udp_ts_pacing": true
                 }
             }
         }

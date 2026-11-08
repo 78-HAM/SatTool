@@ -6,6 +6,8 @@
 #include <nng/protocol/pubsub0/pub.h>
 #include "common/net/udp.h"
 #include "core/exception.h"
+#include "common/mpeg_ts/ts_pacer.h"
+#include <thread>
 
 namespace network
 {
@@ -30,6 +32,15 @@ namespace network
         else
             throw satdump_exception("server_port parameter must be present!");
 
+        if (pkt_size <= 0 || (mode == "udp_send" && pkt_size > 65507))
+            throw satdump_exception("Invalid network packet size");
+        if (port < 1 || port > 65535)
+            throw satdump_exception("Network port must be between 1 and 65535");
+        ts_pacing = parameters.value("udp_ts_pacing", false);
+        udp_bitrate = parameters.value("udp_bitrate", 0.0);
+        if (ts_pacing && pkt_size % 188 != 0)
+            throw satdump_exception("UDP TS packet size must be a multiple of 188");
+        mpeg_ts::TSPacer validate_pacing(ts_pacing, udp_bitrate);
         buffer = new uint8_t[pkt_size];
     }
 
@@ -55,7 +66,11 @@ namespace network
         else
             filesize = 0;
         if (input_data_type == DATA_FILE)
+        {
             data_in = std::ifstream(d_input_file, std::ios::binary);
+            if (!data_in)
+                throw satdump_exception("Could not open network input file");
+        }
 
         logger->info("Using input frames " + d_input_file);
 
@@ -88,20 +103,49 @@ namespace network
         }
         else if (mode == "udp_send")
         {
-            net::UDPClient udp_send((char *)address.c_str(), port);
+            net::UDPClient udp_send(address.c_str(), port);
+            mpeg_ts::TSPacer pacer(ts_pacing, udp_bitrate);
+            auto last_error = std::chrono::steady_clock::time_point::min();
 
             while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
                 // Read a buffer
+                int received = pkt_size;
                 if (input_data_type == DATA_FILE)
+                {
                     data_in.read((char *)buffer, pkt_size);
-                else
-                    input_fifo->read((uint8_t *)buffer, pkt_size);
+                    received = (int)data_in.gcount();
+                }
+                else if (input_fifo->read(buffer, pkt_size) != pkt_size)
+                    break;
+                if (received == 0)
+                    break;
+                if (ts_pacing && received % 188 != 0)
+                {
+                    logger->warn("Ignoring incomplete TS packet at end of input");
+                    received -= received % 188;
+                    if (received == 0)
+                        break;
+                }
 
-                udp_send.send(buffer, pkt_size);
+                std::this_thread::sleep_until(pacer.schedule(buffer, received, mpeg_ts::TSPacer::Clock::now()));
+                try
+                {
+                    udp_send.send(buffer, received);
+                }
+                catch (const std::runtime_error &error)
+                {
+                    ++send_errors;
+                    const auto now = std::chrono::steady_clock::now();
+                    if (last_error == std::chrono::steady_clock::time_point::min() || now - last_error >= std::chrono::seconds(1))
+                    {
+                        logger->warn("%s; UDP output will continue", error.what());
+                        last_error = now;
+                    }
+                }
 
                 if (input_data_type == DATA_FILE)
-                    progress = data_in.tellg();
+                    progress += received;
             }
         }
 
@@ -121,7 +165,10 @@ namespace network
         ImGui::SameLine();
         ImGui::TextColored(style::theme.green, UITO_C_STR(port));
 
-        if (!streamingInput)
+        if (mode == "udp_send")
+            ImGui::Text("UDP send errors: %s", std::to_string(send_errors.load()).c_str());
+
+        if (!streamingInput && filesize > 0)
             ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
@@ -134,7 +181,7 @@ namespace network
 
     std::vector<std::string> NetworkServerModule::getParameters()
     {
-        return {"server_address", "server_port", "pkt_size"};
+        return {"server_mode", "server_address", "server_port", "pkt_size", "udp_ts_pacing", "udp_bitrate"};
     }
 
     std::shared_ptr<ProcessingModule> NetworkServerModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)

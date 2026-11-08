@@ -23,6 +23,7 @@
  * A lot has been modified, especially that this now deals with bytes
  */
 
+#pragma once
 #include <cstdint>
 #include "dvbs2.h"
 
@@ -38,7 +39,7 @@ namespace dvbs2
         bool ccm_acm;
         bool issyi;
         bool npd;
-        bool ro;
+        uint8_t ro;
         uint8_t isi;
         uint16_t upl;
         uint16_t dfl;
@@ -66,18 +67,17 @@ namespace dvbs2
     private:
         unsigned int kbch;
         unsigned int max_dfl;
-        unsigned int df_remaining;
-        unsigned int count;
-        unsigned int synched;
-        unsigned char crc;
-        unsigned int distance;
-        unsigned int spanning;
-        unsigned int index;
+        bool synched = false;
+        bool single_stream = true;
+        uint8_t stream_id = 0;
+        unsigned char crc = 0;
+        unsigned int index = 1;
         unsigned char crc_tab[256];
         unsigned char packet[188];
 
         void build_crc8_table(void);
         unsigned int check_crc8(const unsigned char *, int);
+        void reset();
 
     public:
         BBFrameTSParser(int bbframe_size);

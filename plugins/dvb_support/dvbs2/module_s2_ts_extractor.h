@@ -12,8 +12,9 @@ namespace dvbs2
 
         std::ifstream data_in;
         std::ofstream data_out;
-        std::atomic<uint64_t> filesize;
-        std::atomic<uint64_t> progress;
+        std::atomic<uint64_t> filesize{0};
+        std::atomic<uint64_t> progress{0};
+        std::atomic<uint64_t> ts_packets{0};
 
     public:
         S2TStoTCPModule(std::string input_file, std::string output_file_hint, nlohmann::json parameters);

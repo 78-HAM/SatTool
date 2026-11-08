@@ -5,17 +5,6 @@
 #include "common/utils.h"
 #include "core/exception.h"
 
-#if !(defined(__APPLE__) || defined(_WIN32))
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <stdio.h>
-#include <unistd.h>
-#endif
-
 #include "codings/dvb-s2/bbframe_bch.h"
 #include "codings/dvb-s2/modcod_to_cfg.h"
 #include <cctype>
@@ -72,6 +61,8 @@ namespace dvbs2
             dvbs2::BBFrameBCH bch_decoder(cfg.framesize, cfg.coderate, extended_s2x);
             bbframe_size = bch_decoder.dataSize();
         }
+        if (bbframe_size < 80 || bbframe_size > FRAME_SIZE_NORMAL || bbframe_size % 8 != 0)
+            throw satdump_exception("Invalid BBFRAME bit length");
     }
 
     std::vector<ModuleDataType> S2TStoTCPModule::getInputTypes()
@@ -81,7 +72,7 @@ namespace dvbs2
 
     std::vector<ModuleDataType> S2TStoTCPModule::getOutputTypes()
     {
-        return {DATA_FILE};
+        return {DATA_FILE, DATA_STREAM};
     }
 
     S2TStoTCPModule::~S2TStoTCPModule()
@@ -95,13 +86,24 @@ namespace dvbs2
         else
             filesize = 0;
         if (input_data_type == DATA_FILE)
+        {
             data_in = std::ifstream(d_input_file, std::ios::binary);
+            if (!data_in)
+                throw satdump_exception("Could not open BBFRAME input file");
+        }
+        if (output_data_type == DATA_FILE)
+        {
+            data_out = std::ofstream(d_output_file_hint + ".ts", std::ios::binary);
+            if (!data_out)
+                throw satdump_exception("Could not open TS output file");
+            d_output_files.push_back(d_output_file_hint + ".ts");
+        }
 
         logger->info("Using input bbframes " + d_input_file);
 
         time_t lastTime = 0;
 
-        uint8_t *bb_buffer = new uint8_t[bbframe_size];
+        std::vector<uint8_t> bb_buffer(bbframe_size / 8);
         uint8_t ts_frames[188 * 1000];
 
         dvbs2::BBFrameTSParser ts_extractor(bbframe_size);
@@ -110,52 +112,52 @@ namespace dvbs2
         {
             // Read buffer
             if (input_data_type == DATA_FILE)
-                data_in.read((char *)bb_buffer, bbframe_size / 8);
-            else
-                input_fifo->read((uint8_t *)bb_buffer, bbframe_size / 8);
+            {
+                data_in.read((char *)bb_buffer.data(), bb_buffer.size());
+                if (data_in.gcount() != (std::streamsize)bb_buffer.size())
+                    break;
+                progress += bb_buffer.size();
+            }
+            else if (input_fifo->read(bb_buffer.data(), bb_buffer.size()) != (int)bb_buffer.size())
+                break;
 
-            int ts_cnt = ts_extractor.work(bb_buffer, 1, ts_frames, 188 * 1000);
+            int ts_cnt = ts_extractor.work(bb_buffer.data(), 1, ts_frames, sizeof(ts_frames));
 
-            for (int i = 0; i < ts_cnt; i++)
+            if (ts_cnt > 0)
             {
                 if (output_data_type == DATA_FILE)
-                    data_out.write((char *)&ts_frames[i * 188], 188);
-                else
-                    output_fifo->write((uint8_t *)&ts_frames[i * 188], 188);
+                {
+                    data_out.write((char *)ts_frames, ts_cnt * 188);
+                    if (!data_out)
+                        throw satdump_exception("Error writing TS output file");
+                }
+                else if (output_fifo->write(ts_frames, ts_cnt * 188) < 0)
+                    break;
+                ts_packets += ts_cnt;
             }
 
-            if (input_data_type == DATA_FILE)
-                progress = data_in.tellg();
-
-            if (time(NULL) % 10 == 0 && lastTime != time(NULL))
+            if (input_data_type == DATA_FILE && filesize > 0 && time(NULL) % 10 == 0 && lastTime != time(NULL))
             {
                 lastTime = time(NULL);
                 logger->info("Progress " + std::to_string(round(((double)progress / (double)filesize) * 1000.0) / 10.0) + "%%");
             }
         }
 
-        delete[] bb_buffer;
-
         data_out.close();
-        if (output_data_type == DATA_FILE)
+        if (input_data_type == DATA_FILE)
             data_in.close();
     }
 
     void S2TStoTCPModule::drawUI(bool window)
     {
-        ImGui::Begin("DVB-S2 TS Extractor", NULL, window ? 0 : NOWINDOW_FLAGS);
+        ImGui::Begin("DVB-S2/S2X TS Extractor", NULL, window ? 0 : NOWINDOW_FLAGS);
         ImGui::BeginGroup();
         {
-            // ImGui::Button("TS Status", {200 * ui_scale, 20 * ui_scale});
-            //{
-            //     ImGui::Text("PID  : ");
-            //     ImGui::SameLine();
-            //     ImGui::TextColored(pid_to_decode == current_pid ? style::theme.green : style::theme.orange, UITO_C_STR(current_pid));
-            // }
+            ImGui::Text("TS packets: %s", std::to_string(ts_packets.load()).c_str());
         }
         ImGui::EndGroup();
 
-        if (!streamingInput)
+        if (!streamingInput && filesize > 0)
             ImGui::ProgressBar((double)progress / (double)filesize, ImVec2(ImGui::GetContentRegionAvail().x, 20 * ui_scale));
 
         ImGui::End();
