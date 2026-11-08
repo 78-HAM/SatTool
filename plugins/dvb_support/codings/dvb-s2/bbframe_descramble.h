@@ -35,7 +35,7 @@ namespace dvbs2
         void init();
 
     public:
-        BBFrameDescrambler(dvbs2_framesize_t framesize, dvbs2_code_rate_t rate);
+        BBFrameDescrambler(dvbs2_framesize_t framesize, dvbs2_code_rate_t rate, bool s2x = false);
         ~BBFrameDescrambler();
 
         int work(uint8_t *frame);

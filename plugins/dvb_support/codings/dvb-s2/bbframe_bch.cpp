@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include <functional>
 #include <cstring>
+#include <utility>
+#include <stdexcept>
 
 // BCH Code
 #define BCH_CODE_N8 0
@@ -36,9 +38,90 @@
 
 namespace dvbs2
 {
-    BBFrameBCH::BBFrameBCH(dvbs2_framesize_t framesize, dvbs2_code_rate_t rate)
+    BBFrameBCH::BBFrameBCH(dvbs2_framesize_t framesize, dvbs2_code_rate_t rate, bool s2x)
     {
-        if (framesize == FECFRAME_NORMAL)
+        kbch = 0;
+        nbch = 0;
+        bch_code = BCH_CODE_N12;
+        if (s2x && framesize == FECFRAME_NORMAL)
+        {
+            // New S2X normal-frame code rates use BCH-N12 (192 parity
+            // bits); reused legacy rates below retain their S2 BCH code.
+            // The values here are BCH output / LDPC input lengths.
+            static const std::pair<dvbs2_code_rate_t, unsigned> sizes[] = {
+                {C13_45, 18720}, {C9_20, 29160}, {C90_180, 32400},
+                {C96_180, 34560}, {C11_20, 35640}, {C100_180, 36000},
+                {C104_180, 37440}, {C26_45, 37440}, {C18_30, 38880},
+                {C28_45, 40320}, {C23_36, 41400}, {C116_180, 41760},
+                {C20_30, 43200}, {C124_180, 44640}, {C25_36, 45000},
+                {C128_180, 46080}, {C13_18, 46800}, {C132_180, 47520},
+                {C22_30, 47520}, {C135_180, 48600}, {C140_180, 50400},
+                {C7_9, 50400}, {C154_180, 55440},
+            };
+            for (const auto &entry : sizes)
+                if (entry.first == rate)
+                {
+                    nbch = entry.second;
+                    kbch = nbch - 192;
+                    bch_code = BCH_CODE_N12;
+                    break;
+                }
+            if (kbch == 0 && rate == C2_3)
+            {
+                kbch = 43040;
+                nbch = 43200;
+                bch_code = BCH_CODE_N10;
+            }
+            else if (kbch == 0 && rate == C3_5)
+            {
+                nbch = 38880;
+                kbch = 38688;
+                bch_code = BCH_CODE_N12;
+            }
+        }
+        else if (s2x && framesize == FECFRAME_SHORT)
+        {
+            static const std::pair<dvbs2_code_rate_t, unsigned> sizes[] = {
+                {C11_45, 3960}, {C4_15, 4320}, {C14_45, 5040},
+                {C7_15, 7560}, {C8_15, 8640}, {C26_45, 9360},
+                {C32_45, 11520},
+            };
+            for (const auto &entry : sizes)
+                if (entry.first == rate)
+                {
+                    nbch = entry.second;
+                    kbch = nbch - 168;
+                    bch_code = BCH_CODE_S12;
+                    break;
+                }
+            if (kbch == 0 && rate == C2_3)
+            {
+                kbch = 10632;
+                nbch = 10800;
+                bch_code = BCH_CODE_S12;
+            }
+            else if (kbch == 0 && rate == C3_5)
+            {
+                kbch = 9552;
+                nbch = 9720;
+                bch_code = BCH_CODE_S12;
+            }
+        }
+        else if (s2x && framesize == FECFRAME_MEDIUM)
+        {
+            static const std::pair<dvbs2_code_rate_t, unsigned> sizes[] = {
+                {C1_5_MEDIUM, 5840}, {C11_45_MEDIUM, 7920}, {C1_3_MEDIUM, 10800},
+            };
+            for (const auto &entry : sizes)
+                if (entry.first == rate)
+                {
+                    nbch = entry.second;
+                    kbch = nbch - 180;
+                    bch_code = BCH_CODE_M12;
+                    break;
+                }
+        }
+        else if (framesize == FECFRAME_NORMAL)
         {
             switch (rate)
             {
@@ -165,6 +248,9 @@ namespace dvbs2
                 break;
             }
         }
+
+        if (kbch == 0 || nbch == 0)
+            throw std::runtime_error("Unsupported DVB-S2/S2X BCH frame or code rate");
 
         switch (bch_code)
         {

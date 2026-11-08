@@ -24,12 +24,53 @@
 
 #include "bbframe_descramble.h"
 #include <algorithm>
+#include <utility>
+#include <stdexcept>
 
 namespace dvbs2
 {
-    BBFrameDescrambler::BBFrameDescrambler(dvbs2_framesize_t framesize, dvbs2_code_rate_t rate)
+    BBFrameDescrambler::BBFrameDescrambler(dvbs2_framesize_t framesize, dvbs2_code_rate_t rate, bool s2x)
     {
-        if (framesize == FECFRAME_NORMAL)
+        kbch = 0;
+        if (s2x && framesize == FECFRAME_NORMAL)
+        {
+            static const std::pair<dvbs2_code_rate_t, unsigned> sizes[] = {
+                {C13_45, 18528}, {C9_20, 28968}, {C90_180, 32208},
+                {C96_180, 34368}, {C11_20, 35448}, {C100_180, 35808},
+                {C104_180, 37248}, {C26_45, 37248}, {C18_30, 38688},
+                {C28_45, 40128}, {C23_36, 41208}, {C116_180, 41568},
+                {C20_30, 43008}, {C124_180, 44448}, {C25_36, 44808},
+                {C128_180, 45888}, {C13_18, 46608}, {C132_180, 47328},
+                {C22_30, 47328}, {C135_180, 48408}, {C140_180, 50208},
+                {C7_9, 50208}, {C154_180, 55248},
+                {C2_3, 43040}, {C3_5, 38688},
+            };
+            for (const auto &entry : sizes)
+                if (entry.first == rate)
+                    kbch = entry.second;
+        }
+        else if (s2x && framesize == FECFRAME_SHORT)
+        {
+            static const std::pair<dvbs2_code_rate_t, unsigned> sizes[] = {
+                {C11_45, 3792}, {C4_15, 4152}, {C14_45, 4872},
+                {C7_15, 7392}, {C8_15, 8472}, {C26_45, 9192},
+                {C32_45, 11352},
+                {C2_3, 10632}, {C3_5, 9552},
+            };
+            for (const auto &entry : sizes)
+                if (entry.first == rate)
+                    kbch = entry.second;
+        }
+        else if (s2x && framesize == FECFRAME_MEDIUM)
+        {
+            static const std::pair<dvbs2_code_rate_t, unsigned> sizes[] = {
+                {C1_5_MEDIUM, 5660}, {C11_45_MEDIUM, 7740}, {C1_3_MEDIUM, 10620},
+            };
+            for (const auto &entry : sizes)
+                if (entry.first == rate)
+                    kbch = entry.second;
+        }
+        else if (framesize == FECFRAME_NORMAL)
         {
             switch (rate)
             {
@@ -111,6 +152,8 @@ namespace dvbs2
             }
         }
 
+        if (kbch == 0)
+            throw std::runtime_error("Unsupported DVB-S2/S2X BB-frame rate");
         init();
     }
 

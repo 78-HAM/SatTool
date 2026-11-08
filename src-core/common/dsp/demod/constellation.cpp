@@ -1,4 +1,5 @@
 #include "constellation.h"
+#include <algorithm>
 #include <cmath>
 // #include <iostream>
 #include <vector>
@@ -13,6 +14,9 @@
 
 namespace dsp
 {
+    // S2X constellation coordinates and radius ratios are adapted from
+    // drmpeg/gr-dvbs2, Copyright Ron Economos, GPL-3.0-or-later.
+    // See docs/DVB-S2X.md for the reference revision and validation.
     complex_t constellation_t::polar(float r, int n, float i)
     {
         float a = i * 2 * M_PI / n;
@@ -63,6 +67,29 @@ namespace dsp
             constellation[6] = complex_t(1.0, 0.0);
             constellation[7] = complex_t(rcp_sqrt_2, rcp_sqrt_2);
         }
+        else if (type == APSK8)
+        {
+            const_states = 8;
+            const_bits = 3;
+            const_amp = 100;
+            const_sca = 1;
+            const_prescale = 1;
+            constellation = new complex_t[const_states];
+            const int variant = (int)g1;
+            const float outer_gamma[2] = {6.8f, 8.0f};
+            const float middle_gamma[2] = {5.32f, 6.39f};
+            const float r1 = 1.0f / outer_gamma[variant == 1 ? 1 : 0];
+            const float r2 = r1 * middle_gamma[variant == 1 ? 1 : 0];
+            const float r3 = 1.0f;
+            constellation[0] = polar(r1, 2, 1) * const_amp;
+            constellation[1] = polar(r2, 2, 1.352f) * const_amp;
+            constellation[2] = polar(r2, 2, -1.352f) * const_amp;
+            constellation[3] = polar(r3, 2, 1) * const_amp;
+            constellation[4] = polar(r1, 2, 0) * const_amp;
+            constellation[5] = polar(r2, 2, -0.352f) * const_amp;
+            constellation[6] = polar(r2, 2, 0.352f) * const_amp;
+            constellation[7] = polar(r3, 2, 0) * const_amp;
+        }
         else if (type == APSK16)
         {
             const_states = 16;
@@ -99,6 +126,41 @@ namespace dsp
             constellation[2] = polar(r1, 4, 3.5) * const_amp;
             constellation[1] = polar(r1, 4, 1.5) * const_amp;
             constellation[0] = polar(r1, 4, 2.5) * const_amp;
+        }
+        else if (type == APSK88)
+        {
+            const_states = 16;
+            const_bits = 4;
+            const_amp = 100;
+            const_sca = 1;
+            const_prescale = 1;
+            constellation = new complex_t[const_states];
+            const int variant = (int)g1;
+            if (variant == 0 || variant == 1)
+            {
+                const float x[2][16] = {
+                    {0.4718f, 0.2606f, -0.4718f, -0.2606f, 0.4718f, 0.2606f, -0.4718f, -0.2606f,
+                     1.2088f, 0.4984f, -1.2088f, -0.4984f, 1.2088f, 0.4984f, -1.2088f, -0.4984f},
+                    {0.5061f, 0.2474f, -0.5061f, -0.2474f, 0.5061f, 0.2474f, -0.5061f, -0.2474f,
+                     1.2007f, 0.4909f, -1.2007f, -0.4909f, 1.2007f, 0.4909f, -1.2007f, -0.4909f}};
+                const float y[2][16] = {
+                    {0.2606f, 0.4718f, 0.2606f, 0.4718f, -0.2606f, -0.4718f, -0.2606f, -0.4718f,
+                     0.4984f, 1.2088f, 0.4984f, 1.2088f, -0.4984f, -1.2088f, -0.4984f, -1.2088f},
+                    {0.2474f, 0.5061f, 0.2474f, 0.5061f, -0.2474f, -0.5061f, -0.2474f, -0.5061f,
+                     0.4909f, 1.2007f, 0.4909f, 1.2007f, -0.4909f, -1.2007f, -0.4909f, -1.2007f}};
+                for (int i = 0; i < 16; ++i)
+                    constellation[i] = complex_t(x[variant][i], y[variant][i]) * const_amp;
+            }
+            else
+            {
+                const int phase[8] = {1, 3, 7, 5, 15, 13, 9, 11};
+                const float r1 = 1.0f / 2.19f;
+                for (int i = 0; i < 8; ++i)
+                {
+                    constellation[i] = polar(r1, 32, phase[i] * 2) * const_amp;
+                    constellation[i + 8] = polar(1.0f, 32, phase[i] * 2) * const_amp;
+                }
+            }
         }
         else if (type == APSK32)
         {
@@ -158,9 +220,74 @@ namespace dsp
             constellation[1] = polar(r3, 16, 8) * const_amp;
             constellation[0] = polar(r3, 16, 10) * const_amp;
         }
+        else if (type == APSK4_12_16 || type == APSK4_8_4_16)
+        {
+            const bool four_ring = type == APSK4_8_4_16;
+            const_states = 32;
+            const_bits = 5;
+            const_amp = 100;
+            const_sca = 1;
+            const_prescale = 1;
+            constellation = new complex_t[const_states];
+            if (four_ring)
+            {
+                const int variant = std::min(2, std::max(0, (int)g1));
+                const float r1 = 1.0f / 5.6f;
+                const float r2 = r1 * 2.60f;
+                const float ratios[3] = {2.99f, 2.86f, 3.08f};
+                const float r3 = r1 * ratios[variant];
+                const float r4 = 1.0f;
+                const float pi = (float)M_PI;
+                const float a[32] = {pi/4, 7*pi/16, 7*pi/4, 25*pi/16, 3*pi/4, 9*pi/16, 5*pi/4, 23*pi/16,
+                    pi/12, pi/16, 23*pi/12, 31*pi/16, 11*pi/12, 15*pi/16, 13*pi/12, 17*pi/16,
+                    5*pi/12, 5*pi/16, 19*pi/12, 27*pi/16, 7*pi/12, 11*pi/16, 17*pi/12, 21*pi/16,
+                    pi/4, 3*pi/16, 7*pi/4, 29*pi/16, 3*pi/4, 13*pi/16, 5*pi/4, 19*pi/16};
+                const float radius[32] = {r1,r4,r1,r4,r1,r4,r1,r4,r2,r4,r2,r4,r2,r4,r2,r4,
+                    r2,r4,r2,r4,r2,r4,r2,r4,r3,r4,r3,r4,r3,r4,r3,r4};
+                for (int i = 0; i < 32; ++i)
+                    constellation[i] = complex_t(radius[i] * cosf(a[i]), radius[i] * sinf(a[i])) * const_amp;
+            }
+            else
+            {
+                const int variant = std::min(2, std::max(0, (int)g1));
+                const float outer_gamma[3] = {5.55f, 5.54f, 5.26f};
+                const float middle_gamma[3] = {2.85f, 2.84f, 2.84f};
+                float r1 = 1.0f / outer_gamma[variant];
+                float r2 = r1 * middle_gamma[variant];
+                float r3 = 1.0f;
+                const float pi = (float)M_PI;
+                const float a[32] = {11*pi/16, 9*pi/16, 5*pi/16, 7*pi/16, 3*pi/4, 7*pi/12, pi/4, 5*pi/12,
+                    13*pi/16, 15*pi/16, 3*pi/16, pi/16, 11*pi/12, 3*pi/4, pi/12, pi/4,
+                    21*pi/16, 23*pi/16, 27*pi/16, 25*pi/16, 5*pi/4, 17*pi/12, 7*pi/4, 19*pi/12,
+                    19*pi/16, 17*pi/16, 29*pi/16, 31*pi/16, 13*pi/12, 5*pi/4, 23*pi/12, 7*pi/4};
+                const float radius[32] = {r3,r3,r3,r3,r2,r2,r2,r2,r3,r3,r3,r3,r2,r1,r2,r1,
+                    r3,r3,r3,r3,r2,r2,r2,r2,r3,r3,r3,r3,r2,r1,r2,r1};
+                for (int i = 0; i < 32; ++i)
+                    constellation[i] = complex_t(radius[i] * cosf(a[i]), radius[i] * sinf(a[i])) * const_amp;
+            }
+        }
         else
         {
             throw satdump_exception("Undefined constellation type!");
+        }
+
+        if (type == APSK8 || type == APSK88 || type == APSK4_12_16 || type == APSK4_8_4_16)
+        {
+            // The DVB demodulator's AGC targets mean amplitude one.  S2X
+            // tables specify radius ratios (some with outer radius one), so
+            // normalize them in the same amplitude domain as the samples.
+            float mean_radius = 0;
+            for (int i = 0; i < const_states; ++i)
+                mean_radius += constellation[i].norm() / (const_amp * const_states);
+            for (int i = 0; i < const_states; ++i)
+                constellation[i] = constellation[i] / mean_radius;
+
+            // The tables use transmitted labels; this class emits positive
+            // soft values for index bit one, while DVB LDPC uses positive
+            // values for transmitted bit zero.  Complement labels just as
+            // the existing DVB-S2 APSK mappings do.
+            for (int i = 0; i < const_states / 2; ++i)
+                std::swap(constellation[i], constellation[const_states - 1 - i]);
         }
     }
 
@@ -288,11 +415,14 @@ namespace dsp
 
     int8_t constellation_t::clamp(float x)
     {
+        // Well-separated APSK points can make one likelihood underflow to
+        // zero.  Its infinite log ratio is a certain bit, not an int8_t
+        // conversion of infinity (which can produce zero).
+        if (!std::isfinite(x))
+            return std::isnan(x) ? 0 : (x > 0 ? 127 : -127);
         while (x < -127 || x > 127)
         {
             x *= 0.5;
-            if (!std::isfinite(x))
-                return x;
         }
         return x;
     }

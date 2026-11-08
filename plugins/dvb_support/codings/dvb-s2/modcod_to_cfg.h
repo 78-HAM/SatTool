@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdexcept>
+
 #include "common/codings/dvb-s2/dvbs2.h"
 #include "common/dsp/demod/constellation.h"
 
@@ -21,6 +23,8 @@ namespace dvbs2
         dvb_cgf_holder cfg;
 
         cfg.pilots = pilots;
+        cfg.g1 = 0;
+        cfg.g2 = 0;
 
         if (modcod <= 0)
             throw std::runtime_error("MODCOD cannot be <= 0!");
@@ -151,6 +155,91 @@ namespace dvbs2
 
         cfg.framesize = shortframes ? dvbs2::FECFRAME_SHORT : dvbs2::FECFRAME_NORMAL;
 
+        return cfg;
+    }
+
+    // Decode the regular DVB-S2X extended PLS code points (8-bit input,
+    // excluding the pilot flag in bit zero).  VLSNR profiles need the
+    // additional 900-symbol physical header and puncturing rules, so they
+    // are rejected explicitly until that receive path is implemented.
+    inline dvb_cgf_holder get_dvbs2x_cfg(int pls_code, int pilot_override = -1)
+    {
+        if (pls_code < 128 || pls_code > 255)
+            throw std::runtime_error("DVB-S2X MODCOD must be an extended PLS code from 128 to 255");
+
+        const int code = pls_code & ~1;
+        dvb_cgf_holder cfg{};
+        cfg.framesize = dvbs2::FECFRAME_NORMAL;
+        cfg.pilots = pilot_override < 0 ? (pls_code & 1) != 0 : pilot_override != 0;
+        cfg.g1 = 0;
+        cfg.g2 = 0;
+        int bits_per_symbol = 0;
+
+        switch (code)
+        {
+        // QPSK normal frame
+        case 132: cfg.constellation = MOD_QPSK; cfg.constel_obj_type = dsp::QPSK; cfg.coderate = C13_45; bits_per_symbol = 2; break;
+        case 134: cfg.constellation = MOD_QPSK; cfg.constel_obj_type = dsp::QPSK; cfg.coderate = C9_20; bits_per_symbol = 2; break;
+        case 136: cfg.constellation = MOD_QPSK; cfg.constel_obj_type = dsp::QPSK; cfg.coderate = C11_20; bits_per_symbol = 2; break;
+        case 216: cfg.constellation = MOD_QPSK; cfg.constel_obj_type = dsp::QPSK; cfg.coderate = C11_45; bits_per_symbol = 2; break;
+        case 218: cfg.constellation = MOD_QPSK; cfg.constel_obj_type = dsp::QPSK; cfg.coderate = C4_15; bits_per_symbol = 2; break;
+        case 220: cfg.constellation = MOD_QPSK; cfg.constel_obj_type = dsp::QPSK; cfg.coderate = C14_45; bits_per_symbol = 2; break;
+        case 222: cfg.constellation = MOD_QPSK; cfg.constel_obj_type = dsp::QPSK; cfg.coderate = C7_15; bits_per_symbol = 2; break;
+        case 224: cfg.constellation = MOD_QPSK; cfg.constel_obj_type = dsp::QPSK; cfg.coderate = C8_15; bits_per_symbol = 2; break;
+        case 226: cfg.constellation = MOD_QPSK; cfg.constel_obj_type = dsp::QPSK; cfg.coderate = C32_45; bits_per_symbol = 2; break;
+
+        // 8PSK
+        case 142: cfg.constellation = MOD_8PSK; cfg.constel_obj_type = dsp::PSK8; cfg.coderate = C23_36; bits_per_symbol = 3; break;
+        case 144: cfg.constellation = MOD_8PSK; cfg.constel_obj_type = dsp::PSK8; cfg.coderate = C25_36; bits_per_symbol = 3; break;
+        case 146: cfg.constellation = MOD_8PSK; cfg.constel_obj_type = dsp::PSK8; cfg.coderate = C13_18; bits_per_symbol = 3; break;
+        case 228: cfg.constellation = MOD_8PSK; cfg.constel_obj_type = dsp::PSK8; cfg.coderate = C7_15; bits_per_symbol = 3; break;
+        case 230: cfg.constellation = MOD_8PSK; cfg.constel_obj_type = dsp::PSK8; cfg.coderate = C8_15; bits_per_symbol = 3; break;
+        case 232: cfg.constellation = MOD_8PSK; cfg.constel_obj_type = dsp::PSK8; cfg.coderate = C26_45; bits_per_symbol = 3; break;
+        case 234: cfg.constellation = MOD_8PSK; cfg.constel_obj_type = dsp::PSK8; cfg.coderate = C32_45; bits_per_symbol = 3; break;
+
+        // 8APSK, and 8+8APSK profiles
+        case 138: cfg.constellation = MOD_8APSK; cfg.constel_obj_type = dsp::APSK8; cfg.coderate = C100_180; cfg.g1 = 0; bits_per_symbol = 3; break;
+        case 140: cfg.constellation = MOD_8APSK; cfg.constel_obj_type = dsp::APSK8; cfg.coderate = C104_180; cfg.g1 = 1; bits_per_symbol = 3; break;
+        case 148: cfg.constellation = MOD_8_8APSK; cfg.constel_obj_type = dsp::APSK88; cfg.coderate = C90_180; cfg.g1 = 2; bits_per_symbol = 4; break;
+        case 150: cfg.constellation = MOD_8_8APSK; cfg.constel_obj_type = dsp::APSK88; cfg.coderate = C96_180; cfg.g1 = 2; bits_per_symbol = 4; break;
+        case 152: cfg.constellation = MOD_8_8APSK; cfg.constel_obj_type = dsp::APSK88; cfg.coderate = C100_180; cfg.g1 = 2; bits_per_symbol = 4; break;
+        case 158: cfg.constellation = MOD_8_8APSK; cfg.constel_obj_type = dsp::APSK88; cfg.coderate = C18_30; cfg.g1 = 0; bits_per_symbol = 4; break;
+        case 164: cfg.constellation = MOD_8_8APSK; cfg.constel_obj_type = dsp::APSK88; cfg.coderate = C20_30; cfg.g1 = 1; bits_per_symbol = 4; break;
+
+        // 16APSK normal and short frame profiles
+        case 154: cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C26_45; cfg.g1 = 3.70f; bits_per_symbol = 4; break;
+        case 156: cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C3_5; cfg.g1 = 3.70f; bits_per_symbol = 4; break;
+        case 160: cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C28_45; cfg.g1 = 3.50f; bits_per_symbol = 4; break;
+        case 162: cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C23_36; cfg.g1 = 3.10f; bits_per_symbol = 4; break;
+        case 166: cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C25_36; cfg.g1 = 3.10f; bits_per_symbol = 4; break;
+        case 168: cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C13_18; cfg.g1 = 2.85f; bits_per_symbol = 4; break;
+        case 170: cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C140_180; cfg.g1 = 3.60f; bits_per_symbol = 4; break;
+        case 172: cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C154_180; cfg.g1 = 3.20f; bits_per_symbol = 4; break;
+        case 236: cfg.framesize = FECFRAME_SHORT; cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C7_15; cfg.g1 = 3.32f; bits_per_symbol = 4; break;
+        case 238: cfg.framesize = FECFRAME_SHORT; cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C8_15; cfg.g1 = 3.50f; bits_per_symbol = 4; break;
+        case 240: cfg.framesize = FECFRAME_SHORT; cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C26_45; cfg.g1 = 3.70f; bits_per_symbol = 4; break;
+        case 242: cfg.framesize = FECFRAME_SHORT; cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C3_5; cfg.g1 = 3.70f; bits_per_symbol = 4; break;
+        case 244: cfg.framesize = FECFRAME_SHORT; cfg.constellation = MOD_16APSK; cfg.constel_obj_type = dsp::APSK16; cfg.coderate = C32_45; cfg.g1 = 2.85f; bits_per_symbol = 4; break;
+
+        // Composite 32-point mappings.
+        case 174: cfg.constellation = MOD_4_12_16APSK; cfg.constel_obj_type = dsp::APSK4_12_16; cfg.coderate = C2_3; cfg.g1 = 0; bits_per_symbol = 5; break;
+        case 248: cfg.framesize = FECFRAME_SHORT; cfg.constellation = MOD_4_12_16APSK; cfg.constel_obj_type = dsp::APSK4_12_16; cfg.coderate = C32_45; cfg.g1 = 2; bits_per_symbol = 5; break;
+        case 178: cfg.constellation = MOD_4_8_4_16APSK; cfg.constel_obj_type = dsp::APSK4_8_4_16; cfg.coderate = C128_180; cfg.g1 = 0; bits_per_symbol = 5; break;
+        case 180: cfg.constellation = MOD_4_8_4_16APSK; cfg.constel_obj_type = dsp::APSK4_8_4_16; cfg.coderate = C132_180; cfg.g1 = 1; bits_per_symbol = 5; break;
+        case 182: cfg.constellation = MOD_4_8_4_16APSK; cfg.constel_obj_type = dsp::APSK4_8_4_16; cfg.coderate = C140_180; cfg.g1 = 2; bits_per_symbol = 5; break;
+        case 246: cfg.framesize = FECFRAME_SHORT; cfg.constellation = MOD_4_12_16APSK; cfg.constel_obj_type = dsp::APSK4_12_16; cfg.coderate = C2_3; cfg.g1 = 1; bits_per_symbol = 5; break;
+
+        case 128:
+        case 130:
+            throw std::runtime_error("DVB-S2X VLSNR modes use an extended physical header and are not supported yet");
+        default:
+            throw std::runtime_error("DVB-S2X extended PLS code is reserved or unsupported");
+        }
+
+        if ((code >= 216 && code <= 234) && cfg.framesize == FECFRAME_NORMAL)
+            cfg.framesize = FECFRAME_SHORT;
+        const int frame_bits = cfg.framesize == FECFRAME_NORMAL ? FRAME_SIZE_NORMAL : FRAME_SIZE_SHORT;
+        cfg.frame_slot_count = frame_bits / bits_per_symbol / 90;
         return cfg;
     }
 }

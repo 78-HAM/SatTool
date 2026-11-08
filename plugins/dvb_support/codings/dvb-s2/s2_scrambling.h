@@ -33,10 +33,14 @@ namespace dvbs2
         int pos = 0;
 
     public:
-        S2Scrambling(int codenum = 0);
+        // By default code is a Gold-code index, retaining the original API.
+        // With root_state=true it is the 18-bit x-register state (0 aliases 1).
+        S2Scrambling(int code = 0, bool root_state = false);
         ~S2Scrambling();
 
+        static uint32_t gold_to_root(int gold_code);
         void reset();
+        void skip(int symbols);
         complex_t descramble(complex_t &sample);
         complex_t scramble(complex_t &sample);
     };

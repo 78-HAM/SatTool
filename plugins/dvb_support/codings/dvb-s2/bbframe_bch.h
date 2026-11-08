@@ -76,7 +76,7 @@ namespace dvbs2
         void bch_poly_build_tables(void);
 
     public:
-        BBFrameBCH(dvbs2_framesize_t framesize, dvbs2_code_rate_t rate);
+        BBFrameBCH(dvbs2_framesize_t framesize, dvbs2_code_rate_t rate, bool s2x = false);
         ~BBFrameBCH();
 
         int dataSize()

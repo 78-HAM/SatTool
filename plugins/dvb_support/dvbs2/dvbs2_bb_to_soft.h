@@ -26,7 +26,7 @@ namespace dvbs2
         int checkSyncMarker(uint64_t marker, uint64_t totest)
         {
             int errors = 0;
-            for (int i = 59; i >= 0; i--)
+            for (int i = 63; i >= 0; i--)
             {
                 bool markerBit, testBit;
                 markerBit = getBit<uint64_t>(marker, i);
@@ -43,13 +43,14 @@ namespace dvbs2
         bool detect_pilots;
 
         bool pilots = false;
+        bool s2x = false;
 
         int frame_slot_count;
         std::shared_ptr<dsp::constellation_t> constellation;
         std::shared_ptr<dvbs2::S2Deinterleaver> deinterleaver;
 
     public:
-        S2BBToSoft(std::shared_ptr<dsp::stream<complex_t>> input);
+        S2BBToSoft(std::shared_ptr<dsp::stream<complex_t>> input, int root_code = 0);
         ~S2BBToSoft();
     };
 }

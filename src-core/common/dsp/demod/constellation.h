@@ -13,7 +13,11 @@ namespace dsp
         OQPSK,
         PSK8,
         APSK16,
-        APSK32
+        APSK32,
+        APSK8,
+        APSK88,
+        APSK4_12_16,
+        APSK4_8_4_16
     };
 
     /*

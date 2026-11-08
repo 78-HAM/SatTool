@@ -3,6 +3,7 @@
 #include "common/dsp/block.h"
 #include "s2_defs.h"
 #include "common/dsp/demod/constellation.h"
+#include "codings/dvb-s2/s2_scrambling.h"
 
 /*
 DVB-S2 PLL, meant to frequency & phase-recover
@@ -18,6 +19,7 @@ namespace dvbs2
 
         s2_sof sof;
         s2_plscodes pls;
+        S2Scrambling descrambler;
 
         complex_t tmp_val;
 
@@ -34,14 +36,14 @@ namespace dvbs2
         {
             // A 36-symbol pilot block follows every 16 slots of 90 data symbols,
             // i.e. one pilot block per 1440 data symbols.
-            pilot_cnt = pilots ? (frame_slot_count / 16) : 0;
+            pilot_cnt = pilots ? s2_pilot_count(frame_slot_count) : 0;
         }
 
         std::shared_ptr<dsp::constellation_t> constellation;
         dsp::constellation_t constellation_pilots = dsp::constellation_t(dsp::QPSK);
 
     public:
-        S2PLLBlock(std::shared_ptr<dsp::stream<complex_t>> input, float loop_bw);
+        S2PLLBlock(std::shared_ptr<dsp::stream<complex_t>> input, float loop_bw, int root_code = 0);
         ~S2PLLBlock();
 
         float getFreq() { return freq; }

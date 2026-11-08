@@ -18,6 +18,7 @@
 
 #include "codings/dvb-s2/bbframe_bch.h"
 #include "codings/dvb-s2/modcod_to_cfg.h"
+#include <cctype>
 
 namespace dvbs2
 {
@@ -32,6 +33,8 @@ namespace dvbs2
             int d_modcod = -1;
             bool d_shortframes = false;
             bool d_pilots = false;
+            bool d_pilots_set = false;
+            bool d_s2x = false;
 
             if (parameters.count("modcod") > 0)
                 d_modcod = parameters["modcod"].get<int>();
@@ -42,12 +45,31 @@ namespace dvbs2
                 d_shortframes = parameters["shortframes"].get<bool>();
 
             if (parameters.count("pilots") > 0)
+            {
                 d_pilots = parameters["pilots"].get<bool>();
+                d_pilots_set = true;
+            }
+
+            if (parameters.count("standard") > 0)
+            {
+                std::string standard = parameters["standard"].get<std::string>();
+                for (char &c : standard)
+                    c = (char)std::tolower((unsigned char)c);
+                d_s2x = standard == "dvb-s2x" || standard == "s2x";
+                if (!d_s2x && standard != "dvb-s2" && standard != "s2")
+                    throw satdump_exception("standard must be DVB-S2 or DVB-S2X");
+            }
+            if (parameters.count("s2x") > 0)
+                d_s2x = parameters["s2x"].get<bool>();
+            if (parameters.count("standard") == 0 && parameters.count("s2x") == 0 && d_modcod >= 128)
+                d_s2x = true;
 
             // Parse modcod number
-            auto cfg = dvbs2::get_dvbs2_cfg(d_modcod, d_shortframes, d_pilots);
+            const bool extended_s2x = d_s2x && d_modcod >= 128;
+            auto cfg = extended_s2x ? dvbs2::get_dvbs2x_cfg(d_modcod, d_pilots_set ? int(d_pilots) : -1)
+                                    : dvbs2::get_dvbs2_cfg(d_modcod, d_shortframes, d_pilots);
 
-            dvbs2::BBFrameBCH bch_decoder(cfg.framesize, cfg.coderate);
+            dvbs2::BBFrameBCH bch_decoder(cfg.framesize, cfg.coderate, extended_s2x);
             bbframe_size = bch_decoder.dataSize();
         }
     }
@@ -146,7 +168,7 @@ namespace dvbs2
 
     std::vector<std::string> S2TStoTCPModule::getParameters()
     {
-        return {};
+        return {"bb_size", "modcod", "shortframes", "pilots", "standard", "s2x"};
     }
 
     std::shared_ptr<ProcessingModule> S2TStoTCPModule::getInstance(std::string input_file, std::string output_file_hint, nlohmann::json parameters)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 #include "common/codings/dvb-s2/dvbs2.h"
 
 namespace dvbs2
@@ -12,11 +13,8 @@ namespace dvbs2
         int rows;
         int frame_length;
 
-        int column0 = 0;
-        int column1 = 0;
-        int column2 = 0;
-        int column3 = 0;
-        int column4 = 0;
+        std::array<int, 6> columns{};
+        std::array<int, 6> permutation{};
 
     public:
         S2Deinterleaver(dvbs2_constellation_t constellation, dvbs2_framesize_t framesize, dvbs2_code_rate_t rate);

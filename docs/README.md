@@ -4,3 +4,4 @@ Most documentation has been moved to [https://docs.satdump.org/](https://docs.sa
 
 - [Projection](Projection.md)
 - [ZIQ technical notes](ZIQ.md)
+- [DVB-S2X receiver and regression tests](DVB-S2X.md)

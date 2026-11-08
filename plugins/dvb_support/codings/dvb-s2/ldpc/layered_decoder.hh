@@ -8,6 +8,7 @@ Copyright 2018 Ahmet Inan <xdsopl@gmail.com>
 #define LAYERED_DECODER_HH
 
 #include <stdlib.h>
+#include <vector>
 #include "ldpc.hh"
 #include <volk/volk_alloc.hh>
 

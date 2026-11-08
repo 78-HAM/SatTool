@@ -17,7 +17,7 @@ namespace dvbs2
             // The previous loop stopped one block short for slot counts such
             // as 144 and 240, so the correlation buffer was smaller than the
             // real frame and the tail of every frame was truncated.
-            const int pilot_cnt = slot_number / 16;
+            const int pilot_cnt = s2_pilot_count(slot_number);
             raw_frame_size += pilot_cnt * 36;
 
             logger->info("Pilots size (PLSYNC) : %d", raw_frame_size);

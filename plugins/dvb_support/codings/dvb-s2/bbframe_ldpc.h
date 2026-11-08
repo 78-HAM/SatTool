@@ -33,13 +33,13 @@ namespace dvbs2
     private:
         simd_type *aligned_buffer;
 
-        LDPCInterface *ldpc;
+        LDPCInterface *ldpc = nullptr;
         LDPCDecoder<simd_type, algorithm_type> decoder;
         LDPCEncoder<int8_t> encoder;
         void init();
 
     public:
-        BBFrameLDPC(dvbs2_framesize_t framesize, dvbs2_code_rate_t rate);
+        BBFrameLDPC(dvbs2_framesize_t framesize, dvbs2_code_rate_t rate, bool s2x = false);
         ~BBFrameLDPC();
 
         int dataSize()

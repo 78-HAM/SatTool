@@ -3,6 +3,7 @@
 #include "logger.h"
 #include "imgui/imgui.h"
 #include "codings/dvb-s2/modcod_to_cfg.h"
+#include <cctype>
 
 namespace dvb
 {
@@ -52,11 +53,43 @@ namespace dvb
         else
             throw satdump_exception("MODCOD parameter must be present!");
 
+        if (parameters.count("standard") > 0)
+        {
+            std::string standard = parameters["standard"].get<std::string>();
+            for (char &c : standard)
+                c = (char)std::tolower((unsigned char)c);
+            d_s2x = standard == "dvb-s2x" || standard == "s2x";
+            if (!d_s2x && standard != "dvb-s2" && standard != "s2")
+                throw satdump_exception("standard must be DVB-S2 or DVB-S2X");
+        }
+        if (parameters.count("s2x") > 0)
+            d_s2x = parameters["s2x"].get<bool>();
+        // Extended PLS values are unambiguous: when neither selector is
+        // supplied, accept them as DVB-S2X so existing SatDump pipelines can
+        // select an S2X MODCOD with just the numeric value.
+        if (parameters.count("standard") == 0 && parameters.count("s2x") == 0 && d_modcod >= 128)
+            d_s2x = true;
+        if (parameters.count("root_code") > 0)
+            d_root_code = parameters["root_code"].get<int>();
+        // DVB-S2X physical-layer scrambler roots are 18-bit states.  The
+        // legacy zero value still selects the all-standard default state.
+        if (d_root_code < 0 || d_root_code >= 262144)
+            throw satdump_exception("root_code must be in the range 0..262143");
+        if (parameters.contains("gold_code"))
+        {
+            if (parameters.contains("root_code"))
+                throw satdump_exception("Specify either gold_code or root_code");
+            d_root_code = dvbs2::S2Scrambling::gold_to_root(parameters["gold_code"].get<int>());
+        }
+
         if (parameters.count("shortframes") > 0)
             d_shortframes = parameters["shortframes"].get<bool>();
 
         if (parameters.count("pilots") > 0)
+        {
             d_pilots = parameters["pilots"].get<bool>();
+            d_pilots_set = true;
+        }
 
         if (parameters.count("sof_thresold") > 0)
             d_sof_thresold = parameters["sof_thresold"].get<float>();
@@ -68,7 +101,7 @@ namespace dvb
             d_multithread_bch = parameters["mt_bch"].get<bool>();
 
         // Window Name in the UI
-        name = "DVB-S2 Demodulator";
+        name = d_s2x ? "DVB-S2X Demodulator" : "DVB-S2 Demodulator";
 
         ring_buffer = std::make_unique<dsp::RingBuffer<int8_t>>();
         ring_buffer2 = std::make_unique<dsp::RingBuffer<uint8_t>>();
@@ -81,7 +114,12 @@ namespace dvb
         float g1 = 0, g2 = 0;
 
         // Parse modcod number
-        auto cfg = dvbs2::get_dvbs2_cfg(d_modcod, d_shortframes, d_pilots);
+        const bool extended_s2x = d_s2x && d_modcod >= 128;
+        auto cfg = extended_s2x ? dvbs2::get_dvbs2x_cfg(d_modcod, d_pilots_set ? int(d_pilots) : -1)
+                                : dvbs2::get_dvbs2_cfg(d_modcod, d_shortframes, d_pilots);
+
+        d_shortframes = cfg.framesize == dvbs2::FECFRAME_SHORT;
+        d_pilots = cfg.pilots;
 
         frame_slot_count = cfg.frame_slot_count;
         s2_constellation = cfg.constellation;
@@ -105,26 +143,28 @@ namespace dvb
         pl_sync->thresold = d_sof_thresold;
 
         // PLL
-        s2_pll = std::make_shared<dvbs2::S2PLLBlock>(pl_sync->output_stream, d_loop_bw);
+        s2_pll = std::make_shared<dvbs2::S2PLLBlock>(pl_sync->output_stream, d_loop_bw, d_root_code);
         s2_pll->pilots = d_pilots;
         s2_pll->constellation = std::make_shared<dsp::constellation_t>(s2_constel_obj_type, g1, g2);
         s2_pll->constellation->make_lut(256);
         s2_pll->frame_slot_count = frame_slot_count;
-        s2_pll->pls_code = d_modcod << 2 | d_shortframes << 1 | d_pilots;
+        s2_pll->pls_code = extended_s2x ? ((d_modcod & ~1) | int(d_pilots))
+                                        : (d_modcod << 2 | d_shortframes << 1 | d_pilots);
         s2_pll->update();
 
         // BB to soft syms
-        s2_bb_to_soft = std::make_shared<dvbs2::S2BBToSoft>(s2_pll->output_stream);
+        s2_bb_to_soft = std::make_shared<dvbs2::S2BBToSoft>(s2_pll->output_stream, d_root_code);
         s2_bb_to_soft->pilots = d_pilots;
+        s2_bb_to_soft->s2x = extended_s2x;
         s2_bb_to_soft->constellation = std::make_shared<dsp::constellation_t>(s2_constel_obj_type, g1, g2);
         s2_bb_to_soft->constellation->make_lut(256);
         s2_bb_to_soft->frame_slot_count = frame_slot_count;
         s2_bb_to_soft->deinterleaver = std::make_shared<dvbs2::S2Deinterleaver>(s2_constellation, s2_framesize, s2_coderate);
 
         // Init the rest
-        ldpc_decoder = std::make_unique<dvbs2::BBFrameLDPC>(s2_framesize, s2_coderate);
-        bch_decoder = std::make_unique<dvbs2::BBFrameBCH>(s2_framesize, s2_coderate);
-        descramber = std::make_unique<dvbs2::BBFrameDescrambler>(s2_framesize, s2_coderate);
+        ldpc_decoder = std::make_unique<dvbs2::BBFrameLDPC>(s2_framesize, s2_coderate, extended_s2x);
+        bch_decoder = std::make_unique<dvbs2::BBFrameBCH>(s2_framesize, s2_coderate, extended_s2x);
+        descramber = std::make_unique<dvbs2::BBFrameDescrambler>(s2_framesize, s2_coderate, extended_s2x);
 
         // Info
         logger->info("Output bbframe bits : %d", bch_decoder->dataSize());
@@ -412,8 +452,9 @@ namespace dvb
 
     std::vector<std::string> DVBS2DemodModule::getParameters()
     {
-        std::vector<std::string> params = {"rrc_alpha", "rrc_taps", "pll_bw", "clock_gain_omega", "clock_mu", "clock_gain_mu", "clock_omega_relative_limit"};
-        params.insert(params.end(), BaseDemodModule::getParameters().begin(), BaseDemodModule::getParameters().end());
+        std::vector<std::string> params = {"rrc_alpha", "rrc_taps", "pll_bw", "clock_gain_omega", "clock_mu", "clock_gain_mu", "clock_omega_relative_limit", "standard", "s2x", "modcod", "shortframes", "pilots", "root_code", "gold_code"};
+        const auto base_params = BaseDemodModule::getParameters();
+        params.insert(params.end(), base_params.begin(), base_params.end());
         return params;
     }
 

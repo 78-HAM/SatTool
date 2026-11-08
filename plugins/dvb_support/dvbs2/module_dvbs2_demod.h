@@ -49,8 +49,11 @@ namespace dvb
         float d_clock_omega_relative_limit = 0.005f;
 
         int d_modcod;
+        bool d_s2x = false;
+        int d_root_code = 0;
         bool d_shortframes = false;
         bool d_pilots = false;
+        bool d_pilots_set = false;
         float d_sof_thresold = 0.6;
         int d_max_ldpc_trials = 10;
         bool d_multithread_bch = false;
