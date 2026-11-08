@@ -105,7 +105,8 @@ namespace network
         {
             net::UDPClient udp_send(address.c_str(), port);
             mpeg_ts::TSPacer pacer(ts_pacing, udp_bitrate);
-            auto last_error = std::chrono::steady_clock::time_point::min();
+            auto last_error = std::chrono::steady_clock::time_point{};
+            bool error_logged = false;
 
             while (input_data_type == DATA_FILE ? !data_in.eof() : input_active.load())
             {
@@ -137,10 +138,11 @@ namespace network
                 {
                     ++send_errors;
                     const auto now = std::chrono::steady_clock::now();
-                    if (last_error == std::chrono::steady_clock::time_point::min() || now - last_error >= std::chrono::seconds(1))
+                    if (!error_logged || now - last_error >= std::chrono::seconds(1))
                     {
                         logger->warn("%s; UDP output will continue", error.what());
                         last_error = now;
+                        error_logged = true;
                     }
                 }
 
